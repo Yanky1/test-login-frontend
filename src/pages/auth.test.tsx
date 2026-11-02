@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { Route, Routes } from 'react-router-dom'
@@ -176,7 +176,7 @@ describe('inactivity logout (fake timers)', () => {
     renderAt(app, '/work/page', cfg)
     expect(await screen.findByText('work page')).toBeInTheDocument()
     await act(async () => { await vi.advanceTimersByTimeAsync(95_000) })
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Log out' }))
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toContain('/login'))
   })
 })

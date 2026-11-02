@@ -34,7 +34,7 @@ export class ApiError extends Error {
     return out
   }
   get message2(): string {
-    return this.body?.title ?? this.body?.error ?? 'Something went wrong'
+    return (this.body?.detail ?? this.body?.title) ?? this.body?.error ?? 'Something went wrong'
   }
 }
 

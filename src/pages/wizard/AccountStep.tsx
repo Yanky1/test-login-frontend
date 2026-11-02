@@ -53,7 +53,7 @@ export default function AccountStep() {
     setMsg(null)
     try {
       const r = await api<LoginResponse>('/auth/signup', { auth: false, body: { email: v.email, password: v.password, acceptTerms: v.terms } })
-      applyLogin(r, 'password')
+      applyLogin(r, 'other')
       nav('/signup/verify')
     } catch (e) { if (e instanceof ApiError) serverErrors(e) }
   }

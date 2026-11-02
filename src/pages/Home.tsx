@@ -4,7 +4,6 @@ import { api, ApiError } from '../api'
 import { useAuth } from '../auth'
 import { Card, Spinner } from '../components/ui'
 import { stepPath, type Application } from './wizard/shared'
-import { PasskeyOffer } from './PasskeyOffer'
 
 /** Entry after sign-in: routes the seller to the right wizard step / pending screen. */
 export default function Home() {
@@ -23,5 +22,5 @@ export default function Home() {
     )
   }
   if (!app) return <div className="center"><Spinner /></div>
-  return (<><PasskeyOffer /><Navigate to={user?.accountStatus === 'PendingEmailVerification' ? '/signup/verify' : stepPath(app)} replace /></>)
+  return (<Navigate to={user?.accountStatus === 'PendingEmailVerification' ? '/signup/verify' : stepPath(app)} replace />)
 }

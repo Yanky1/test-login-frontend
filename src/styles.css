@@ -44,3 +44,5 @@ li.current .dot { background:var(--primary); color:#fff; } li.done .dot { backgr
 .list { list-style:none; padding:0; } .list li { display:flex; justify-content:space-between; gap:1rem; padding:.5rem 0; border-bottom:1px solid #eee; }
 dl { display:grid; grid-template-columns:max-content 1fr; gap:.25rem 1rem; } dt { font-weight:600; } dd { margin:0; }
 pre { background:#f1f3f5; padding:.5rem; border-radius:6px; }
+
+.app-header { display:flex; gap:1rem; align-items:center; padding:.6rem 1rem; background:#fff; border-bottom:1px solid var(--border); } .app-header .spacer { flex:1; } .who { color:var(--muted); font-size:.875rem; }

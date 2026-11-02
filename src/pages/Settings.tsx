@@ -63,7 +63,7 @@ function ChangePassword() {
       if (e instanceof ApiError) {
         const fe = e.fieldErrors()
         if (fe.newPassword) setError('newPassword', { message: fe.newPassword })
-        else setError('currentPassword', { message: e.body?.title ?? 'Could not change password' })
+        else setError('currentPassword', { message: (e.body?.detail ?? e.body?.title) ?? 'Could not change password' })
       }
     }
   }
@@ -91,14 +91,14 @@ function ChangeEmail({ me, reload }: { me: Me; reload: () => Promise<void> }) {
   const request = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg(null)
     try { await api('/account/email/change', { body: { newEmail, currentPassword: me.hasPassword ? pw : undefined } }); setSent(true) }
-    catch (ex) { setMsg(ex instanceof ApiError ? (ex.fieldErrors().newEmail ?? ex.body?.title ?? 'Could not start the change') : 'Network error') }
+    catch (ex) { setMsg(ex instanceof ApiError ? (ex.fieldErrors().newEmail ?? (ex.body?.detail ?? ex.body?.title) ?? 'Could not start the change') : 'Network error') }
   }
   const confirm = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg(null)
     try {
       const r = await api<{ accessToken: string; email: string }>('/account/email/confirm', { body: { code } })
       setAccessToken(r.accessToken, { email: r.email }); setOk(`Email changed to ${r.email}. We notified your previous address.`); setSent(false); setNewEmail(''); setCode(''); setPw(''); await reload()
-    } catch (ex) { setMsg(ex instanceof ApiError ? (ex.body?.title ?? 'That code did not work') : 'Network error') }
+    } catch (ex) { setMsg(ex instanceof ApiError ? ((ex.body?.detail ?? ex.body?.title) ?? 'That code did not work') : 'Network error') }
   }
   return (
     <section aria-labelledby="ce"><h2 id="ce">Change email</h2>

@@ -1,0 +1,29 @@
+name: E2E
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Yanky1/Yanky1-test-login-backend
+          path: backend
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: dotnet build backend/src/Solvelt.Api -c Debug
+      - run: npx playwright test
+        env:
+          CI: "true"
+          BACKEND_DIR: backend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-traces, path: test-results }

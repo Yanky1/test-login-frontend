@@ -37,7 +37,7 @@ export default function VerifyStep() {
       await reload()
       nav('/signup/business')
     } catch (ex) {
-      setErr(ex instanceof ApiError ? (ex.body?.title ?? 'That code did not work.') : 'Network error.')
+      setErr(ex instanceof ApiError ? ((ex.body?.detail ?? ex.body?.title) ?? 'That code did not work.') : 'Network error.')
     } finally { setBusy(false) }
   }
 
