@@ -33,6 +33,7 @@ export default defineConfig({
         App__FrontendBaseUrl: 'http://localhost:5173',
         App__CorsOrigins__0: 'http://localhost:5173',
         Email__Provider: 'Sink',
+        Email__SendInBackground: 'false',
         Turnstile__UseTestStub: 'true',
         Turnstile__SecretKey: '1x0000000000000000000000000000000AA',
         Turnstile__SiteKey: '1x00000000000000000000AA',
