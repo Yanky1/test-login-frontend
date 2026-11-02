@@ -1,0 +1,6 @@
+{
+  "idleTimeoutMinutes": 15,
+  "warningSeconds": 60,
+  "refreshIntervalMinutes": 5,
+  "features": { "apple": false }
+}
