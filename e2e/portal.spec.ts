@@ -91,8 +91,14 @@ test('admin approves via API; login, redirect-back and logout', async ({ page, r
   await expect(page).toHaveURL(/\/settings\/security$/)
   await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible()
   await expectNoSeriousA11y(page)
-  // pending screen shows the Approved stage
+  // an approved owner no longer lands on the pending screen: '/' goes to the product catalog
   await page.goto('/')
+  await expect(page).toHaveURL(/\/products/)
+  // the pending screen is still reachable directly and shows the Approved stage
+  await page.goto('/signup/pending')
+  await expect(page.getByRole('link', { name: 'Go to your products' })).toHaveAttribute('href', '/products')
+  await expect(page.getByRole('heading', { name: 'What happens next' })).toHaveCount(0)
+  await expectNoSeriousA11y(page)
   await expect(page.getByRole('list', { name: 'Application status' }).getByText('Approved').locator('..')).toHaveAttribute('aria-current', 'step')
   // reload keeps the session (refresh cookie); logout ends it
   await page.reload()
@@ -105,7 +111,7 @@ test('admin approves via API; login, redirect-back and logout', async ({ page, r
   await page.goto('/login?next=' + encodeURIComponent('https://evil.example/'))
   await uiLogin(page, s.email)
   await dismissPasskeyOffer(page)
-  await expect(page).toHaveURL(/localhost:5173\/(signup\/pending)?$/)
+  await expect(page).toHaveURL(/localhost:5173\/products/) // safe redirect target is the landing page, which sends an approved owner to the catalog
 })
 
 test('lockout path: 2 tries left, last try + captcha, lock + Locked email', async ({ page, request }) => {
