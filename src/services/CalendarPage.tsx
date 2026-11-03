@@ -10,7 +10,7 @@ import { TimeDialog } from './ActionDialogs'
 import { BlockDetail, BlockDialog } from './BlockDialog'
 import { placeEvents } from './layout'
 import { BookingStatusChip, LOCATION_LABEL, statusLabel, useProviders } from './shared'
-import { addDays, addMonths, dayStartUtc, daysInMonth, fmtTime, fmtYmd, localDate, minutesOfDay, parseYmd, startOfMonth, startOfWeek, tzLabel, ymd } from './time'
+import { addDays, addMonths, dayStartUtc, daysInMonth, fmtTime, fmtYmd, localDate, minutesOfDay, parseYmd, spanOnDay, startOfMonth, startOfWeek, tzLabel, ymd } from './time'
 import type { BlockDto, CalendarBooking, CalendarData } from './types'
 import './services.css'
 
@@ -134,7 +134,7 @@ export default function CalendarPage() {
   )
 }
 
-function TimeGrid({ days, today, tz, now, data, byDay, single, onBooking, onBlock }: { days: string[]; today: string; tz: string; now: Date; data: CalendarData | null; byDay: Map<string, CalendarBooking[]>; single: boolean; onBooking: (b: CalendarBooking) => void; onBlock: (b: BlockDto) => void }) {
+export function TimeGrid({ days, today, tz, now, data, byDay, single, onBooking, onBlock }: { days: string[]; today: string; tz: string; now: Date; data: CalendarData | null; byDay: Map<string, CalendarBooking[]>; single: boolean; onBooking: (b: CalendarBooking) => void; onBlock: (b: BlockDto) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.scrollTo?.({ top: 7.5 * HH }) }, [days[0]])
   return (
@@ -143,7 +143,7 @@ function TimeGrid({ days, today, tz, now, data, byDay, single, onBooking, onBloc
       <div className="tgrid-days" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(150px, 1fr))` }}>
         {days.map((d) => {
           const bs = (byDay.get(d) ?? []).map((b) => {
-            const dayS = dayStartUtc(d, tz).getTime(); const s = Math.max(0, (new Date(b.startAt).getTime() - dayS) / 60000); const e = Math.min(1440, (new Date(b.endAt).getTime() - dayS) / 60000)
+            const { start: s, end: e } = spanOnDay(b.startAt, b.endAt, d, tz)
             return { id: b.id, start: s, end: Math.max(e, s + 20), b }
           })
           const placed = placeEvents(bs)
@@ -165,7 +165,7 @@ function TimeGrid({ days, today, tz, now, data, byDay, single, onBooking, onBloc
                   ))}
                 </ul>
                 {blocks.map((x) => {
-                  const dayS = dayStartUtc(d, tz).getTime(); const s = Math.max(0, (new Date(x.startAt).getTime() - dayS) / 60000); const e = Math.min(1440, (new Date(x.endAt).getTime() - dayS) / 60000)
+                  const { start: s, end: e } = spanOnDay(x.startAt, x.endAt, d, tz)
                   return <button key={x.id} type="button" className="blk" style={{ top: s / 60 * HH, height: Math.max(24, (e - s) / 60 * HH) }} onClick={() => onBlock(x)}>{x.kind === 'timeoff' ? 'Time off' : 'Busy'}{x.note ? ` · ${x.note}` : ''}<span className="sr-only">, {fmtTime(x.startAt, tz)} to {fmtTime(x.endAt, tz)}</span></button>
                 })}
                 {isToday && <div className="now-line" aria-hidden="true" data-testid="now-line" style={{ top: minutesOfDay(now, tz) / 60 * HH }} />}
