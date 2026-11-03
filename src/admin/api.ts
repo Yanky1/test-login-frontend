@@ -29,7 +29,11 @@ async function send(path: string, opts: Opts): Promise<Response> {
   if (auth && token) headers.Authorization = `Bearer ${token}`
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
   const res = await fetch('/api/v1/admin' + path, { method, headers, credentials: 'omit', body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined })
-  if (res.status === 401 && auth && token) { token = null; endedListeners.forEach((l) => l()) }
+  if (res.status === 401 && auth && token) {
+    // A wrong authenticator code at step-up is a 401 too, but the session is fine: only a real expiry ends it.
+    const code = await res.clone().json().then((b: { code?: string }) => b?.code, () => undefined)
+    if (code !== 'step_up_failed') { token = null; endedListeners.forEach((l) => l()) }
+  }
   return res
 }
 
