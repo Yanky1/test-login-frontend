@@ -441,6 +441,22 @@ describe('review follow-ups', () => {
     expect(await screen.findByRole('heading', { name: "You're invited" })).toBeInTheDocument()
   })
 
+  it('D2: the token survives the trip /invite/tok -> /login -> /invite via sessionStorage, never via the URL', async () => {
+    const user = userEvent.setup()
+    server.use(http.get(`${API}/invitations/tok-secret`, () => HttpResponse.json({ state: 'pending', email: 'invitee@example.com', accountName: 'Acme Co', role: 'Manager', allBrands: true, brands: [], expiresAt: '2026-12-01T00:00:00Z' })))
+    const router = createMemoryRouter([{ path: '/invite/:token', element: <InvitePage /> }, { path: '/invite', element: <InvitePage /> }, { path: '/login', element: <div>login page</div> }], { initialEntries: ['/invite/tok-secret'] })
+    render(<AuthProvider initialConfig={{ ...defaultConfig, turnstileSiteKey: 'stub' }}><RouterProvider router={router} /></AuthProvider>)
+    await user.click(await screen.findByRole('link', { name: 'I already have a Solvelt login' }))
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/login')
+    expect(router.state.location.search).toBe('?next=%2Finvite') // no token anywhere in the login URL
+    // what the login page does after a successful sign-in: go to `next` (the router state of the first visit is gone by now)
+    await router.navigate('/invite', { replace: true })
+    expect(await screen.findByRole('heading', { name: "You're invited" })).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveValue('invitee@example.com') // the invitation was found again from the stored token
+    expect(router.state.location.pathname + router.state.location.search).not.toContain('tok-secret')
+  })
+
   it('D2: /invite with nothing remembered is a plain "isn\'t valid" page', async () => {
     renderAt(shell, '/invite')
     expect(await screen.findByRole('heading', { name: "This invitation link isn't valid" })).toBeInTheDocument()
@@ -498,11 +514,18 @@ describe('review follow-ups', () => {
   })
 
   it('Managers, Viewers and Admins land on the product catalog, Owners keep the application flow', async () => {
+    const routes = <Routes><Route path="/" element={<Home />} /><Route path="/products" element={<div>products page</div>} /><Route path="/signup/pending" element={<div>application pending page</div>} /></Routes>
     for (const role of ['Manager', 'Viewer', 'Admin']) {
       asRole(role)
-      const { unmount } = renderAt(<Routes><Route path="/" element={<Home />} /><Route path="/products" element={<div>products page</div>} /></Routes>, '/')
+      const { unmount } = renderAt(routes, '/')
       expect(await screen.findByText('products page')).toBeInTheDocument()
       unmount()
     }
+    // the Owner is sent to the seller application flow (here: submitted, waiting for approval), not to the catalog
+    asRole('Owner')
+    server.use(http.get(`${API}/seller/application`, () => HttpResponse.json({ sellerId: A, status: 'PendingReview', statusNote: null, draftStep: 5, editable: false })))
+    renderAt(routes, '/')
+    expect(await screen.findByText('application pending page')).toBeInTheDocument()
+    expect(screen.queryByText('products page')).not.toBeInTheDocument()
   })
 })
