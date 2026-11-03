@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api'
 import { Alert, Button, Skeleton } from '../components/ui'
@@ -65,14 +65,14 @@ export default function BookingDetailPage() {
               <dl className="kv"><dt>Name</dt><dd>{b.customer.name}</dd>{b.customer.phone && <><dt>Phone</dt><dd><a href={`tel:${b.customer.phone}`}>{b.customer.phone}</a></dd></>}
                 {b.customer.address && <><dt>Address</dt><dd>{[b.customer.address.line1, b.customer.address.line2, [b.customer.address.city, b.customer.address.region, b.customer.address.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</dd></>}</dl>
             ) : <><p>{b.customer.name ? `${b.customer.name}${b.customer.postalCode ? ` · ${b.customer.postalCode}` : ''}` : 'Hidden'}</p><p className="hint">The customer's phone and address are shown to the assigned provider and to Owners and Admins, from the moment the booking is confirmed.</p></>}
-            {b.intake.filter((i) => i.answer).length > 0 && <><h3>Their answers</h3><dl className="kv">{b.intake.filter((i) => i.answer).map((i) => <><dt key={`${i.id}-q`}>{i.question}</dt><dd key={`${i.id}-a`}>{i.answer}</dd></>)}</dl></>}
+            {b.intake.filter((i) => i.answer).length > 0 && <><h3>Their answers</h3><dl className="kv">{b.intake.filter((i) => i.answer).map((i) => <Fragment key={i.id}><dt>{i.question}</dt><dd>{i.answer}</dd></Fragment>)}</dl></>}
           </section>
           <Thread id={b.id} canWrite={a.cancel || a.approve || a.start || a.complete || b.isMine} />
         </div>
         <div>
           <section className="pcard" aria-labelledby="bd-price"><h2 id="bd-price">Price and policy</h2>
             <dl className="kv"><dt>{hourly ? `Rate (${money(b.pricing.rateCents)}/h)` : 'Price'}</dt><dd>{money(b.pricing.priceCents)}</dd>
-              {b.addOns.map((x) => <><dt key={x.id}>{x.name}</dt><dd key={`${x.id}-p`}>{money(x.priceCents)}</dd></>)}
+              {b.addOns.map((x) => <Fragment key={x.id}><dt>{x.name}</dt><dd>{money(x.priceCents)}</dd></Fragment>)}
               {b.pricing.travelFeeCents > 0 && <><dt>Travel fee</dt><dd>{money(b.pricing.travelFeeCents)}</dd></>}
               <dt><strong>Total</strong></dt><dd><strong>{money(b.pricing.totalCents)}</strong></dd>
               {b.pricing.actualMinutes != null && <><dt>Time worked</dt><dd>{durationLabel(b.pricing.actualMinutes)}</dd></>}

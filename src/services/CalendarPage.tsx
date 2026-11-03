@@ -101,9 +101,9 @@ export default function CalendarPage() {
         <Link className="btn" to="/settings/availability">Availability</Link>
       </header>
       <div className="cal-bar" role="toolbar" aria-label="Calendar navigation">
-        <Button onClick={() => go(stepAnchor(view, anchor, -1))} aria-label="Previous"><PIcon name="up" /><span className="sr-only">Previous {view === 'month' ? 'month' : view}</span></Button>
+        <Button onClick={() => go(stepAnchor(view, anchor, -1))} aria-label="Previous"><PIcon name="left" /><span className="sr-only">Previous {view === 'month' ? 'month' : view}</span></Button>
         <Button onClick={() => go(today)}>Today</Button>
-        <Button onClick={() => go(stepAnchor(view, anchor, 1))}><PIcon name="down" /><span className="sr-only">Next {view === 'month' ? 'month' : view}</span></Button>
+        <Button onClick={() => go(stepAnchor(view, anchor, 1))}><PIcon name="right" /><span className="sr-only">Next {view === 'month' ? 'month' : view}</span></Button>
         <h2 className="cal-title" aria-live="polite">{title}</h2>
         <div className="grow" />
         <div className="seg" role="group" aria-label="Calendar view">

@@ -38,7 +38,7 @@
 .tday h3 { position: sticky; top: 0; z-index: 3; margin: 0; padding: 6px 8px; font-size: var(--fs-sm); background: var(--surface); border-bottom: 1px solid var(--border); height: 36px; box-sizing: border-box; }
 .tday.today h3 { color: var(--primary); } .tday .body { position: relative; height: calc(24 * var(--hh, 48px)); } .tday ul { list-style: none; margin: 0; padding: 0; }
 .tday .ev, .tday .blk, .tday .work { position: absolute; left: 3px; right: 3px; overflow: hidden; } .tday .ev { padding: 2px 6px; font-size: var(--fs-sm); cursor: pointer; z-index: 1; min-height: 24px; }
-.tday .ev .st { font-weight: 700; } .tday .blk { background: repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 6px, var(--border) 6px, var(--border) 8px); border: 1px solid var(--border-strong); border-radius: var(--r-sm); font-size: var(--fs-sm); padding: 2px 6px; color: var(--fg); text-align: left; cursor: pointer; z-index: 1; }
+.tday .ev .st { font-weight: 700; } .tday .ev { overflow-wrap: anywhere; line-height: 1.25; } .tday .blk { background: repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 6px, var(--border) 6px, var(--border) 8px); border: 1px solid var(--border-strong); border-radius: var(--r-sm); font-size: var(--fs-sm); padding: 2px 6px; color: var(--fg); text-align: left; cursor: pointer; z-index: 1; }
 .tday .work { background: var(--primary-soft); opacity: .45; pointer-events: none; border-radius: 0; left: 0; right: 0; }
 .now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--err); z-index: 2; pointer-events: none; } .now-line::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
 
@@ -71,3 +71,9 @@
 .thread li.mine { margin-left: auto; background: var(--primary-soft); } .thread .who { font-size: var(--fs-sm); color: var(--muted); }
 .slot-list { list-style: none; margin: 0 0 var(--s1); padding: 0; display: grid; gap: var(--s-half); }
 .today-card { display: grid; gap: var(--s1); margin-bottom: var(--s3); } .today-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-half); }
+
+/* date and time inputs: same size and look as the other fields (the global rule only lists text-like types) */
+input[type=date], input[type=time] { width: 100%; min-height: var(--target); padding: 10px 14px; font: inherit; color: var(--fg); background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--r-sm); }
+.tablewrap { max-width: 100%; overflow-x: auto; }
+.btable { min-width: 560px; }
+@media (max-width: 760px) { .btable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .btable, .btable tbody, .btable tr, .btable td { display: block; min-width: 0; } .btable tr { border-bottom: 1px solid var(--border); padding: var(--s1) 0; } .btable td { border: 0; padding: 2px var(--s1); } }
