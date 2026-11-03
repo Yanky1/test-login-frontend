@@ -58,8 +58,8 @@ export default function TeamPage({ hasPassword, twoFactorEnabled }: Props) {
                   <td data-label="Last active">{fmtDate(m.lastActiveAt)}</td>
                   <td data-label="Actions" className="tbl-actions">
                     {canTouch(m) && <>
-                      <button type="button" className="btn link" aria-label={`Change role or access for ${m.email}`} onClick={() => setDlg({ type: 'edit', m })}>Change</button>
-                      <button type="button" className="btn link danger-link" aria-label={`Remove ${m.email}`} onClick={() => setDlg({ type: 'remove', m })}>Remove</button>
+                      <button type="button" className="btn link" onClick={() => setDlg({ type: 'edit', m })}>Change{' '}<span className="sr-only">role or access for {m.email}</span></button>
+                      <button type="button" className="btn link danger-link" onClick={() => setDlg({ type: 'remove', m })}>Remove{' '}<span className="sr-only">{m.email}</span></button>
                     </>}
                     {m.isMe && <button type="button" className="btn link" onClick={() => setDlg({ type: 'leave' })}>Leave account</button>}
                   </td>
@@ -78,8 +78,8 @@ export default function TeamPage({ hasPassword, twoFactorEnabled }: Props) {
                 <li key={i.id}>
                   <span><strong>{i.email}</strong> <RoleBadge role={i.role} /> <span className="muted">· {i.allBrands ? 'All brands' : i.brands.map((b) => b.name).join(', ')} · {i.status === 'Expired' ? 'expired' : `expires ${fmtDate(i.expiresAt)}`}</span></span>
                   <span className="row">
-                    <button type="button" className="btn link" aria-label={`Resend invitation to ${i.email}`} onClick={() => void resend(i)}>Resend</button>
-                    <button type="button" className="btn link danger-link" aria-label={`Revoke invitation to ${i.email}`} onClick={() => void revoke(i)}>Revoke</button>
+                    <button type="button" className="btn link" onClick={() => void resend(i)}>Resend{' '}<span className="sr-only">invitation to {i.email}</span></button>
+                    <button type="button" className="btn link danger-link" onClick={() => void revoke(i)}>Revoke{' '}<span className="sr-only">invitation to {i.email}</span></button>
                   </span>
                 </li>
               ))}

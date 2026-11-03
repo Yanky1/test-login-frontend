@@ -151,7 +151,7 @@ describe('Team page', () => {
     asRole('Owner')
     renderAt(shell, '/settings/team')
     expect(await screen.findByRole('heading', { name: 'Team members' })).toBeInTheDocument()
-    expect(await screen.findByText('mgr@example.com')).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: 'mgr@example.com' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Invite a team member' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Change role or access for mgr@example.com' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove owner@example.com' })).toBeInTheDocument() // Owners can manage other Owners
@@ -165,7 +165,7 @@ describe('Team page', () => {
   it('Admin can invite but cannot touch Owners or transfer ownership', async () => {
     asRole('Admin')
     renderAt(shell, '/settings/team')
-    expect(await screen.findByText('mgr@example.com')).toBeInTheDocument()
+    expect(await screen.findByRole('cell', { name: 'mgr@example.com' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Invite a team member' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove mgr@example.com' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove owner@example.com' })).not.toBeInTheDocument()

@@ -55,10 +55,10 @@ export default function BrandsPage() {
         {b.website && <a href={b.website} target="_blank" rel="noopener noreferrer">{b.website.replace(/^https?:\/\//, '')}</a>}
       </div>
       <div className="row">
-        {b.status === 'Active' && active.length > 1 && <button type="button" className="btn link" aria-pressed={selected === b.id} aria-label={`Filter by ${b.name}`} onClick={() => setSelected(selected === b.id ? 'all' : b.id)}>{selected === b.id ? 'Show all' : 'Filter'}</button>}
-        {manage && b.status === 'Active' && <button type="button" className="btn link" aria-label={`Edit ${b.name}`} onClick={() => setEdit(b)}>Edit</button>}
-        {manage && b.status === 'Active' && active.length > 1 && <button type="button" className="btn link danger-link" aria-label={`Archive ${b.name}`} onClick={() => void setArchived(b, true)}>Archive</button>}
-        {manage && b.status === 'Archived' && <button type="button" className="btn link" aria-label={`Restore ${b.name}`} onClick={() => void setArchived(b, false)}>Restore</button>}
+        {b.status === 'Active' && active.length > 1 && <button type="button" className="btn link" aria-pressed={selected === b.id} onClick={() => setSelected(selected === b.id ? 'all' : b.id)}>Filter{' '}<span className="sr-only">by {b.name}</span></button>}
+        {manage && b.status === 'Active' && <button type="button" className="btn link" onClick={() => setEdit(b)}>Edit{' '}<span className="sr-only">{b.name}</span></button>}
+        {manage && b.status === 'Active' && active.length > 1 && <button type="button" className="btn link danger-link" onClick={() => void setArchived(b, true)}>Archive{' '}<span className="sr-only">{b.name}</span></button>}
+        {manage && b.status === 'Archived' && <button type="button" className="btn link" onClick={() => void setArchived(b, false)}>Restore{' '}<span className="sr-only">{b.name}</span></button>}
       </div>
     </li>
   )

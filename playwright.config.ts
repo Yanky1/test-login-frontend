@@ -43,6 +43,7 @@ export default defineConfig({
         AdminSeed__Password: 'Qu1et-Marble-Fox-Test!',
         RateLimit__AuthPerMinute: '100000',
         RateLimit__SensitivePerMinute: '100000',
+        RateLimit__TeamPerMinute: '100000',
         Passkeys__RelyingPartyId: 'localhost',
         Passkeys__AllowedOrigins__0: 'http://localhost:5173',
         Session__IdleTimeoutMinutes: '20',

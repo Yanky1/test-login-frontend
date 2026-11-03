@@ -69,8 +69,8 @@ export default function ChooseAccount() {
                 <span className="acct-meta"><RoleBadge role={a.role} /> <StatusChip status={a.accountStatus} /> <span className="muted">{a.brandCount} {a.brandCount === 1 ? 'brand' : 'brands'}</span></span>
               </div>
               <button type="button" className="btn primary" disabled={busy !== null} aria-busy={busy === a.sellerId || undefined}
-                aria-label={`Continue to ${a.vendorName || 'New seller account'}`} onClick={() => void open(a.sellerId)}>
-                {a.sellerId === user?.activeAccountId ? 'Current' : 'Continue'}
+                onClick={() => void open(a.sellerId)}>
+                Continue{' '}<span className="sr-only">to {a.vendorName || 'New seller account'}</span>
               </button>
             </li>
           ))}
@@ -85,8 +85,8 @@ export default function ChooseAccount() {
                 <div className="acct-info"><strong>{i.accountName || 'A seller account'}</strong>
                   <span className="acct-meta">Invited as <RoleBadge role={i.role} /> <span className="muted">· expires {fmtDate(i.expiresAt)}</span></span></div>
                 <div className="row">
-                  <button type="button" className="btn primary" disabled={busy !== null} aria-label={`Accept invitation to ${i.accountName}`} onClick={() => void answer(i, true)}>Accept</button>
-                  <button type="button" className="btn" disabled={busy !== null} aria-label={`Decline invitation to ${i.accountName}`} onClick={() => void answer(i, false)}>Decline</button>
+                  <button type="button" className="btn primary" disabled={busy !== null} onClick={() => void answer(i, true)}>Accept{' '}<span className="sr-only">invitation to {i.accountName}</span></button>
+                  <button type="button" className="btn" disabled={busy !== null} onClick={() => void answer(i, false)}>Decline{' '}<span className="sr-only">invitation to {i.accountName}</span></button>
                 </div>
               </li>
             ))}
