@@ -32,7 +32,7 @@ export interface ReturnDto {
 export interface RefundDto { id: string; returnId: string | null; amountCents: number; shippingCents: number; reason: string; note: string | null; createdAt: string; lines: { lineId: string; quantity: number; amountCents: number }[] }
 export interface OrderActions {
   accept: boolean; hold: boolean; resume: boolean; ship: boolean; editTracking: boolean; markDelivered: boolean; cancel: boolean; cancelRemainder: boolean; refund: boolean
-  refundLimitCents: number | null; note: boolean
+  refundLimitCents: number | null; note: boolean; decideCancellation: boolean; decideReturn: boolean; receiveReturn: boolean
 }
 export interface OrderDetail {
   id: string; number: string; marketplaceOrderId: string; brandId: string; brandName: string; placedAt: string; status: OrderStatus; heldFrom: string | null; currency: string; version: number
@@ -70,6 +70,7 @@ export interface ConversationDetail {
   order: { id: string; number: string; status: OrderStatus; totalCents: number; currency: string; shipByAt: string; placedAt: string } | null
   product: { id: string; title: string; sku: string | null; priceCents: number | null; status: string } | null
   messages: ChatMessage[]; notes: { id: string; text: string; author: string; createdAt: string }[]; canWrite: boolean
+  me: string; assignees: { userId: string; name: string; isMe: boolean }[]
 }
 export interface MessageTemplate { id: string; title: string; body: string }
 export interface NotificationPrefs { newOrder: boolean; cancelRequest: boolean; returnRequest: boolean; buyerMessage: boolean; overdueReply: boolean }
