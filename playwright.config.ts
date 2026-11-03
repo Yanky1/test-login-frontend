@@ -24,6 +24,8 @@ export default defineConfig({
       url: 'http://localhost:5080/health',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
       env: {
         ASPNETCORE_ENVIRONMENT: 'Testing',
         Database__ConnectionString: `Data Source=${path.join(e2eDir, 'e2e.db')}`,

@@ -128,7 +128,11 @@ test('forgot and reset password', async ({ page, request }) => {
   await page.goto('/login')
   await page.getByRole('link', { name: 'Forgot password?' }).click()
   await page.getByLabel('Email').fill(s.email)
-  await page.getByRole('button', { name: 'Send reset link' }).click()
+  const [forgot] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/auth/forgot-password')),
+    page.getByRole('button', { name: 'Send reset link' }).click(),
+  ])
+  expect(forgot.status(), await forgot.text()).toBe(202)
   await expect(page.getByText(/reset link is on its way/)).toBeVisible()
   const mail = await lastMail(request, s.email, 'reset-password')
   const link = /http:\/\/localhost:5173\/reset-password\?[^\s]+/.exec(mail)![0]
