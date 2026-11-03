@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { createMemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom'
 import SettingsPage from './Settings'
 import PhoneLinkPage from './PhoneLink'
 import { RequireAuth } from '../components/RequireAuth'
 import { pinChecks, pinValid } from '../lib/pin'
+import { AuthProvider } from '../auth'
+import { defaultConfig } from '../config'
 import { API, server } from '../test/server'
 import { renderAt, signedIn } from '../test/utils'
 
@@ -212,22 +214,25 @@ describe('/l/<token> texted links', () => {
     expect(sessionStorage.length).toBeGreaterThan(0) // the pending email is remembered for the verify step
   })
 
-  it('replaces history entries: going back from the verify page does not return to the token URL', async () => {
+  it('replaces history entries: the token URL is neither kept nor re-entered via Back (router history actions)', async () => {
     const user = userEvent.setup()
     server.use(
       http.post(`${API}/channels/links/redeem`, () => HttpResponse.json({ purpose: 'signup', phoneEnding: '0123' })),
       http.post(`${API}/channels/links/complete-signup`, () => HttpResponse.json({ message: 'ok' }, { status: 202 })),
     )
-    const seen: string[] = []
-    const Probe = () => { const l = useLocation(); seen.push(l.pathname); return null }
-    renderAt(<><Probe />{ui}</>, '/l/signup9')
+    const router = createMemoryRouter([
+      { path: '/l/:token', element: <PhoneLinkPage /> }, { path: '/l', element: <PhoneLinkPage /> }, { path: '/signup/verify', element: <div>verify page</div> },
+    ], { initialEntries: ['/l/signup9'] })
+    render(<AuthProvider initialConfig={{ ...defaultConfig, turnstileSiteKey: 'stub' }}><RouterProvider router={router} /></AuthProvider>)
+    expect(router.state.historyAction).toBe('POP') // the entry the link opened
     await screen.findByText(/already verified/)
+    expect(router.state.location.pathname).toBe('/l')
+    expect(router.state.historyAction).toBe('REPLACE') // redeem replaced /l/<token> (a PUSH would leave the token in history)
     await user.type(screen.getByLabelText('Email'), 'a@example.com'); await user.type(screen.getByLabelText('Password'), 'Tr1cky-Horse-Battery!')
     await user.click(screen.getByLabelText(/I accept the Terms/)); await user.click(screen.getByRole('button', { name: 'Create account' }))
     await screen.findByText('verify page')
-    expect(seen.at(-1)).toBe('/signup/verify')
-    expect(seen.filter((x) => x.includes('signup9')).length).toBeGreaterThan(0) // the token URL was only ever the entry point
-    expect(screen.getByTestId('loc').textContent).not.toContain('signup9')
+    expect(router.state.location.pathname).toBe('/signup/verify')
+    expect(router.state.historyAction).toBe('REPLACE') // and the final step replaced /l (the form state with the token)
   })
 
   it('opening /l directly (no token, no state) explains instead of showing a form', async () => {
