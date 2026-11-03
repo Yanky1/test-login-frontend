@@ -21,7 +21,7 @@ const app = (<Routes><Route element={<RequireAuth />}><Route path="/work" elemen
 const cfg = { idleTimeoutMinutes: 2, warningSeconds: 30, refreshIntervalMinutes: 60 }
 
 const setLocks = (locks: unknown) => Object.defineProperty(navigator, 'locks', { value: locks, configurable: true })
-afterEach(() => { vi.useRealTimers(); setCrossTabForTests(null); vi.unstubAllGlobals(); Reflect.deleteProperty(navigator, 'locks') })
+afterEach(() => { vi.useRealTimers(); setCrossTabForTests(null); vi.unstubAllGlobals(); vi.restoreAllMocks(); Reflect.deleteProperty(navigator, 'locks') })
 
 describe('cross-tab transport', () => {
   it('BroadcastChannel: a message posted in one tab reaches the other, not the sender', () => {
@@ -78,8 +78,12 @@ describe('idle logout is shared across tabs', () => {
 
   it('local activity is broadcast so other tabs stay alive', async () => {
     signedIn()
+    // IdleGuard attaches its activity listeners in a passive effect, which React may flush after the page text is already
+    // visible. Dispatching before that loses the event (flaked ~1 in 8 under load), so wait for the listener itself.
+    const addListener = vi.spyOn(window, 'addEventListener')
     renderAt(app, '/work', cfg)
     expect(await screen.findByText('work page')).toBeInTheDocument()
+    await waitFor(() => expect(addListener).toHaveBeenCalledWith('mousemove', expect.any(Function), expect.anything()))
     await act(async () => { window.dispatchEvent(new Event('mousemove')) })
     expect(t.posted).toContainEqual(expect.objectContaining({ type: 'activity' }))
   })
