@@ -4,11 +4,13 @@ import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { fetchBlob, productsApi, saveBlob } from './api'
 import { ProductsFrame } from './ProductsFrame'
+import { useCanWrite } from './usePermissions'
 import { PIcon } from './ui'
 import type { CsvValidation } from './types'
 import './products.css'
 
 export default function CsvPage() {
+  const canWrite = useCanWrite()
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<CsvValidation | null>(null)
   const [done, setDone] = useState<{ imported: number; skipped: number } | null>(null)
@@ -43,7 +45,7 @@ export default function CsvPage() {
           <div className="actions"><Button onClick={download('/seller/products/csv/template', 'solvelt-products-template.csv')}><PIcon name="download" /> Download template</Button>
             <Button variant="ghost" onClick={download('/seller/products/csv/export', 'solvelt-products.csv')}>Export my catalog</Button></div>
         </section>
-        <section className="pcard" aria-labelledby="csv-2"><h2 id="csv-2">2. Upload and check</h2>
+        {!canWrite ? <Alert kind="info">You have view-only access, so you can download the template and export the catalog but not import.</Alert> : <section className="pcard" aria-labelledby="csv-2"><h2 id="csv-2">2. Upload and check</h2>
           <div className={`dropzone${over ? ' over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); void pick(e.dataTransfer.files[0]) }}>
             <PIcon name="upload" /><div><strong>Drop your CSV here</strong> or <Button variant="ghost" type="button" onClick={() => input.current?.click()}>choose a file</Button><div className="hint">Up to 500 rows and 1 MB.</div></div>
             <input ref={input} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV file" tabIndex={-1} onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = '' }} />
@@ -64,7 +66,7 @@ export default function CsvPage() {
             </div>
           )}
           {done && <Alert kind="success">Imported {done.imported} product{done.imported === 1 ? '' : 's'} as drafts{done.skipped ? ` (${done.skipped} skipped)` : ''}. <Link to="/products?tab=Draft">View your drafts</Link></Alert>}
-        </section>
+        </section>}
       </main>
     </ProductsFrame>
   )

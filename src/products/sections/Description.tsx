@@ -22,7 +22,7 @@ export default function Description({ ed }: SectionProps) {
         <legend>Key features <span className="opt">(up to 5)</span></legend>
         <p className="hint">Short, scannable points shoppers see first. Lead with the benefit, e.g. "Keeps drinks hot for 12 hours".</p>
         {bullets.map((b, i) => (
-          <div className="row" key={i}>
+          <div className="prow" key={i}>
             <TextField label={`Feature ${i + 1}`} id={`f-bullet-${i}`} value={b} maxLength={500} onChange={(e) => setB(i, e.target.value)} error={i === 0 ? errors.bullets : undefined} />
             <button type="button" className="btn link" aria-label={`Remove feature ${i + 1}`} onClick={() => set({ bullets: bullets.filter((_, j) => j !== i) })}>Remove</button>
           </div>

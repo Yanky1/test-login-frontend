@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { Route, Routes } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { server } from '../test/server'
+import { BrandProvider } from '../pages/teams/BrandContext'
 import { renderAt, signedIn } from '../test/utils'
 import type { AttrConfig, Category, ProductDetail } from './types'
 
@@ -60,7 +61,7 @@ export function mockCatalog(d: ProductDetail = detail()) {
   return { calls, set: (n: ProductDetail) => { current = n } }
 }
 
-export function mount(ui: ReactElement, path: string, route = path) {
-  signedIn()
-  return renderAt(<Routes><Route path={path} element={ui} /><Route path="*" element={<div>elsewhere</div>} /></Routes>, route)
+export function mount(ui: ReactElement, path: string, route = path, login: Record<string, unknown> = {}) {
+  signedIn(login)
+  return renderAt(<BrandProvider><Routes><Route path={path} element={ui} /><Route path="*" element={<div>elsewhere</div>} /></Routes></BrandProvider>, route)
 }

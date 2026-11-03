@@ -5,6 +5,7 @@ import { Alert, Button } from '../components/ui'
 import { productsApi } from './api'
 import { CategoryPicker } from './CategoryPicker'
 import { ProductsFrame } from './ProductsFrame'
+import { useBrands } from '../pages/teams/BrandContext'
 import { SelectField, TextField } from './ui'
 import type { Brand } from './types'
 import './products.css'
@@ -12,6 +13,7 @@ import './products.css'
 /** Step 1: "What are you selling?" - just a title and a category, then straight to the full editor. */
 export default function NewProductPage() {
   const nav = useNavigate()
+  const { selected } = useBrands()
   const [title, setTitle] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
@@ -19,7 +21,7 @@ export default function NewProductPage() {
   const [err, setErr] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { productsApi.brands().then((b) => { setBrands(b); setBrandId((cur) => cur || (b.find((x) => x.isDefault) ?? b[0])?.id || '') }).catch(() => undefined) }, [])
+  useEffect(() => { productsApi.brands().then((b) => { setBrands(b); setBrandId((cur) => cur || (b.find((x) => x.id === selected) ?? b.find((x) => x.isDefault) ?? b[0])?.id || '') }).catch(() => undefined) }, [])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) { setErr({ title: 'Enter what you are selling.' }); return }

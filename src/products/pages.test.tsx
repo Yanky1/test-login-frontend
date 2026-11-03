@@ -56,7 +56,6 @@ describe('catalog list', () => {
     await userEvent.click(screen.getByRole('tab', { name: /^All/ }))
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search products' }), 'mug'); await waitFor(() => expect(last().get('q')).toBe('mug'))
     await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'price:asc'); await waitFor(() => { expect(last().get('sort')).toBe('price'); expect(last().get('dir')).toBe('asc') })
-    await userEvent.selectOptions(screen.getByLabelText('Brand'), 'b2'); await waitFor(() => expect(last().get('brandId')).toBe('b2'))
   })
 
   it('paginates', async () => {
@@ -100,6 +99,31 @@ describe('catalog list', () => {
     mount(<ProductsListPage />, '/products')
     await userEvent.click(await screen.findByRole('button', { name: /Duplicate/ }))
     expect(await screen.findByText('elsewhere')).toBeInTheDocument()
+  })
+})
+
+const acct = (role: string) => ({ activeAccountId: 'a1', role, accounts: [{ sellerId: 'a1', vendorName: 'Acme Co', role, accountStatus: 'Approved', brandCount: 2 }] })
+
+describe('brand scope and roles', () => {
+  it('filters the catalog by the brand chosen in the header switcher', async () => {
+    const urls = mockList(); sessionStorage.setItem('solvelt-brand:a1', 'b2')
+    mount(<ProductsListPage />, '/products', '/products', acct('Admin'))
+    expect(await screen.findByText(/Showing Beta only/)).toBeInTheDocument()
+    await waitFor(() => expect(urls.at(-1)!.searchParams.get('brandId')).toBe('b2'))
+  })
+
+  it('a Viewer sees the catalog read-only: no add, bulk, duplicate or inline edit', async () => {
+    mockList([item()])
+    mount(<ProductsListPage />, '/products', '/products', acct('Viewer'))
+    expect(await screen.findByLabelText('Price for Blue mug')).toBeDisabled()
+    expect(screen.queryByRole('link', { name: /Add product/ })).toBeNull(); expect(screen.queryByRole('button', { name: /Duplicate/ })).toBeNull()
+  })
+
+  it('a Viewer cannot answer questions', async () => {
+    server.use(http.get(`${API}/seller/products`, () => HttpResponse.json(list([]))), http.get(`${API}/seller/questions`, () => HttpResponse.json({ items: [q()], total: 1, page: 1, pageSize: 50, counts: { unanswered: 1, answered: 0, hidden: 0 } })))
+    mount(<QuestionsPage />, '/questions', '/questions', acct('Viewer'))
+    expect(await screen.findByLabelText('Your answer')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Publish answer' })).toBeNull()
   })
 })
 

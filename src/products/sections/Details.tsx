@@ -24,7 +24,7 @@ export function AttributeField({ a, value, onChange, error }: { a: AttrConfig; v
         <fieldset className="multi" id={id} tabIndex={-1}>
           <legend>{label}{opt && <span className="opt"> (optional)</span>}</legend>
           {hint && <div className="hint">{hint}</div>}
-          <div className="checks">{a.options.map((o) => (
+          <div className="pchecks">{a.options.map((o) => (
             <label key={o} className="chk"><input type="checkbox" checked={cur.includes(o)} onChange={(e) => { const n = e.target.checked ? [...cur, o] : cur.filter((x) => x !== o); onChange(n.length ? n : undefined) }} /> {o}</label>
           ))}</div>
           <div className="field-error" aria-live="polite">{error}</div>

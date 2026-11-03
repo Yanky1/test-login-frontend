@@ -40,7 +40,7 @@ export default function Variations({ ed }: SectionProps) {
           {options.map((o, i) => (
             <fieldset key={i} className="option">
               <legend>Option {i + 1}</legend>
-              <div className="row">
+              <div className="prow">
                 <TextField id={`f-opt-${i}`} label="Option name" value={o.name} maxLength={40} error={errors[`options[${i}].name`]} onChange={(e) => apply(options.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
                 <button type="button" className="btn link" onClick={() => apply(options.filter((_, j) => j !== i))}>Remove option<span className="sr-only"> {o.name}</span></button>
               </div>
@@ -55,7 +55,7 @@ export default function Variations({ ed }: SectionProps) {
             </fieldset>
           ))}
           {options.length < MAX_OPTIONS && (
-            <div className="suggest">
+            <div className="psuggest">
               <span className="hint">Add an option:</span>
               {SUGGEST.filter((s) => !options.some((o) => o.name.toLowerCase() === s.toLowerCase())).map((s) => <button key={s} type="button" className="btn" onClick={() => apply([...options, { name: s, values: [] }])}>{s}</button>)}
               <button type="button" className="btn" onClick={() => apply([...options, { name: '', values: [] }])}>Custom</button>

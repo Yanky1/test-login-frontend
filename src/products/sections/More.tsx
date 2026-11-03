@@ -10,13 +10,13 @@ export function Shipping({ ed }: SectionProps) {
   const setSh = (p: Partial<typeof sh>) => set({ shipping: { ...sh, ...p } })
   return (
     <>
-      <div className="grid2">
+      <div className="pgrid2">
         <TextField id="f-weight" label="Package weight (grams)" inputMode="numeric" value={numStr(form.weightGrams)} error={errors.weightGrams} onChange={(e) => set({ weightGrams: toNum(e.target.value) })} hint="Include the packaging." />
         <TextField id="f-handling" label="Handling time (days)" inputMode="numeric" value={numStr(form.handlingDays)} error={errors.handlingDays} onChange={(e) => set({ handlingDays: toNum(e.target.value) })} hint="Days you need to pack and hand over the parcel. 0 = same day." />
       </div>
       <fieldset className="dims">
         <legend>Package size (cm) <span className="opt">(optional)</span></legend>
-        <div className="grid3">
+        <div className="pgrid3">
           <TextField id="f-length" label="Length" inputMode="decimal" value={numStr(form.lengthCm)} error={errors.lengthCm} onChange={(e) => set({ lengthCm: toNum(e.target.value) })} />
           <TextField id="f-width" label="Width" inputMode="decimal" value={numStr(form.widthCm)} error={errors.widthCm} onChange={(e) => set({ widthCm: toNum(e.target.value) })} />
           <TextField id="f-height" label="Height" inputMode="decimal" value={numStr(form.heightCm)} error={errors.heightCm} onChange={(e) => set({ heightCm: toNum(e.target.value) })} />
@@ -43,7 +43,7 @@ export function Policies({ ed }: SectionProps) {
         <option value="">Not set</option><option value="0">No returns</option>{[7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} days</option>)}
       </SelectField>
       {(form.returnsDays ?? 0) > 0 && <AreaField id="f-returnsCond" label="Return conditions" optional rows={2} maxLength={300} value={form.returnsCondition ?? ''} error={errors.returnsCondition} onChange={(e) => set({ returnsCondition: e.target.value || null })} hint='For example "Unused and in original packaging."' />}
-      <div className="grid2">
+      <div className="pgrid2">
         <TextField id="f-warranty" label="Warranty (months)" optional inputMode="numeric" value={numStr(form.warrantyMonths)} error={errors.warrantyMonths} onChange={(e) => set({ warrantyMonths: toNum(e.target.value) })} />
         <TextField id="f-warrantyNote" label="Warranty details" optional maxLength={300} value={form.warrantyNote ?? ''} error={errors.warrantyNote} onChange={(e) => set({ warrantyNote: e.target.value || null })} />
       </div>

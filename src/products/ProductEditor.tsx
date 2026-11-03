@@ -7,6 +7,7 @@ import { Checklist, focusIssue } from './Checklist'
 import { BuyerPreview } from './Preview'
 import { Dialog, PIcon, StatusChip } from './ui'
 import { useLeaveGuard } from './useLeaveGuard'
+import { useCanWrite } from './usePermissions'
 import { useProductEditor } from './useProductEditor'
 import type { ProductDetail } from './types'
 import { SECTIONS, type SectionId } from './sections/types'
@@ -50,7 +51,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
   const [current, setCurrent] = useState<SectionId>('basics')
   const refs = useRef<Record<string, HTMLElement | null>>({})
   const guard = useLeaveGuard(save.unsaved, save.flush)
-  const readOnly = false
+  const readOnly = !useCanWrite()
 
   useEffect(() => { document.title = `${form.title || 'New product'} - Solvelt` }, [form.title])
   useEffect(() => {
@@ -100,7 +101,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
           {status === 'error' && <Button variant="ghost" onClick={() => void save.retry()}>Retry</Button>}
           {ed.live && <Button variant="primary" loading={status === 'saving'} disabled={status === 'idle' || status === 'saved'} onClick={() => void save.flush()}>Save changes</Button>}
           <Button type="button" onClick={() => setPreview(true)}><PIcon name="eye" /> Preview as buyer</Button>
-          {detail.status === 'Active'
+          {readOnly ? null : detail.status === 'Active'
             ? <Button loading={busy === 'inactive'} onClick={() => void setStatus('inactive', 'The listing is now inactive and hidden from shoppers.')}>Deactivate</Button>
             : detail.status === 'Archived'
               ? <Button loading={busy === 'inactive'} onClick={() => void setStatus('inactive', 'Restored as inactive.')}>Restore</Button>
@@ -116,7 +117,8 @@ function Editor({ initial }: { initial: ProductDetail }) {
           <Button onClick={() => void ed.resolveConflict(true)}>Keep my version</Button> <Button onClick={() => void ed.resolveConflict(false)}>Load the latest</Button>
         </div>
       )}
-      {ed.live && <Alert kind="info">This listing is live: changes apply when you press "Save changes", and it must stay complete.</Alert>}
+      {readOnly && <Alert kind="info">You have view-only access to this listing.</Alert>}
+      {ed.live && !readOnly && <Alert kind="info">This listing is live: changes apply when you press "Save changes", and it must stay complete.</Alert>}
 
       <div className="ed-grid">
         <nav className="secnav" aria-label="Sections">
@@ -147,11 +149,11 @@ function Editor({ initial }: { initial: ProductDetail }) {
               </section>
             ))}
           </fieldset>
-          <footer className="danger-zone">
+          {!readOnly && <footer className="danger-zone">
             <Button onClick={() => void run('dup', async () => { const d = await productsApi.duplicate(detail.id); await save.flush(); nav(`/products/${d.id}`) })} loading={busy === 'dup'}><PIcon name="copy" /> Duplicate</Button>
             {detail.status !== 'Archived' && <Button onClick={() => void setStatus('archived', 'Archived. You can restore it from the Archived tab.')}>Archive</Button>}
             {detail.status !== 'Active' && <Button variant="destructive" onClick={() => void run('del', async () => { if (!window.confirm('Delete this product permanently?')) return; await productsApi.remove(detail.id); nav('/products') })}>Delete</Button>}
-          </footer>
+          </footer>}
         </form>
         <aside className="ed-side" aria-label="Listing quality">
           <Checklist issues={ed.issues} score={ed.score} canPublish={ed.canPublish} />

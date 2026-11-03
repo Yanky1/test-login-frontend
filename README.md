@@ -24,6 +24,9 @@ E2E needs the backend repo next to this one (`../Yanky1-test-login-backend`) or 
 `PW_CHROMIUM_PATH=/path/to/chrome` to use an existing binary. The suite covers signup wizard → pending, admin approval via API, login/logout/redirect-back,
 lockout (2 tries left → last try + captcha → locked), forgot/reset, passkey register + sign-in (CDP virtual authenticator, incl. conditional UI), passkey signup, inactivity logout.
 
+## Seller products
+Sidebar area for the catalog: `/products` (list, inline edit, bulk actions), `/products/new` and `/products/:id` (one-page editor with autosave, buyer preview and a publish checklist), `/questions` and `/products/import` (CSV). Design notes in `docs/DESIGN.md`; API in the backend's `docs/PRODUCTS.md`. The real-backend E2E (`npm run e2e`) needs the backend `main` (it uses the Testing-only `/api/dev/questions`).
+
 ## Configuration (`public/config.json`, loaded at runtime – edit without rebuilding)
 | key | meaning |
 |---|---|
