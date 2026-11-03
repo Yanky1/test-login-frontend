@@ -59,3 +59,6 @@ const FORMATS: Record<string, RegExp[]> = {
 }
 export const normalizeTracking = (t: string) => t.replace(/\s/g, '').toUpperCase()
 export const trackingValid = (carrier: string, t: string) => (FORMATS[carrier] ?? FORMATS.Other).some((r) => r.test(normalizeTracking(t)))
+
+/** Today as YYYY-MM-DD in the browser's own time zone (toISOString would give the UTC date, which is tomorrow/yesterday for part of the day). */
+export const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

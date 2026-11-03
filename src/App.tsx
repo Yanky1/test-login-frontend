@@ -18,7 +18,7 @@ const SellerLayout = lazy(() => import('./products/SellerLayout'))
 const OrdersListPage = lazy(() => import('./orders/OrdersList'))
 const OrderDetailPage = lazy(() => import('./orders/OrderDetail'))
 const MessagesPage = lazy(() => import('./orders/Messages'))
-const SimulatorPage = lazy(() => import('./orders/Simulator'))
+const SimulatorPage = import.meta.env.DEV ? lazy(() => import('./orders/Simulator')) : null
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
 const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
@@ -56,7 +56,7 @@ export default function App() {
             <Route path="/orders" element={<OrdersListPage />} />
             <Route path="/orders/:id" element={<OrderDetailPage />} />
             <Route path="/messages/:id?" element={<MessagesPage />} />
-            {import.meta.env.DEV && <Route path="/dev/simulator" element={<SimulatorPage />} />}
+            {import.meta.env.DEV && SimulatorPage && <Route path="/dev/simulator" element={<SimulatorPage />} />}
             <Route path="/products" element={<ProductsListPage />} />
             <Route path="/products/new" element={<NewProductPage />} />
             <Route path="/products/import" element={<CsvPage />} />

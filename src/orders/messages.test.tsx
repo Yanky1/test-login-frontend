@@ -152,6 +152,14 @@ describe('sidebar badges and notification settings', () => {
     expect(screen.getByRole('link', { name: /^Orders/ })).toHaveAttribute('aria-current', 'page')
   })
 
+  it('a badge over 99 reads "99+" to screen readers too, matching what is shown', async () => {
+    server.use(http.get(`${API}/seller/orders/counts`, () => HttpResponse.json({ needsAction: 250, pending: 0, shipped: 0, delivered: 0, cancelled: 0, returns: 0, late: 0, all: 250 })),
+      http.get(`${API}/seller/messages/counts`, () => HttpResponse.json({ unread: 0, needsReply: 0, overdue: 0, all: 0 })))
+    signedIn()
+    renderAt(<Routes><Route element={<SellerLayout />}><Route path="/orders" element={<h1>Orders page</h1>} /></Route></Routes>, '/orders')
+    expect(await screen.findByRole('link', { name: 'Orders 99+ need action' })).toBeInTheDocument()
+  })
+
   it('notification preferences load, save on change and roll back with a message if saving fails', async () => {
     let saved: unknown = null; let fail = false
     server.use(http.get(`${API}/seller/notification-preferences`, () => HttpResponse.json({ newOrder: true, cancelRequest: true, returnRequest: true, buyerMessage: true, overdueReply: false })),
