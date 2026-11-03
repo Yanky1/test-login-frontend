@@ -237,14 +237,16 @@ function TwoFactor({ me, reload }: { me: Me; reload: () => Promise<void> }) {
   )
 }
 
-function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+export function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(false)
   const text = codes.join('\n')
   const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true) } catch { setCopied(false) } }
   const download = () => {
     const url = URL.createObjectURL(new Blob([`Solvelt recovery codes\nEach code works once.\n\n${text}\n`], { type: 'text/plain' }))
-    const a = document.createElement('a'); a.href = url; a.download = 'solvelt-recovery-codes.txt'; a.click(); URL.revokeObjectURL(url)
+    const a = document.createElement('a'); a.href = url; a.download = 'solvelt-recovery-codes.txt'
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000) // revoking synchronously can cancel the download in some browsers
   }
   return (
     <div className="alert info recovery">

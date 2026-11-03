@@ -151,7 +151,6 @@ pre { background: var(--surface-2); padding: var(--s2); border-radius: var(--r-s
 .lockout { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
 
-.app-header ~ .shell .topbar { display: none; }
 .app-header a { text-decoration: none; font-weight: 600; } .app-header { flex-wrap: wrap; }
 
 /* ---- marketplace look: seller panel, storefront mock, top-bar cross link ---- */

@@ -61,13 +61,15 @@ for (const [vp, size] of Object.entries(viewports)) {
         const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
         const bad = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
         expect(bad.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([])
-        if (SHOTS && theme === 'light') await page.screenshot({ path: `${SHOTS}/${s.name}-${vp}.png`, fullPage: true })
+        if (SHOTS && (theme === 'light' || ['login', 'signup', 'settings-security', 'pending'].includes(s.name)))
+          await page.screenshot({ path: `${SHOTS}/${s.name}-${vp}${theme === 'dark' ? '-dark' : ''}.png`, fullPage: true })
       })
     }
   }
 }
 
-test('idle-logout modal is accessible and shows a countdown', async ({ page }) => {
+for (const [vp, size] of Object.entries(viewports)) test(`idle-logout modal @${vp} is accessible and shows a countdown`, async ({ page }) => {
+  await page.setViewportSize(size)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await mock(page, { authed: true, status: 'PendingReview', config: { idleTimeoutMinutes: 1, warningSeconds: 59 } })
   await page.goto('/signup/pending')
@@ -76,15 +78,40 @@ test('idle-logout modal is accessible and shows a countdown', async ({ page }) =
   await expect(dlg).toContainText(/You will be logged out in 00:\d\d/)
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag22aa']).analyze()
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([])
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/idle-modal-desktop.png` })
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/idle-modal-${vp}.png` })
 })
 
-test('dark-mode toggle persists', async ({ page }) => {
+test('dark-mode toggle flips the theme and persists across reloads', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
   await mock(page)
   await page.goto('/login')
+  const html = page.locator('html')
   await page.getByRole('button', { name: 'Dark mode' }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', /dark|light/)
-  const t = await page.locator('html').getAttribute('data-theme')
+  await expect(html).toHaveAttribute('data-theme', 'dark')
   await page.reload()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', t!)
+  await expect(html).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: 'Dark mode' }).click()
+  await expect(html).toHaveAttribute('data-theme', 'light')
+  await page.reload()
+  await expect(html).toHaveAttribute('data-theme', 'light')
+})
+
+// README CSP: script-src 'self' blocks inline scripts, so the saved theme must be applied by an external script.
+const README_CSP = "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self'; frame-ancestors 'none'"
+test('saved theme is applied under the README CSP (production build, no inline-script violations)', async ({ page }) => {
+  const blocked: string[] = []
+  page.on('console', (m) => { if (/Content Security Policy/i.test(m.text()) && /script/i.test(m.text())) blocked.push(m.text()) })
+  await page.emulateMedia({ colorScheme: 'light' })
+  await mock(page)
+  await page.route('http://localhost:4173/**', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.fallback()
+    const res = await route.fetch()
+    await route.fulfill({ response: res, headers: { ...res.headers(), 'content-security-policy': README_CSP } })
+  })
+  await page.goto('http://localhost:4173/login')
+  await page.getByRole('button', { name: 'Dark mode' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  expect(blocked).toEqual([])
 })
