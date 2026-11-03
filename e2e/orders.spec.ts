@@ -1,0 +1,253 @@
+import { expect, test, expectNoSeriousA11y, createSeller, dismissPasskeyOffer, lastMail, setStatus, uiLogin, newEmail, PASSWORD } from './helpers'
+import type { APIRequestContext, Page } from '@playwright/test'
+import { makePng } from './png'
+
+const business = { vendorName: 'Acme Co', contactName: 'Dana Seller', contactPhone: '+1 555 123 4567', addressLine1: '1 Main St', city: 'Brooklyn', region: 'NY', postalCode: '11201', country: 'US', smsOptIn: false }
+const bearer = (t: string) => ({ Authorization: `Bearer ${t}` })
+
+async function tokenFor(request: APIRequestContext, email: string) {
+  const r = await request.post('/api/v1/auth/login', { data: { email, password: PASSWORD } })
+  expect(r.ok()).toBeTruthy()
+  return (await r.json()).accessToken as string
+}
+
+/** An approved seller account (wizard + admin approval) with its API token. */
+async function seller(request: APIRequestContext) {
+  const s = await createSeller(request)
+  const token = await tokenFor(request, s.email)
+  expect((await request.put('/api/v1/seller/application/business', { data: business, headers: bearer(token) })).ok()).toBeTruthy()
+  expect((await request.put('/api/v1/seller/application/kosher', { data: { answers: { sells_food: 'no' } }, headers: bearer(token) })).ok()).toBeTruthy()
+  expect((await request.post('/api/v1/seller/application/submit', { data: { acceptSellerAgreement: true }, headers: bearer(token) })).ok()).toBeTruthy()
+  await setStatus(request, s.sellerId, 'Approved')
+  return { ...s, token: await tokenFor(request, s.email) }
+}
+
+/** A published product with a photo and stock, created through the API. */
+async function product(request: APIRequestContext, token: string, title: string, stock = 10, brandId?: string) {
+  const h = bearer(token)
+  const cats = (await (await request.get('/api/v1/categories', { headers: h })).json()) as { id: string; slug: string }[]
+  const created = await request.post('/api/v1/seller/products', { headers: h, data: { title, categoryId: cats.find((c) => c.slug === 'kitchen-dining')!.id, brandId } })
+  expect(created.status()).toBe(201)
+  const id = (await created.json()).id as string
+  expect((await request.post(`/api/v1/seller/products/${id}/images?alt=Front`, { headers: h, multipart: { file: { name: 'p.png', mimeType: 'image/png', buffer: makePng(1200, 1200) } } })).status()).toBe(201)
+  const doc = await (await request.get(`/api/v1/seller/products/${id}`, { headers: h })).json()
+  const put = await request.put(`/api/v1/seller/products/${id}`, { headers: h, data: { ...doc, price: 19.99, quantity: stock, sku: `SKU-${id.slice(0, 8)}`, noBarcode: true } })
+  expect(put.ok(), await put.text()).toBeTruthy()
+  expect((await request.post(`/api/v1/seller/products/${id}/status`, { headers: h, data: { status: 'active' } })).ok()).toBeTruthy()
+  return id
+}
+
+const available = async (request: APIRequestContext, token: string, id: string) => (await (await request.get(`/api/v1/seller/products/${id}`, { headers: bearer(token) })).json()).available as number
+
+async function simulate(request: APIRequestContext, token: string, scenario: string) {
+  const r = await request.post('/api/v1/seller/dev/orders', { headers: bearer(token), data: { scenario } })
+  expect(r.status(), await r.text()).toBe(201)
+  return (await r.json()).orders as { id: string; number: string; brandId: string }[]
+}
+const orderAction = async (request: APIRequestContext, token: string, id: string, action: string, data: object = {}) => {
+  const r = await request.post(`/api/v1/seller/orders/${id}/${action}`, { headers: bearer(token), data })
+  expect(r.ok(), await r.text()).toBeTruthy()
+}
+const buyerEvent = async (request: APIRequestContext, token: string, id: string, type: string, extra: object = {}) =>
+  expect((await request.post(`/api/v1/seller/dev/orders/${id}/events`, { headers: bearer(token), data: { type, ...extra } })).ok()).toBeTruthy()
+
+async function signIn(page: Page, email: string, path = '/orders') {
+  await page.goto('/login'); await uiLogin(page, email); await dismissPasskeyOffer(page)
+  await page.goto(path)
+}
+const mgr = async (request: APIRequestContext, ownerToken: string, role: string, brandIds?: string[]) => {
+  const email = newEmail()
+  expect((await request.post('/api/v1/team/invitations', { headers: bearer(ownerToken), data: { email, role, brandIds } })).status()).toBe(202)
+  const t = /\/invite\/([A-Za-z0-9_-]+)/.exec(await lastMail(request, email, 'team-invitation'))![1]
+  expect((await request.post(`/api/v1/invitations/${t}/join`, { data: { password: PASSWORD, acceptTerms: true } })).ok()).toBeTruthy()
+  return email
+}
+
+test('simulator order: accept, ship part with tracking, ship the rest, mark delivered (axe on every screen)', async ({ page, request }) => {
+  const s = await seller(request)
+  await product(request, s.token, 'Speckled mug'); await product(request, s.token, 'Linen napkins')
+  await signIn(page, s.email, '/orders')
+  await expect(page.getByRole('heading', { name: 'Orders', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Nothing needs your attention' })).toBeVisible()
+  await expectNoSeriousA11y(page)
+
+  await page.goto('/dev/simulator')
+  await expectNoSeriousA11y(page)
+  await page.getByRole('button', { name: 'Several items' }).click()
+  await expect(page.getByText(/^Created SO-/)).toBeVisible()
+  await page.getByRole('link', { name: /^SO-/ }).first().click()
+  await expect(page.getByRole('heading', { name: /^Order SO-/, level: 1 })).toBeVisible()
+  await expect(page.getByText('Pending acceptance').first()).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await page.getByRole('button', { name: 'Accept order' }).first().click()
+  await expect(page.getByText('Order accepted.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Ship order' }).click()
+  const dlg = page.getByRole('dialog', { name: /^Ship order SO-/ })
+  await expectNoSeriousA11y(page)
+  const qtys = dlg.getByRole('spinbutton')
+  await qtys.nth(0).fill('1'); await qtys.nth(1).fill('0')                                  // partial: one unit of the first item only
+  await dlg.getByLabel('Tracking number').fill('12345')
+  await dlg.getByRole('button', { name: 'Ship these items' }).click()
+  await expect(dlg.getByText("That doesn't look like a UPS tracking number.")).toBeVisible()
+  await dlg.getByLabel('Tracking number').fill('1Z999AA10123456784')
+  await dlg.getByRole('button', { name: 'Ship these items' }).click()
+  await expect(page.getByText('Shipment saved.')).toBeVisible()
+  await expect(page.getByText('Partly shipped').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /1Z999AA10123456784/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Ship order' }).click()                              // everything that is left
+  const rest = page.getByRole('dialog', { name: /^Ship order SO-/ })
+  await rest.getByLabel('Carrier').selectOption('FedEx'); await rest.getByLabel('Tracking number').fill('123456789012')
+  await rest.getByRole('button', { name: 'Mark as shipped' }).click()
+  await expect(page.getByText('Shipped', { exact: true }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'Mark as delivered' }).first().click()
+  await page.getByRole('dialog', { name: 'Mark as delivered?' }).getByRole('button', { name: 'Yes, it was delivered' }).click()
+  await expect(page.getByText('Delivered', { exact: true }).first()).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await page.goto('/orders?tab=delivered')
+  await expect(page.getByRole('link', { name: /^SO-/ }).first()).toBeVisible()
+  await expectNoSeriousA11y(page)
+})
+
+test('buyer cancellation request: approve with restock puts the stock back', async ({ page, request }) => {
+  const s = await seller(request)
+  const p = await product(request, s.token, 'Cancel me mug', 5)
+  const [o] = await simulate(request, s.token, 'single')
+  expect(await available(request, s.token, p)).toBe(4)
+  await buyerEvent(request, s.token, o.id, 'cancel_request')
+  await signIn(page, s.email, `/orders/${o.id}`)
+  await expect(page.getByText('Cancellation requested').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Review cancellation request' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Approve the cancellation' })
+  await expect(dlg.getByLabel('Put the items back in stock')).toBeChecked()
+  await expectNoSeriousA11y(page)
+  await dlg.getByRole('button', { name: 'Approve and cancel' }).click()
+  await expect(page.getByText('Order cancelled.')).toBeVisible()
+  await expect(page.getByText('Cancelled', { exact: true }).first()).toBeVisible()
+  expect(await available(request, s.token, p)).toBe(5)
+})
+
+test('return: approve, mark received, partial refund with a confirmation', async ({ page, request }) => {
+  const s = await seller(request)
+  await product(request, s.token, 'Return mug'); await product(request, s.token, 'Return napkins')
+  const [o] = await simulate(request, s.token, 'multi')
+  for (const a of ['accept']) await orderAction(request, s.token, o.id, a)
+  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' })
+  await orderAction(request, s.token, o.id, 'deliver')
+  await buyerEvent(request, s.token, o.id, 'return_request')
+  await signIn(page, s.email, `/orders/${o.id}`)
+  await expect(page.getByText('Return in progress')).toBeVisible()
+  await page.getByRole('button', { name: 'Approve return' }).click()
+  await expect(page.getByText('Return approved.')).toBeVisible()
+  await page.getByRole('button', { name: 'Mark as received' }).click()
+  const rec = page.getByRole('dialog', { name: 'Mark the return as received' })
+  await expect(rec.getByLabel('Put the returned items back in stock')).toBeChecked()
+  await rec.getByRole('button', { name: 'Items received' }).click()
+  await expect(page.getByText('Return marked as received.')).toBeVisible()
+  await page.getByRole('button', { name: 'Refund this return' }).first().click()
+  const dlg = page.getByRole('dialog', { name: 'Refund the returned items' })
+  const qtys = dlg.getByRole('spinbutton')
+  await qtys.nth(0).fill('1'); await qtys.nth(1).fill('0')                                   // partial: one unit
+  await dlg.getByLabel('Reason').selectOption('returned_item')
+  await expect(dlg.getByText(/Refund total:/)).toContainText('$')
+  await expectNoSeriousA11y(page)
+  await dlg.getByRole('button', { name: 'Review refund' }).click()
+  const confirm = page.getByRole('dialog', { name: 'Refund this amount?' })
+  await expectNoSeriousA11y(page)
+  await confirm.getByRole('button', { name: /^Yes, refund/ }).click()
+  await expect(page.getByText('Refund issued.')).toBeVisible()
+  await expect(page.getByText('Refunded (partial)').first()).toBeVisible()
+})
+
+test('a Manager of brand X cannot see brand Y\'s order; a Viewer cannot act', async ({ page, request, browser }) => {
+  const s = await seller(request)
+  const brands = (await (await request.get('/api/v1/brands', { headers: bearer(s.token) })).json()) as { id: string }[]
+  const x = brands[0].id
+  const y = (await (await request.post('/api/v1/brands', { headers: bearer(s.token), data: { name: 'Brand Y' } })).json()).id as string
+  await product(request, s.token, 'X mug', 10, x); await product(request, s.token, 'Y mug', 10, y)
+  const orders = await simulate(request, s.token, 'multi_brand')
+  const ox = orders.find((o) => o.brandId === x)!, oy = orders.find((o) => o.brandId === y)!
+  const manager = await mgr(request, s.token, 'Manager', [x]); const viewer = await mgr(request, s.token, 'Viewer')
+
+  await signIn(page, manager, '/orders?tab=all')
+  await expect(page.getByRole('link', { name: ox.number }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: oy.number })).toHaveCount(0)
+  await page.goto(`/orders/${oy.id}`)
+  await expect(page.getByRole('heading', { name: 'Order not found' })).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await page.goto(`/orders/${ox.id}`)
+  await expect(page.getByRole('button', { name: 'Accept order' }).first()).toBeVisible()      // works the orders of their brand
+  await expect(page.getByRole('button', { name: 'Issue a refund…' })).toHaveCount(0)
+
+  const ctx = await browser.newContext(); await ctx.route('**/config.json', (r) => r.fulfill({ json: { idleTimeoutMinutes: 15, warningSeconds: 60, refreshIntervalMinutes: 5, turnstileSiteKey: 'stub', features: { apple: false } } }))
+  const vp = await ctx.newPage(); await signIn(vp, viewer, `/orders/${ox.id}`)
+  await expect(vp.getByRole('heading', { name: /^Order SO-/, level: 1 })).toBeVisible()
+  for (const n of ['Accept order', 'Ship order', 'Cancel order…', 'Issue a refund…']) await expect(vp.getByRole('button', { name: n })).toHaveCount(0)
+  await expectNoSeriousA11y(vp)
+  await ctx.close()
+})
+
+test('messages: a buyer message arrives, the seller replies with a saved reply and an image, the buyer side sees the reply event', async ({ page, request }) => {
+  const s = await seller(request)
+  const p = await product(request, s.token, 'Chatty mug')
+  const [o] = await simulate(request, s.token, 'single')
+  const tpl = await request.post('/api/v1/seller/message-templates', { headers: bearer(s.token), data: { title: 'Shipping soon', body: 'Thanks for your order, it ships tomorrow.' } })
+  expect(tpl.status()).toBe(201)
+  await buyerEvent(request, s.token, o.id, 'message', { text: 'Where is my order?' })
+  await signIn(page, s.email, '/orders')
+  await expect(page.getByRole('link', { name: /^Messages, 1 unread/ })).toBeVisible()           // sidebar badge
+  await page.getByRole('link', { name: /^Messages/ }).click()
+  await expect(page.getByRole('heading', { name: 'Messages', level: 1 })).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await page.getByRole('link', { name: /Jane|Test Buyer/ }).first().click()
+  await expect(page.getByRole('list', { name: 'Messages' }).getByText('Where is my order?')).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await page.getByRole('button', { name: 'Saved replies' }).click()
+  await expectNoSeriousA11y(page)
+  await page.getByRole('button', { name: /^Use/ }).click()
+  await expect(page.getByLabel('Your reply')).toHaveValue('Thanks for your order, it ships tomorrow.')
+  await page.getByLabel('Choose files to attach').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: makePng(400, 400) })
+  await expect(page.locator('.chip', { hasText: 'photo.png' })).toBeVisible()
+  await page.getByRole('button', { name: 'Send reply' }).click()
+  await expect(page.getByRole('list', { name: 'Messages' }).getByText('Thanks for your order, it ships tomorrow.')).toBeVisible()
+  await expect(page.getByLabel('Your reply')).toHaveValue('')
+  // the marketplace (dev sink) receives the reply with its attachment
+  await request.post('/api/dev/outbox/dispatch')
+  await expect.poll(async () => {
+    const evs = (await (await request.get('/api/dev/outbox')).json()) as { type?: string; Type?: string; body?: string; Body?: string }[]
+    return evs.some((e) => (e.type ?? e.Type) === 'message.sent' && (e.body ?? e.Body ?? '').includes('it ships tomorrow') && (e.body ?? e.Body ?? '').includes('photo.png'))
+  }).toBe(true)
+
+  // a pre-sale question about a product: appears in the same inbox, linked to the product, and can be answered
+  expect((await request.post('/api/v1/seller/dev/messages', { headers: bearer(s.token), data: { productId: p, text: 'Is it dishwasher safe?' } })).status()).toBe(201)
+  await page.goto('/messages?kind=product')
+  await page.getByRole('link', { name: /Curious Buyer/ }).click()
+  await expect(page.getByRole('link', { name: 'Chatty mug' }).first()).toBeVisible()
+  await page.getByLabel('Your reply').fill('Yes, it is dishwasher safe.')
+  await page.getByRole('button', { name: 'Send reply' }).click()
+  await expect(page.getByRole('list', { name: 'Messages' }).getByText('Yes, it is dishwasher safe.')).toBeVisible()
+  await expectNoSeriousA11y(page)
+})
+
+test('notification settings and the CSV tracking upload dialog are accessible', async ({ page, request }) => {
+  const s = await seller(request)
+  await product(request, s.token, 'CSV mug')
+  const [o] = await simulate(request, s.token, 'single')
+  await orderAction(request, s.token, o.id, 'accept')
+  await signIn(page, s.email, '/settings/notifications')
+  await expect(page.getByRole('heading', { name: 'Email notifications' })).toBeVisible()
+  const sw = page.getByRole('switch', { name: 'Buyer messages' })
+  await expect(sw).toBeChecked()                                                               // Owners start with everything on
+  await sw.uncheck(); await expect(page.getByText('Saved.')).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await page.goto('/orders')
+  await page.getByRole('button', { name: /Upload tracking CSV/ }).click()
+  const dlg = page.getByRole('dialog', { name: 'Mark orders as shipped from a CSV' })
+  await dlg.getByLabel('CSV file').setInputFiles({ name: 'trk.csv', mimeType: 'text/csv', buffer: Buffer.from(`order_number,carrier,tracking_number\n${o.number},UPS,1Z999AA10123456784\n${o.number},UPS,bad\n`) })
+  await expect(dlg.getByText(/1 of 2 rows are ready/)).toBeVisible()
+  await expect(dlg.getByText("That doesn't look like a UPS tracking number.")).toBeVisible()
+  await expectNoSeriousA11y(page)
+  await dlg.getByRole('button', { name: /^Ship 1 order/ }).click()
+  await expect(dlg.getByText(/1 order\(s\) shipped/)).toBeVisible()
+})

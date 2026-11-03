@@ -123,7 +123,7 @@ describe('conversation', () => {
     mockInbox(undefined, d)
     open()
     expect(await screen.findByText('Reply overdue')).toBeInTheDocument(); expect(screen.getByText('Reported by the buyer')).toBeInTheDocument()
-    expect(screen.getByText(/· Read/)).toBeInTheDocument(); expect(screen.getByRole('link', { name: 'Blue mug', exact: true })).toHaveAttribute('href', '/products/p1')
+    expect(screen.getByText(/· Read/)).toBeInTheDocument(); expect(screen.getByRole('link', { name: /^Blue mug$/ })).toHaveAttribute('href', '/products/p1')
     expect(screen.getByRole('button', { name: /care\.pdf/ })).toBeInTheDocument()
   })
 
