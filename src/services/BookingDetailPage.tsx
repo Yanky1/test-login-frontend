@@ -4,7 +4,7 @@ import { ApiError } from '../api'
 import { Alert, Button, Skeleton } from '../components/ui'
 import { AreaField } from '../products/ui'
 import { servicesApi } from './api'
-import { CompleteDialog, ReasonDialog, ReassignDialog, TimeDialog, errText } from './ActionDialogs'
+import { CompleteDialog, ReasonDialog, ReassignDialog, TimeDialog, errText, ConfirmDialog } from './ActionDialogs'
 import { BookingStatusChip, LOCATION_LABEL } from './shared'
 import { durationLabel, fmtDateTime, money } from './time'
 import type { BookingDetail, BookingMessage } from './types'
@@ -24,7 +24,14 @@ export default function BookingDetailPage() {
   if (failed !== null) return <main className="pwrap"><h1 id="page-title" tabIndex={-1}>{failed === 404 ? 'Booking not found' : 'Could not load this booking'}</h1><p>{failed === 404 ? "It may belong to another team member or brand, or it doesn't exist." : 'Check your connection and try again.'}</p><Link className="btn" to="/bookings">Back to bookings</Link></main>
   if (!b) return <main className="pwrap"><h1 id="page-title" tabIndex={-1}>Booking</h1><Skeleton lines={6} /></main>
   const tz = b.providerTimeZone
-  const act = async (action: string, body: Record<string, unknown> = {}, ok = 'Done.') => { const d = await servicesApi.act(b.id, action, { ...body, version: b.version }); if ('id' in d) setB(d); else await load(); setMsg({ kind: 'success', text: ok }) }
+  const act = async (action: string, body: Record<string, unknown> = {}, ok = 'Done.') => {
+    try { const d = await servicesApi.act(b.id, action, { ...body, version: b.version }); if ('id' in d) setB(d); else await load(); setMsg({ kind: 'success', text: ok }) }
+    catch (e) {
+      // someone else changed the booking: show the latest instead of leaving a stale page with a dead end (dialogs close, nothing is sent twice)
+      if (e instanceof ApiError && e.status === 409 && e.body?.code === 'version_conflict') { await load(); setMsg({ kind: 'error', text: 'This booking changed while you were looking at it. The latest version is shown; check it and try again.' }); return }
+      throw e
+    }
+  }
   const quick = async (action: string, ok: string) => { setBusy(action); setMsg(null); try { await act(action, {}, ok) } catch (e) { setMsg({ kind: 'error', text: errText(e) }) } finally { setBusy('') } }
   const hourly = b.pricing.model === 'hourly'
   const a = b.actions
@@ -88,7 +95,7 @@ export default function BookingDetailPage() {
       {dlg === 'decline' && <ReasonDialog title="Decline this request" label="Reason for the buyer" confirm="Decline request" destructive onClose={() => setDlg(null)} onSubmit={(r) => act('decline', { reason: r }, 'Request declined.')} />}
       {dlg === 'cancel' && <ReasonDialog title="Cancel this booking" label="Reason (the buyer will see it)" required confirm="Cancel booking" destructive hint="Cancelling is free for the buyer. This can't be undone." onClose={() => setDlg(null)} onSubmit={(r) => act('cancel', { reason: r }, 'Booking cancelled.')} />}
       {dlg === 'decide-no' && <ReasonDialog title="Decline the new time" label="Note for the buyer" confirm="Keep the current time" onClose={() => setDlg(null)} onSubmit={(r) => act('decline-reschedule', { note: r }, 'The booking stays at its current time.')} />}
-      {dlg === 'noshow' && <ReasonDialog title="Mark as no-show" label="Note (optional)" confirm="Mark no-show" destructive hint={`The customer didn't turn up. A fee of ${b.policy?.noShowFeePercent ?? 0}% is recorded and sent to the marketplace.`} onClose={() => setDlg(null)} onSubmit={() => act('no-show', {}, 'Marked as no-show.')} />}
+      {dlg === 'noshow' && <ConfirmDialog title="Mark as no-show" confirm="Mark no-show" destructive message={`The customer didn't turn up. A fee of ${b.policy?.noShowFeePercent ?? 0}% is recorded and sent to the marketplace.`} onClose={() => setDlg(null)} onSubmit={() => act('no-show', {}, 'Marked as no-show.')} />}
       {dlg === 'propose' && <TimeDialog title="Propose another time" tz={tz} initial={b.startAt} confirm="Send proposal" hint="The buyer can accept or decline. The time is not reserved until they accept." onClose={() => setDlg(null)} onSubmit={(iso) => act('propose', { start: iso }, 'Proposal sent.')} />}
       {dlg === 'reschedule' && <TimeDialog title="Reschedule booking" tz={tz} initial={b.startAt} confirm="Move booking" hint="The buyer is told about the new time and may cancel without a fee." onClose={() => setDlg(null)} onSubmit={(iso) => act('reschedule', { start: iso }, 'Booking moved.')} />}
       {dlg === 'complete' && <CompleteDialog hourly={hourly} bookedMinutes={b.durationMinutes} increment={b.policy?.incrementMinutes ?? 60} onClose={() => setDlg(null)} onSubmit={(m) => act('complete', { actualMinutes: m }, 'Booking completed.')} />}
