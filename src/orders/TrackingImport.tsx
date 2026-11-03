@@ -34,7 +34,7 @@ export function TrackingImport({ onClose, onDone }: { onClose: () => void; onDon
         {busy && <p>Checking…</p>}
         {res && !res.applied && (
           <>
-            <p><strong>{res.valid}</strong> of {res.total} rows are ready{bad > 0 ? `; ${bad} need fixing` : ''}. Nothing has been changed yet.</p>
+            <p><strong>{`${res.valid} of ${res.total} rows are ready`}</strong>{bad > 0 ? `; ${bad} need fixing` : ''}. Nothing has been changed yet.</p>
             <div className="tablewrap csv-rows">
               <table className="ptable"><caption className="sr-only">Check of each CSV row</caption>
                 <thead><tr><th scope="col">Row</th><th scope="col">Order</th><th scope="col">Result</th></tr></thead>

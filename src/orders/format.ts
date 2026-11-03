@@ -21,7 +21,7 @@ export function shipByText(o: Pick<OrderListItem, 'status' | 'shipByAt'>, now = 
   if (!UNSHIPPED.includes(o.status)) return { text: '', tone: 'none' }
   const ms = new Date(o.shipByAt).getTime() - now
   const days = Math.ceil(Math.abs(ms) / 86_400_000)
-  if (ms < 0) return { text: `Late by ${days} day${days === 1 ? '' : 's'}`, tone: 'bad' }
+  if (ms < 0) { const late = Math.max(1, Math.floor(Math.abs(ms) / 86_400_000)); return { text: `Late by ${late} day${late === 1 ? '' : 's'}`, tone: 'bad' } }
   if (ms < 86_400_000) { const h = Math.max(1, Math.floor(ms / 3_600_000)); return { text: `Ship within ${h} hour${h === 1 ? '' : 's'}`, tone: 'warn' } }
   return { text: `Ship by ${day(o.shipByAt)} · in ${days} days`, tone: days <= 1 ? 'warn' : 'ok' }
 }

@@ -98,7 +98,7 @@ export default function OrdersListPage() {
       )}
 
       <div className="stabs" role="tablist" aria-label="Order groups">
-        {TABS.map(([id, label, key]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => set({ tab: id === 'needs_action' ? '' : id })}>{label}{counts && <span className="pcount"> {counts[key]}</span>}</button>)}
+        {TABS.map(([id, label, key]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => set({ tab: id === 'needs_action' ? '' : id })}>{label}{counts && <>{' '}<span className="pcount">{counts[key]}</span></>}</button>)}
       </div>
 
       <div className="filters">
