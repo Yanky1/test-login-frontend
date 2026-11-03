@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { useAuth } from '../auth'
 import { Card, Spinner } from '../components/ui'
+import { normalizeStatus } from '../lib/status'
 import { stepPath, type Application } from './wizard/shared'
 
 /** Entry after sign-in: routes the seller to the right wizard step / pending screen, or to the catalog once approved. */
@@ -15,7 +16,7 @@ export default function Home() {
   useEffect(() => {
     if (member) return
     let alive = true
-    api<Application>('/seller/application').then((a) => { if (alive) setApp(a) }).catch((e) => { if (alive && e instanceof ApiError && (e.status === 403 || e.status === 404)) setNoSeller(true) })
+    api<Application>('/seller/application').then((a) => { if (alive) setApp({ ...a, status: normalizeStatus(a.status) as Application['status'] }) }).catch((e) => { if (alive && e instanceof ApiError && (e.status === 403 || e.status === 404)) setNoSeller(true) })
     return () => { alive = false }
   }, [member])
   if (member) return <Navigate to="/products" replace />
@@ -28,7 +29,7 @@ export default function Home() {
     )
   }
   if (!app) return <div className="center"><Spinner /></div>
-  // Approved / Live owners have nothing left to fill in: they work in the product catalog.
-  if (app.status === 'Approved' || app.status === 'Live') return <Navigate to="/products" replace />
+  // Approved owners (the final, selling state) have nothing left to fill in: they work in the product catalog.
+  if (app.status === 'Approved') return <Navigate to="/products" replace />
   return <Navigate to={stepPath(app)} replace />
 }

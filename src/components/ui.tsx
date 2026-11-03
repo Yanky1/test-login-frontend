@@ -132,7 +132,7 @@ export function Shell({ children, split }: { children: ReactNode; split?: boolea
             <h2>Open your shop. Reach more buyers.</h2>
             <p>Join the marketplace built for the community: list your products, get approved fast and get paid securely.</p>
             <div className="shop-mock">
-              <div className="shop-bar"><Icon name="store" /> <b>Your storefront</b><span className="pill">Live</span></div>
+              <div className="shop-bar"><Icon name="store" /> <b>Your storefront</b><span className="pill">Open</span></div>
               <div className="shop-grid">
                 {['t1', 't2', 't3', 't4', 't5', 't6'].map((t) => <div key={t} className={`tile ${t}`}><i /><span /></div>)}
               </div>

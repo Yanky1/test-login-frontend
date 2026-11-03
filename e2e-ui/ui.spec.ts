@@ -53,7 +53,7 @@ const screens: { name: string; path: string; authed?: boolean; status?: string; 
   { name: 'review', path: '/signup/review', authed: true, status: 'Draft', draftStep: 5, heading: /review your application/i },
   { name: 'pending', path: '/signup/pending', authed: true, heading: /pending/i },
   { name: 'pending-approved', path: '/signup/pending', authed: true, status: 'Approved', draftStep: 5, heading: /your application is approved/i },
-  { name: 'pending-live', path: '/signup/pending', authed: true, status: 'Live', draftStep: 5, heading: /your shop is live/i },
+  { name: 'pending-stale-live', path: '/signup/pending', authed: true, status: 'Live', draftStep: 5, heading: /your application is approved/i }, // a stale "Live" from an older backend renders as Approved
   { name: 'settings-security', path: '/settings/security', authed: true, heading: /account settings/i, act: async (p) => { await expect(p.getByRole('heading', { name: /passkeys/i }).first()).toBeVisible() } },
 ]
 

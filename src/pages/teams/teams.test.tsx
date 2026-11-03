@@ -46,14 +46,14 @@ const shell = (
 describe('account picker after sign-in', () => {
   it('several accounts and none active: shows "Choose an account" with roles and status, then switches', async () => {
     const user = userEvent.setup()
-    signedIn({ sellerId: '', vendorName: '', activeAccountId: null, accounts: [acct(A, 'Acme Co', 'Owner', 'Live', 2), acct(B, 'Other Shop', 'Viewer', 'PendingReview')] })
+    signedIn({ sellerId: '', vendorName: '', activeAccountId: null, accounts: [acct(A, 'Acme Co', 'Owner', 'Approved', 2), acct(B, 'Other Shop', 'Viewer', 'PendingReview')] })
     let switched: unknown = null
     server.use(
       http.get(`${API}/account/invitations`, () => HttpResponse.json([])),
       http.get(`${API}/brands`, () => HttpResponse.json([brand('b1', 'Other Shop')])),
       http.post(`${API}/session/account`, async ({ request }) => {
         switched = await request.json()
-        return HttpResponse.json({ accessToken: 'tok-2', body: { activeAccountId: B, vendorName: 'Other Shop', accountStatus: null, role: 'Viewer', accounts: [acct(A, 'Acme Co', 'Owner', 'Live', 2), acct(B, 'Other Shop', 'Viewer', 'PendingReview')] } })
+        return HttpResponse.json({ accessToken: 'tok-2', body: { activeAccountId: B, vendorName: 'Other Shop', accountStatus: null, role: 'Viewer', accounts: [acct(A, 'Acme Co', 'Owner', 'Approved', 2), acct(B, 'Other Shop', 'Viewer', 'PendingReview')] } })
       }),
     )
     renderAt(shell, '/')
@@ -62,7 +62,7 @@ describe('account picker after sign-in', () => {
     const list = screen.getByRole('list', { name: 'Your accounts' })
     expect(within(list).getByText('Acme Co')).toBeInTheDocument()
     expect(within(list).getByText('Owner')).toBeInTheDocument()
-    expect(within(list).getByText('Live')).toBeInTheDocument()
+    expect(within(list).getByText('Approved')).toBeInTheDocument()
     expect(within(list).getByText('Awaiting approval')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue to Other Shop' }))
     expect(await screen.findByText('home page')).toBeInTheDocument()
@@ -511,6 +511,14 @@ describe('review follow-ups', () => {
     renderAt(shell, '/settings/team')
     await screen.findByRole('cell', { name: 'mgr@example.com' })
     expect(screen.queryByRole('heading', { name: 'Close this account' })).not.toBeInTheDocument()
+  })
+
+  it('account list: a stale "Live" status from an older backend is shown as Approved', async () => {
+    signedIn({ sellerId: '', vendorName: '', activeAccountId: null, accounts: [acct(A, 'Acme Co', 'Owner', 'Live', 2), acct(B, 'Other Shop', 'Viewer', 'PendingReview')] })
+    renderAt(<Routes><Route element={<RequireAuth />}><Route path="/products" element={<div>products page</div>} /></Route></Routes>, '/products')
+    const list = await screen.findByRole('list', { name: 'Your accounts' })
+    expect(within(list).getByText('Approved')).toBeInTheDocument()
+    expect(within(list).queryByText('Live')).not.toBeInTheDocument()
   })
 
   it('Managers, Viewers and Admins land on the product catalog, Owners keep the application flow', async () => {
