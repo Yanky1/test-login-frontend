@@ -16,7 +16,8 @@ export function parsePostalCodes(text: string): { ok: string[]; bad: string[] } 
 }
 
 /** Service area of an at-customer service: a list of postal codes (prefix with *) and/or a radius around a base location. */
-export function ServiceAreaEditor({ value, onChange, error }: { value: ServiceArea; onChange: (v: ServiceArea) => void; error?: string }) {
+export function ServiceAreaEditor({ value: raw, onChange, error }: { value: ServiceArea; onChange: (v: ServiceArea) => void; error?: string }) {
+  const value: ServiceArea = { postalCodes: raw?.postalCodes ?? [], radius: raw?.radius ?? null }
   const [text, setText] = useState('')
   const [bad, setBad] = useState<string[]>([])
   const radius = value.radius ?? { baseAddress: null, lat: null, lng: null, distance: null, unit: 'km' as const }

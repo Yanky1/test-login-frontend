@@ -134,8 +134,6 @@ export default function CalendarPage() {
   )
 }
 
-function bookingLabel(b: CalendarBooking, tz: string) { return `${fmtTime(b.startAt, tz)}–${fmtTime(b.endAt, tz)} ${b.title}${b.buyerName ? ` for ${b.buyerName}` : ''}, ${statusLabel(b.status)}` }
-
 function TimeGrid({ days, today, tz, now, data, byDay, single, onBooking, onBlock }: { days: string[]; today: string; tz: string; now: Date; data: CalendarData | null; byDay: Map<string, CalendarBooking[]>; single: boolean; onBooking: (b: CalendarBooking) => void; onBlock: (b: BlockDto) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.scrollTo?.({ top: 7.5 * HH }) }, [days[0]])
@@ -160,15 +158,15 @@ function TimeGrid({ days, today, tz, now, data, byDay, single, onBooking, onBloc
                 <ul aria-label={`Bookings on ${fmtYmd(d)}`}>
                   {placed.map(({ item, start, end, lane, lanes }) => (
                     <li key={item.id} style={{ position: 'absolute', top: start / 60 * HH, height: Math.max(24, (end - start) / 60 * HH), left: `${lane / lanes * 100}%`, width: `${100 / lanes}%`, padding: '0 3px', boxSizing: 'border-box' }}>
-                      <button type="button" className={`bk ev s-${item.b.status}`} style={{ position: 'static', width: '100%', height: '100%' }} aria-label={bookingLabel(item.b, tz)} onClick={() => onBooking(item.b)}>
-                        <span className="st">{statusLabel(item.b.status)}</span><br />{fmtTime(item.b.startAt, tz)} {item.b.title}
+                      <button type="button" className={`bk ev s-${item.b.status}`} style={{ position: 'static', width: '100%', height: '100%' }} onClick={() => onBooking(item.b)}>
+                        <span className="st">{statusLabel(item.b.status)}</span><br />{fmtTime(item.b.startAt, tz)} {item.b.title}<span className="sr-only"> until {fmtTime(item.b.endAt, tz)}{item.b.buyerName ? `, for ${item.b.buyerName}` : ''}</span>
                       </button>
                     </li>
                   ))}
                 </ul>
                 {blocks.map((x) => {
                   const dayS = dayStartUtc(d, tz).getTime(); const s = Math.max(0, (new Date(x.startAt).getTime() - dayS) / 60000); const e = Math.min(1440, (new Date(x.endAt).getTime() - dayS) / 60000)
-                  return <button key={x.id} type="button" className="blk" style={{ top: s / 60 * HH, height: Math.max(24, (e - s) / 60 * HH) }} onClick={() => onBlock(x)} aria-label={`${x.kind === 'timeoff' ? 'Time off' : 'Busy'}${x.note ? `: ${x.note}` : ''}, ${fmtTime(x.startAt, tz)} to ${fmtTime(x.endAt, tz)}`}>{x.kind === 'timeoff' ? 'Time off' : 'Busy'}{x.note ? ` · ${x.note}` : ''}</button>
+                  return <button key={x.id} type="button" className="blk" style={{ top: s / 60 * HH, height: Math.max(24, (e - s) / 60 * HH) }} onClick={() => onBlock(x)}>{x.kind === 'timeoff' ? 'Time off' : 'Busy'}{x.note ? ` · ${x.note}` : ''}<span className="sr-only">, {fmtTime(x.startAt, tz)} to {fmtTime(x.endAt, tz)}</span></button>
                 })}
                 {isToday && <div className="now-line" aria-hidden="true" data-testid="now-line" style={{ top: minutesOfDay(now, tz) / 60 * HH }} />}
               </div>
@@ -209,10 +207,9 @@ export function MonthGrid({ anchor, today, days, byDay, onPick, onMonth }: { anc
               return (
                 <td key={d} role="gridcell" className={p.m === month ? '' : 'out'} aria-selected={d === focus}>
                   <button ref={(el) => { refs.current[d] = el }} type="button" className={`mcell${d === today ? ' today' : ''}`} tabIndex={d === focus ? 0 : -1} onFocus={() => setFocus(d)} onKeyDown={(e) => key(e, d)} onClick={() => onPick(d)}
-                    aria-label={`${fmtYmd(d)}${d === today ? ', today' : ''}: ${bs.length === 0 ? 'no bookings' : `${bs.length} booking${bs.length === 1 ? '' : 's'}`}`}>
+                    aria-label={`${p.d}${bs.length ? ` ${bs.length} booking${bs.length === 1 ? '' : 's'}` : ''}, ${fmtYmd(d)}${d === today ? ', today' : ''}`}>   {/* starts with exactly the visible text (WCAG 2.5.3) */}
                     <span className="n">{p.d}</span>
-                    {bs.length > 0 && <span className="c">{bs.length} booking{bs.length === 1 ? '' : 's'}</span>}
-                    {bs.slice(0, 2).map((b) => <span key={b.id} className="dot-line" aria-hidden="true">{statusLabel(b.status).slice(0, 4)} · {b.title}</span>)}
+                    {bs.length > 0 && <>{' '}<span className="c">{bs.length} booking{bs.length === 1 ? '' : 's'}</span></>}
                   </button>
                 </td>
               )

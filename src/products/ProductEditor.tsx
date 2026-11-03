@@ -92,7 +92,8 @@ function Editor({ initial }: { initial: ProductDetail }) {
     setMsg({ kind: 'success', text: ok })
   })
 
-  const status = sf.save.status === 'error' || sf.save.status === 'saving' || (sf.save.status === 'dirty' && save.status !== 'saving') ? sf.save.status : save.status
+  const ORDER = ['error', 'saving', 'dirty', 'saved', 'idle'] as const
+  const status = ORDER.find((o) => save.status === o || sf.save.status === o) ?? 'idle'   // the worst state of the listing form and the service sections
   const flushAll = async () => { await save.flush(); await sf.save.flush() }
   const indicator = status === 'saving' ? 'Saving…' : status === 'dirty' ? (ed.live ? 'Unsaved changes' : 'Saving soon…') : status === 'saved' ? 'All changes saved' : status === 'error' ? "Couldn't save" : 'No changes yet'
 
