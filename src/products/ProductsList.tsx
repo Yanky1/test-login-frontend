@@ -20,7 +20,11 @@ const TABS = [
 function QuickEdit({ item, field, onSaved, onError, readOnly }: { readOnly?: boolean; item: ListItem; field: 'price' | 'quantity'; onSaved: (i: Partial<ListItem> & { id: string }) => void; onError: (m: string) => void }) {
   const [val, setVal] = useState(numStr(field === 'price' ? item.price : item.quantity))
   const [busy, setBusy] = useState(false)
-  useEffect(() => { setVal(numStr(field === 'price' ? item.price : item.quantity)) }, [item.price, item.quantity, field])
+  // Re-sync the text only when the SAVED value changes. (An effect doing this ran once after mount too, and under load that late run overwrote
+  // what the seller had already started typing - the cause of the flaky quick-edit test.) Derived-state pattern: no effect, no mount-time reset.
+  const saved = field === 'price' ? item.price : item.quantity
+  const [seen, setSeen] = useState(saved)
+  if (seen !== saved) { setSeen(saved); setVal(numStr(saved)) }
   if (field === 'quantity' && item.hasVariants) return <span title="Edit stock per variation">{item.quantity}</span>
   const commit = async () => {
     const n = toNum(val); const cur = field === 'price' ? item.price : item.quantity
