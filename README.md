@@ -36,6 +36,10 @@ A chat assistant in the header ("Assistant"): a drawer on desktop, full screen o
 ## Services, calendars and bookings
 Calendar (day/week/month/list), Availability, Bookings and Quote requests live in `src/services/`; services are created from the products catalog (type picker). See `docs/DESIGN.md` (workstream F) and the backend `docs/SERVICES.md`. Screenshots: `docs/screenshots/`.
 
+## Staff admin area
+`/admin` is a separate, code-split back-office for Solvelt staff (own shell and sign-in; it does not share the seller session): staff sign-in with two-factor, dashboard, seller applications queue and review (with the kosher certificate), seller accounts, users, moderation, support lookups (personal data masked, reveal with a reason), integration health (dead letters), audit log (filters, CSV export), platform settings (fee, legal versions, application questions with a branching preview) and staff management. Every action asks for a reason; sensitive ones ask for the authenticator code again. What each role sees mirrors the backend's permission matrix (`docs/ADMIN.md` in the backend repository), which remains the authority. Design notes: `docs/DESIGN.md` ("Staff admin area"); screenshots `docs/screenshots/admin-*`.
+The staff token lives in memory only and is not refreshed, so reloading the page signs staff out on purpose.
+
 ## Configuration (`public/config.json`, loaded at runtime – edit without rebuilding)
 | key | meaning |
 |---|---|
