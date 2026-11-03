@@ -91,9 +91,7 @@ export default function OrderDetailPage() {
                   {l.hasImage ? <AuthImage src={ordersApi.thumbnail(o.id, l.id)} alt="" className="pthumb" /> : <span className="pthumb img-ph" aria-hidden="true" />}
                   <div className="grow">
                     <strong>{l.title}</strong>{l.options && <div className="sub">{l.options}</div>}<div className="sub">SKU {l.sku ?? '—'}</div>
-                    <div className="sub">
-                      {l.shippedQty > 0 && <>{l.shippedQty} shipped · </>}{l.unshippedQty > 0 && <>{l.unshippedQty} to ship · </>}{l.cancelledQty > 0 && <>{l.cancelledQty} cancelled · </>}{l.refundedQty > 0 && <>{l.refundedQty} refunded · </>}{l.returnedQty > 0 && <>{l.returnedQty} returned</>}
-                    </div>
+                    <div className="sub">{[l.shippedQty > 0 && `${l.shippedQty} shipped`, l.unshippedQty > 0 && `${l.unshippedQty} to ship`, l.cancelledQty > 0 && `${l.cancelledQty} cancelled`, l.refundedQty > 0 && `${l.refundedQty} refunded`, l.returnedQty > 0 && `${l.returnedQty} returned`].filter(Boolean).join(' · ')}</div>
                     {l.stockShort && <span className="chip warn">Not enough stock</span>}
                   </div>
                   <div className="num"><div>{l.quantity} × {money(l.unitPriceCents, o.currency)}</div>{l.discountCents > 0 && <div className="sub">Discount −{money(l.discountCents, o.currency)}</div>}<strong>{money(l.lineTotalCents, o.currency)}</strong></div>
