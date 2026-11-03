@@ -74,6 +74,7 @@ const PATHS = {
   pencil: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
   user: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21v-1a8 8 0 0116 0v1',
   save: 'M5 3h11l3 3v15H5zM8 3v5h7V3M8 21v-7h8v7',
+  phone: 'M8 2h8a1 1 0 011 1v18a1 1 0 01-1 1H8a1 1 0 01-1-1V3a1 1 0 011-1zM11 18h2',
 } as const
 export type IconName = keyof typeof PATHS
 export function Icon({ name, label }: { name: IconName; label?: string }) {

@@ -8,6 +8,7 @@ import AuthCallback from './pages/AuthCallback'
 const GuestPage = lazy(() => import('./pages/Guest'))
 import Home from './pages/Home'
 const SettingsPage = lazy(() => import('./pages/Settings'))
+const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 import { WizardLayout } from './pages/wizard/shared'
 import AccountStep from './pages/wizard/AccountStep'
 import VerifyStep from './pages/wizard/VerifyStep'
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/l/:token" element={<PhoneLinkPage />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Home />} />

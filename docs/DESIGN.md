@@ -22,3 +22,10 @@ Button (primary/secondary/ghost/destructive, loading), Field (label, hint, error
 - Security behaviour untouched: token handling, CSRF, multi-tab coordination, 2FA prompts, step-up, redirect safety.
 - Tests: `npm test` (Vitest), `npm run test:ui` (mocked-API Playwright + axe, light/dark, 390/1440), `npm run e2e` (real backend).
 - Route-level code splitting: Settings and the authed wizard steps (business, kosher, review, pending) and Guest are `React.lazy` chunks behind one `Suspense` spinner.
+
+## Phone number, Phone PIN and texted links
+- Settings → Security has a **Phone number** card (add or change with a texted code, remove) and a **Phone PIN** card (set or change, with the same strength rules as the server: 6 digits, no repeated digit, no sequence, no repeating pattern; `src/lib/pin.ts`). Both use `SettingCard`, `Field`, `PasswordField`, `Alert`; code in `src/pages/PhoneSettings.tsx`.
+- Step-up is the server's: password for password accounts; otherwise a code (emailed while there is no number yet, texted to the current number afterwards). Field labels are unique on the page (`Password to confirm`, `Password to confirm PIN change`) so assistive tech and tests can tell the cards apart.
+- `/l/<token>` (`src/pages/PhoneLink.tsx`) is the landing page of the links we text. A reset link redeems once (shared in-flight request, StrictMode-safe) and continues to `/reset-password`; a phone sign-up link shows "Finish creating your account" (email, password, Terms) and continues to email verification; anything else explains that the link is invalid, expired or used.
+- Tests: `src/pages/phone.test.tsx` (Vitest), mocked-UI Playwright screens with axe in light/dark and mobile/desktop (`settings-phone-add`, `settings-phone-set`, `phone-link-finish`, `phone-link-expired`), and real-backend `e2e/phone.spec.ts` (signed SMS webhooks against the Testing backend; needs `Phone__Enabled=true`, set in `playwright.config.ts`).
+

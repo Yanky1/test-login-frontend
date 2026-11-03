@@ -8,7 +8,7 @@ const application = (status: string, draftStep = 3) => ({ sellerId: 's1', status
   business: { vendorName: 'Rivka Bakes', contactName: 'Rivka', contactPhone: '5551234567', addressLine1: '1 Main St', addressLine2: null, city: 'Brooklyn', region: 'NY', postalCode: '11201', country: 'US', smsOptIn: false },
   kosher: { answers: {}, certificate: null }, legal: { termsVersion: null, termsAcceptedAt: null, sellerAgreementVersion: null, sellerAgreementAcceptedAt: null } })
 
-async function mock(page: Page, opts: { authed?: boolean; status?: string; draftStep?: number; config?: object } = {}) {
+async function mock(page: Page, opts: { authed?: boolean; status?: string; draftStep?: number; config?: object; phone?: object } = {}) {
   await page.route('**/config.json', (r) => r.fulfill({ json: { idleTimeoutMinutes: 15, warningSeconds: 60, refreshIntervalMinutes: 5, features: { apple: true }, turnstileSiteKey: 'stub', ...opts.config } }))
   await page.route('**/api/v1/**', (r) => {
     const u = new URL(r.request().url()).pathname.replace('/api/v1', '')
@@ -20,13 +20,15 @@ async function mock(page: Page, opts: { authed?: boolean; status?: string; draft
     if (u === '/account/sessions') return r.fulfill({ json: [{ id: 'x1', current: true, userAgent: 'Chrome on Mac', createdAt: '2026-11-01T00:00:00Z', lastActivityAt: '2026-11-01T00:00:00Z', ipAddress: null }] })
     if (u === '/account/2fa/setup') return r.fulfill({ json: { sharedKey: 'JBSW Y3DP EHPK 3PXP', otpAuthUri: 'otpauth://totp/Solvelt:rivka%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=Solvelt' } })
     if (u === '/account/2fa/enable') return r.fulfill({ json: { recoveryCodes: ['A1B2C-D3E4F', 'G5H6J-K7L8M', 'N9P2Q-R3S4T', 'U5V6W-X7Y8Z', 'B2C3D-E4F5G', 'H6J7K-L8M9N', 'P2Q3R-S4T5U', 'V6W7X-Y8Z9A'] } })
+    if (u === '/account/phone') return r.fulfill({ json: opts.phone ?? { hasNumber: false, numberEnding: null, hasPin: false } })
+    if (u === '/channels/links/redeem') { const b = r.request().postDataJSON() as { token?: string }; return b.token === 'signup1' ? r.fulfill({ json: { purpose: 'signup', phoneEnding: '0123' } }) : r.fulfill({ status: 400, json: { title: 'This link is invalid or has expired.', code: 'invalid_link' } }) }
     if (u === '/public/config') return r.fulfill({ json: { turnstileSiteKey: 'stub' } })
     if (u === '/auth/login') return r.fulfill({ status: 401, json: { error: 'Invalid email or password', hint: { attemptsRemaining: 0, lastTry: false, captchaRequired: false, lockedUntil: new Date(Date.now() + 272_000).toISOString(), message: 'This account is temporarily locked.' } } })
     return r.fulfill({ json: {} })
   })
 }
 
-const screens: { name: string; path: string; authed?: boolean; status?: string; draftStep?: number; heading: RegExp; act?: (p: Page) => Promise<void> }[] = [
+const screens: { name: string; path: string; authed?: boolean; status?: string; draftStep?: number; phone?: object; heading: RegExp; act?: (p: Page) => Promise<void> }[] = [
   { name: 'login', path: '/login', heading: /sign in/i },
   { name: 'login-locked', path: '/login', heading: /sign in/i, act: async (p) => {
     await p.getByLabel('Email').fill('rivka@example.com'); await p.getByLabel('Password', { exact: true }).fill('wrong-password-1')
@@ -41,6 +43,13 @@ const screens: { name: string; path: string; authed?: boolean; status?: string; 
     await p.getByRole('button', { name: 'Enable 2FA' }).click(); await expect(p.getByLabel('Recovery codes', { exact: true })).toBeVisible()
     await expect(p.getByRole('button', { name: 'Done' })).toBeDisabled(); await p.getByLabel('I have saved my recovery codes').check()
     await expect(p.getByRole('button', { name: 'Done' })).toBeEnabled() } },
+  { name: 'settings-phone-add', path: '/settings/security', authed: true, heading: /account settings/i, act: async (p) => {
+    await p.getByRole('button', { name: 'Add a mobile number' }).click(); await expect(p.getByLabel('Mobile number')).toBeVisible() } },
+  { name: 'settings-phone-set', path: '/settings/security', authed: true, phone: { hasNumber: true, numberEnding: '0123', hasPin: true }, heading: /account settings/i, act: async (p) => {
+    await expect(p.getByText(/ending 0123 is verified/)).toBeVisible(); await expect(p.getByLabel('New PIN')).toBeVisible()
+    await p.getByLabel('New PIN').fill('123456'); await expect(p.getByText(/Not a sequence like 123456/)).toBeVisible() } },
+  { name: 'phone-link-finish', path: '/l/signup1', heading: /finish creating your account/i },
+  { name: 'phone-link-expired', path: '/l/dead', heading: /this link can.t be used/i },
   { name: 'review', path: '/signup/review', authed: true, status: 'Draft', draftStep: 5, heading: /review your application/i },
   { name: 'pending', path: '/signup/pending', authed: true, heading: /pending/i },
   { name: 'settings-security', path: '/settings/security', authed: true, heading: /account settings/i, act: async (p) => { await expect(p.getByRole('heading', { name: /passkeys/i }).first()).toBeVisible() } },
@@ -52,7 +61,7 @@ for (const [vp, size] of Object.entries(viewports)) {
       test(`${s.name} @${vp} ${theme}: renders and has no serious a11y violations`, async ({ page }) => {
         await page.setViewportSize(size)
         await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
-        await mock(page, { authed: s.authed, status: s.status, draftStep: s.draftStep })
+        await mock(page, { authed: s.authed, status: s.status, draftStep: s.draftStep, phone: s.phone })
         await page.goto(s.path)
         await expect(page.getByRole('heading', { name: s.heading }).first()).toBeVisible()
         await s.act?.(page)

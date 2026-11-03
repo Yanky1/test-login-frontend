@@ -11,6 +11,7 @@ export const loginBody = (over: Record<string, unknown> = {}) => ({
 
 export const handlers = [
   http.post(`${API}/auth/refresh`, () => HttpResponse.json({ error: 'Session expired' }, { status: 401 })),
+  http.get(`${API}/account/phone`, () => HttpResponse.json({ hasNumber: false, numberEnding: null, hasPin: false })),
   http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
   http.get(`${API}/public-config`, () => HttpResponse.json({
     marketplaceUrl: 'https://market.example', termsVersion: '1', sellerAgreementVersion: '1', smsWordingVersion: '1',

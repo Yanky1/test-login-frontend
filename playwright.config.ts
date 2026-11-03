@@ -46,6 +46,10 @@ export default defineConfig({
         Passkeys__RelyingPartyId: 'localhost',
         Passkeys__AllowedOrigins__0: 'http://localhost:5173',
         Session__IdleTimeoutMinutes: '20',
+        Phone__Enabled: 'true',
+        Phone__Provider: 'Sink',
+        Phone__SigningKey: 'e2e-phone-signing-key',
+        Phone__SendInBackground: 'false',
       },
     },
     {

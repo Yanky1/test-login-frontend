@@ -8,6 +8,7 @@ import { useAuth } from '../auth'
 import { passwordChecks, passwordValid } from '../lib/password'
 import { createCredential, passkeysSupported } from '../lib/passkeys'
 import { renderSVG } from 'uqr'
+import { PhoneCards } from './PhoneSettings'
 import { Alert, Field, Icon, PasswordField, SettingCard, Shell, Skeleton, StrengthMeter } from '../components/ui'
 
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
@@ -49,6 +50,7 @@ function Security({ me, reload }: { me: Me; reload: () => Promise<void> }) {
       <Passkeys reload={reload} />
       <Logins me={me} reload={reload} />
       <TwoFactor me={me} reload={reload} />
+      <PhoneCards me={me} />
       <Sessions />
     </>
   )

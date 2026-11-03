@@ -18,7 +18,7 @@ Same-origin proxying matters: the refresh token cookie is `SameSite=Strict`, sco
 ```bash
 npm run lint && npm run typecheck
 npm test               # Vitest + React Testing Library + MSW (wizard, branching, validation, idle logout, refresh gating, redirect-back, guards)
-npm run e2e            # Playwright against the REAL backend (Testing env, SQLite, email sink, Turnstile stub) + real frontend
+npm run e2e            # Playwright against the REAL backend (Testing env, SQLite, email sink, Turnstile stub) + real frontend; includes the phone number/PIN cards and texted links (signed SMS webhooks, `Phone__Enabled=true`)
 ```
 E2E needs the backend repo next to this one (`../Yanky1-test-login-backend`) or `BACKEND_DIR=/path`. Chromium: `npx playwright install chromium`, or set
 `PW_CHROMIUM_PATH=/path/to/chrome` to use an existing binary. The suite covers signup wizard → pending, admin approval via API, login/logout/redirect-back,
