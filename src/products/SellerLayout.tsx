@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { servicesApi } from '../services/api'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { PIcon, type PIconName } from './ui'
 import './products.css'
+import '../services/services.css'
 
 interface Item { to: string; label: string; icon: PIconName; end?: boolean; show?: boolean }
 
@@ -20,10 +22,19 @@ export default function SellerLayout() {
     { to: '/products', label: 'Products', icon: 'box', end: true }, { to: '/products/import', label: 'Bulk upload', icon: 'upload' },
     { to: '/questions', label: 'Questions', icon: 'msg' },
   ]
+  const scheduling: Item[] = [
+    { to: '/calendar', label: 'Calendar', icon: 'calendar' }, { to: '/bookings', label: 'Bookings', icon: 'inbox' }, { to: '/settings/availability', label: 'Availability', icon: 'clock' },
+  ]
   const account: Item[] = [
     { to: '/settings/security', label: 'Account & security', icon: 'check' },
     { to: '/settings/team', label: 'Team', icon: 'plus', show: admin && user?.role != null }, { to: '/settings/brands', label: 'Brands', icon: 'star', show: admin && user?.role != null },
   ]
+  const [badge, setBadge] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const poll = () => servicesApi.counts().then((c) => alive && setBadge(c.needsAction)).catch(() => undefined)
+    void poll(); const t = setInterval(poll, 60_000); return () => { alive = false; clearInterval(t) }
+  }, [loc.pathname])
   const wasOpen = useRef(false); wasOpen.current = open
   useEffect(() => {
     if (wasOpen.current) requestAnimationFrame(() => document.getElementById('page-title')?.focus())  // a drawer link was used: land on the new page's heading
@@ -34,7 +45,7 @@ export default function SellerLayout() {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus() } }
     document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k)
   }, [open])
-  const link = (i: Item) => <li key={i.to}><NavLink to={i.to} end={i.end}><PIcon name={i.icon} />{i.label}</NavLink></li>
+  const link = (i: Item) => <li key={i.to}><NavLink to={i.to} end={i.end}><PIcon name={i.icon} />{i.label}{i.to === '/bookings' && badge > 0 && <span className="badge-n" aria-label={`${badge} need${badge === 1 ? 's' : ''} your attention`}>{badge}</span>}</NavLink></li>
   return (
     <div className="seller-shell">
       <div className="side-bar-mobile">
@@ -42,6 +53,8 @@ export default function SellerLayout() {
       </div>
       <nav id="seller-nav" className={`sidenav${open ? ' open' : ''}`} aria-label="Seller">
         <ul>{items.map(link)}</ul>
+        <p className="sidenav-h">Schedule</p>
+        <ul>{scheduling.map(link)}</ul>
         <p className="sidenav-h">Account</p>
         <ul>{account.filter((i) => i.show !== false).map(link)}</ul>
       </nav>

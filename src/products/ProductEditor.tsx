@@ -10,7 +10,9 @@ import { useLeaveGuard } from './useLeaveGuard'
 import { useCanWrite } from './usePermissions'
 import { useProductEditor } from './useProductEditor'
 import type { ProductDetail } from './types'
-import { SECTIONS, type SectionId } from './sections/types'
+import { SECTIONS, SERVICE_SECTIONS } from './sections/types'
+import { useServiceDetails } from '../services/useServiceDetails'
+import { ServiceBooking, ServiceLocation, ServicePolicies, ServicePricing, ServiceProviders, ServiceTiming } from '../services/ServiceSections'
 import Basics from './sections/Basics'
 import Media from './sections/Media'
 import Description from './sections/Description'
@@ -21,7 +23,9 @@ import Details from './sections/Details'
 import { Faqs, Policies, Seo, Shipping } from './sections/More'
 import './products.css'
 
-const HINTS: Record<SectionId, string> = {
+const HINTS: Record<string, string> = {
+  pricing: 'How you charge, how long it takes and any add-ons.', timing: 'Notice, booking window and the gaps you keep free between jobs.', location: 'Where the service happens and who you serve.',
+  booking: 'Instant booking or approval, what you ask the buyer and who does the job.', providers: 'Team members who can take these bookings. They need working hours too.',
   basics: 'Start with a clear title, the brand and the most specific category.', media: 'Great photos are the biggest driver of sales.', description: 'Features first, then the story.',
   price: 'Set what shoppers pay and how much you have.', identifiers: 'Barcodes help shoppers find an exact product.', variations: 'Only for products with options such as size or colour.',
   details: 'Specifications shoppers filter and compare by.', shipping: 'How and when it gets to the buyer.', faq: 'Answer the questions you hear most.', policies: 'Returns and warranty.', seo: 'Optional extras for search.',
@@ -48,20 +52,23 @@ function Editor({ initial }: { initial: ProductDetail }) {
   const [preview, setPreview] = useState(false)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ kind: 'error' | 'success' | 'info'; text: string } | null>(null)
-  const [current, setCurrent] = useState<SectionId>('basics')
+  const [current, setCurrent] = useState<string>('basics')
+  const isService = detail.type === 'Service'
+  const sf = useServiceDetails(ed)
+  const sections = isService ? SERVICE_SECTIONS : SECTIONS
   const refs = useRef<Record<string, HTMLElement | null>>({})
-  const guard = useLeaveGuard(save.unsaved, save.flush, save.discard)
+  const guard = useLeaveGuard(save.unsaved || sf.save.unsaved, async () => { await save.flush(); await sf.save.flush() }, () => { save.discard(); sf.save.discard() })
   const readOnly = !useCanWrite()
 
   useEffect(() => { document.title = `${form.title || 'New product'} - Solvelt` }, [form.title])
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver((es) => { const v = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if (v) setCurrent(v.target.id.replace('sec-', '') as SectionId) }, { rootMargin: '-20% 0px -65% 0px' })
+    const io = new IntersectionObserver((es) => { const v = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if (v) setCurrent(v.target.id.replace('sec-', '')) }, { rootMargin: '-20% 0px -65% 0px' })
     Object.values(refs.current).forEach((el) => el && io.observe(el))
     return () => io.disconnect()
   }, [form.hasVariants])
 
-  const go = (s: SectionId) => {
+  const go = (s: string) => {
     const el = document.getElementById(`sec-${s}`); if (!el) return
     el.scrollIntoView?.({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
     el.focus({ preventScroll: true })
@@ -79,13 +86,14 @@ function Editor({ initial }: { initial: ProductDetail }) {
     } finally { setBusy('') }
   }
   const setStatus = (status: string, ok: string) => run(status, async () => {
-    await save.flush()
+    await save.flush(); await sf.save.flush()
     const d = await productsApi.setStatus(detail.id, status)
     ed.patchDetail({ status: d.status, version: d.version, handle: d.handle, publishedAt: d.publishedAt, issues: d.issues, canPublish: d.canPublish, qualityScore: d.qualityScore })
     setMsg({ kind: 'success', text: ok })
   })
 
-  const status = save.status
+  const status = sf.save.status === 'error' || sf.save.status === 'saving' || (sf.save.status === 'dirty' && save.status !== 'saving') ? sf.save.status : save.status
+  const flushAll = async () => { await save.flush(); await sf.save.flush() }
   const indicator = status === 'saving' ? 'Saving…' : status === 'dirty' ? (ed.live ? 'Unsaved changes' : 'Saving soon…') : status === 'saved' ? 'All changes saved' : status === 'error' ? "Couldn't save" : 'No changes yet'
 
   return (
@@ -93,14 +101,14 @@ function Editor({ initial }: { initial: ProductDetail }) {
       <header className="ed-bar">
         <div className="ed-title">
           <Link to="/products" className="btn link back">← Products</Link>
-          <h1 id="page-title" tabIndex={-1}>{form.title || 'New product'}</h1>
+          <h1 id="page-title" tabIndex={-1}>{form.title || (isService ? 'New service' : 'New product')}</h1>{isService && <span className="chip svc-chip">Service</span>}
           <StatusChip status={detail.status} />
         </div>
         <div className="ed-actions">
           <span className={`save-ind ${status}`} role="status" aria-live="polite" data-testid="save-indicator">{indicator}</span>
-          {status === 'error' && <Button variant="ghost" onClick={() => void save.retry()}>Retry</Button>}
-          {ed.live && <Button variant="primary" loading={status === 'saving'} disabled={status === 'idle' || status === 'saved'} onClick={() => void save.flush()}>Save changes</Button>}
-          <Button type="button" onClick={() => setPreview(true)}><PIcon name="eye" /> Preview as buyer</Button>
+          {status === 'error' && <Button variant="ghost" onClick={() => void (sf.save.status === 'error' ? sf.save.retry() : save.retry())}>Retry</Button>}
+          {ed.live && <Button variant="primary" loading={status === 'saving'} disabled={status === 'idle' || status === 'saved'} onClick={() => void flushAll()}>Save changes</Button>}
+          {!isService && <Button type="button" onClick={() => setPreview(true)}><PIcon name="eye" /> Preview as buyer</Button>}
           {readOnly ? null : detail.status === 'Active'
             ? <Button loading={busy === 'inactive'} onClick={() => void setStatus('inactive', 'The listing is now inactive and hidden from shoppers.')}>Deactivate</Button>
             : detail.status === 'Archived'
@@ -123,7 +131,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
       <div className="ed-grid">
         <nav className="secnav" aria-label="Sections">
           <ol>
-            {SECTIONS.filter((s) => s.id !== 'variations' || form.hasVariants || true).map((s) => {
+            {sections.map((s) => {
               const n = ed.issues.filter((i) => i.severity === 'required' && i.section === s.id).length
               return <li key={s.id}><button type="button" aria-current={current === s.id ? 'true' : undefined} onClick={() => go(s.id)}>{s.label}{n > 0 && <span className="dot" aria-label={`${n} required item${n === 1 ? '' : 's'} missing`}>{n}</span>}</button></li>
             })}
@@ -131,10 +139,16 @@ function Editor({ initial }: { initial: ProductDetail }) {
         </nav>
         <form className="sections" onSubmit={(e) => e.preventDefault()} noValidate>
           <fieldset disabled={readOnly} className="plain">
-            {SECTIONS.map((s) => (
+            {sections.map((s) => (
               <section key={s.id} id={`sec-${s.id}`} ref={(el) => { refs.current[s.id] = el }} tabIndex={-1} aria-labelledby={`h-${s.id}`} className="psec">
                 <h2 id={`h-${s.id}`}>{s.label}</h2>
                 <p className="sec-hint">{HINTS[s.id]}</p>
+                {s.id === 'pricing' && <ServicePricing sf={sf} />}
+                {s.id === 'timing' && <ServiceTiming sf={sf} />}
+                {s.id === 'location' && <ServiceLocation sf={sf} />}
+                {s.id === 'booking' && <ServiceBooking sf={sf} />}
+                {s.id === 'policies' && isService && <ServicePolicies sf={sf} />}
+                {s.id === 'providers' && <ServiceProviders serviceId={detail.id} readOnly={readOnly} onChanged={() => void ed.refreshReadiness()} />}
                 {s.id === 'basics' && <Basics ed={ed} />}
                 {s.id === 'media' && <Media ed={ed} />}
                 {s.id === 'description' && <Description ed={ed} />}
@@ -144,7 +158,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
                 {s.id === 'details' && <Details ed={ed} />}
                 {s.id === 'shipping' && <Shipping ed={ed} />}
                 {s.id === 'faq' && <Faqs ed={ed} />}
-                {s.id === 'policies' && <Policies ed={ed} />}
+                {s.id === 'policies' && !isService && <Policies ed={ed} />}
                 {s.id === 'seo' && <Seo ed={ed} />}
               </section>
             ))}

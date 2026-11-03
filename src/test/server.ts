@@ -12,6 +12,9 @@ export const loginBody = (over: Record<string, unknown> = {}) => ({
 export const handlers = [
   http.post(`${API}/auth/refresh`, () => HttpResponse.json({ error: 'Session expired' }, { status: 401 })),
   http.get(`${API}/account/phone`, () => HttpResponse.json({ hasNumber: false, numberEnding: null, hasPin: false })),
+  http.get(`${API}/seller/bookings/counts`, () => HttpResponse.json({ requests: 0, today: 0, upcoming: 0, quoteRequests: 0, needsAction: 0 })),
+  http.get(`${API}/seller/bookings`, () => HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 5 })),
+  http.get(`${API}/seller/providers`, () => HttpResponse.json({ accountTimeZone: 'UTC', providers: [] })),
   http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
   http.get(`${API}/public-config`, () => HttpResponse.json({
     marketplaceUrl: 'https://market.example', termsVersion: '1', sellerAgreementVersion: '1', smsWordingVersion: '1',

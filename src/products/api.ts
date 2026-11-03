@@ -11,7 +11,7 @@ const qs = (o: Record<string, string | number | undefined | null>) => {
 
 export const productsApi = {
   list: (o: Record<string, string | number | undefined | null>) => api<ListResult>(`${P}${qs(o)}`),
-  create: (b: { title: string; categoryId?: string | null; brandId?: string | null }) => api<ProductDetail>(P, { body: b }),
+  create: (b: { title: string; categoryId?: string | null; brandId?: string | null; type?: 'product' | 'service' }) => api<ProductDetail>(P, { body: b }),
   get: (id: string) => api<ProductDetail>(`${P}/${id}`),
   save: (id: string, f: ProductForm) => api<ProductDetail>(`${P}/${id}`, { method: 'PUT', body: f }),
   quick: (id: string, b: { price?: number; quantity?: number; version?: number }) => api<ProductDetail>(`${P}/${id}/quick`, { method: 'PATCH', body: b }),
