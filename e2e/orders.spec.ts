@@ -1,5 +1,4 @@
 import { test, expect, expectNoSeriousA11y } from './helpers'
-import type { Page } from '@playwright/test'
 import { makePng } from './png'
 import { available, bearer, buyerEvent, mgr, orderAction, product, seller, signIn, simulate } from './ordersKit'
 

@@ -1,6 +1,5 @@
 import { test, expect } from './helpers'
 import type { Page } from '@playwright/test'
-import { makePng } from './png'
 import { bearer, buyerEvent, orderAction, product, seller, signIn, simulate } from './ordersKit'
 
 const SHOTS = process.env.SHOTS_DIR // set to capture the screenshots, e.g. SHOTS_DIR=docs/screenshots
