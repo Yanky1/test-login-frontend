@@ -25,7 +25,7 @@ const asOwner = (status: string, draftStep?: number) => {
 }
 
 describe('Home: where each signed-in user lands', () => {
-  it.each(['Approved', 'Live'])('an Owner whose application is %s lands on the product catalog', async (status) => {
+  it.each(['Approved', 'Live'])('an Owner whose application is %s (Live = stale value from an older backend) lands on the product catalog', async (status) => {
     asOwner(status)
     renderAt(routes, '/')
     expect(await screen.findByText('products page')).toBeInTheDocument()

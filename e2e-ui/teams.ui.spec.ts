@@ -18,7 +18,7 @@ const INVITES = [{ id: 'i1', email: 'new.hire@example.com', role: 'Manager', all
 
 interface Opts { accounts?: object[]; active?: string | null; invites?: object[]; preview?: object | null; role?: string }
 async function mock(page: Page, o: Opts = {}) {
-  const accounts = o.accounts ?? [acct(A, 'Rivka Bakes', o.role ?? 'Owner', 'Live', 2), acct(B, 'Rivka Wholesale', 'Viewer', 'PendingReview', 1)]
+  const accounts = o.accounts ?? [acct(A, 'Rivka Bakes', o.role ?? 'Owner', 'Approved', 2), acct(B, 'Rivka Wholesale', 'Viewer', 'PendingReview', 1)]
   const active = o.active === undefined ? A : o.active
   const login = { tokenType: 'Bearer', accessToken: 'tok', expiresIn: 900, refreshToken: '', sellerId: active ?? '', email: 'rivka@example.com', vendorName: 'Rivka Bakes', accountStatus: 'Active', roles: ['Seller'], activeAccountId: active, accounts }
   await page.route('**/config.json', (r) => r.fulfill({ json: { idleTimeoutMinutes: 15, warningSeconds: 60, refreshIntervalMinutes: 5, features: { apple: false }, turnstileSiteKey: 'stub' } }))
@@ -30,7 +30,7 @@ async function mock(page: Page, o: Opts = {}) {
     if (u === '/brands') return r.fulfill({ json: BRANDS.filter((b) => b.status === 'Active') })
     if (u === '/team/members') return r.fulfill({ json: MEMBERS })
     if (u === '/team/invitations') return r.fulfill({ json: INVITES })
-    if (u === '/account/me') return r.fulfill({ json: { email: 'rivka@example.com', emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 1, logins: [], sellerStatus: 'Live', vendorName: 'Rivka Bakes' } })
+    if (u === '/account/me') return r.fulfill({ json: { email: 'rivka@example.com', emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 1, logins: [], sellerStatus: 'Approved', vendorName: 'Rivka Bakes' } })
     if (u.startsWith('/invitations/')) return o.preview ? r.fulfill({ json: o.preview }) : r.fulfill({ status: 404, json: {} })
     return r.fulfill({ json: {} })
   })
