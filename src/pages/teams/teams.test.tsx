@@ -146,7 +146,9 @@ describe('account and brand switchers in the header', () => {
     )
     renderAt(shell, '/settings/profile')
     expect(await screen.findByText('home page')).toBeInTheDocument() // single remaining account is opened automatically
-    expect(await screen.findByRole('button', { name: /Other Shop/ })).toBeInTheDocument()
+    // Re-query on every retry: the header remounts when the account switch completes, so a node found earlier can be detached
+    // by the time it is asserted on (this flaked on CI as "element could not be found in the document").
+    await waitFor(() => expect(screen.getByRole('button', { name: /Other Shop/ })).toBeInTheDocument())
   })
 })
 
