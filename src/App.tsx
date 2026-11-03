@@ -9,6 +9,11 @@ import AuthCallback from './pages/AuthCallback'
 const GuestPage = lazy(() => import('./pages/Guest'))
 import Home from './pages/Home'
 const SettingsPage = lazy(() => import('./pages/Settings'))
+const ProductsListPage = lazy(() => import('./products/ProductsList'))
+const NewProductPage = lazy(() => import('./products/NewProduct'))
+const ProductEditorPage = lazy(() => import('./products/ProductEditor'))
+const QuestionsPage = lazy(() => import('./products/Questions'))
+const CsvPage = lazy(() => import('./products/CsvPage'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
 const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
@@ -41,6 +46,11 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/settings/:tab?" element={<SettingsPage />} />
           <Route path="/accounts" element={<ChooseAccount />} />
+          <Route path="/products" element={<ProductsListPage />} />
+          <Route path="/products/new" element={<NewProductPage />} />
+          <Route path="/products/import" element={<CsvPage />} />
+          <Route path="/products/:id" element={<ProductEditorPage />} />
+          <Route path="/questions" element={<QuestionsPage />} />
           <Route path="/signup" element={<WizardLayout />}>
             <Route path="business" element={<BusinessStep />} />
             <Route path="kosher" element={<KosherStep />} />
