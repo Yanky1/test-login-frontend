@@ -15,6 +15,10 @@ const ProductEditorPage = lazy(() => import('./products/ProductEditor'))
 const QuestionsPage = lazy(() => import('./products/Questions'))
 const CsvPage = lazy(() => import('./products/CsvPage'))
 const SellerLayout = lazy(() => import('./products/SellerLayout'))
+const OrdersListPage = lazy(() => import('./orders/OrdersList'))
+const OrderDetailPage = lazy(() => import('./orders/OrderDetail'))
+const MessagesPage = lazy(() => import('./orders/Messages'))
+const SimulatorPage = lazy(() => import('./orders/Simulator'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
 const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
@@ -49,6 +53,10 @@ export default function App() {
           <Route path="/settings/:tab?" element={<SettingsPage />} />
           <Route path="/accounts" element={<ChooseAccount />} />
           <Route element={<SellerLayout />}>
+            <Route path="/orders" element={<OrdersListPage />} />
+            <Route path="/orders/:id" element={<OrderDetailPage />} />
+            <Route path="/messages/:id?" element={<MessagesPage />} />
+            {import.meta.env.DEV && <Route path="/dev/simulator" element={<SimulatorPage />} />}
             <Route path="/products" element={<ProductsListPage />} />
             <Route path="/products/new" element={<NewProductPage />} />
             <Route path="/products/import" element={<CsvPage />} />
