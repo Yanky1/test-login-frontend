@@ -33,6 +33,10 @@ Sidebar area for the catalog: `/products` (list, inline edit, bulk actions), `/p
 ## Seller assistant
 A chat assistant in the header ("Assistant"): a drawer on desktop, full screen on a phone. It streams answers (SSE), shows what it is looking up, links to the listings/orders it mentions, and **prepares changes as "Do this?" cards that only happen when you press Confirm** (Viewers see no action buttons and an explanation). Code: `src/assistant/**`; backend and safety model: `docs/ASSISTANT.md` in the backend repository; UI decisions: `docs/DESIGN.md` ("Seller assistant"). Tests: `src/assistant/assistant.test.tsx` (Vitest + MSW) and `e2e/assistant.spec.ts` (real backend with the scripted fake model, axe; needs `Orders__InboundSecret` etc. from `playwright.config.ts`). Screenshots: `docs/screenshots/assistant-*.png`.
 
+## Staff admin area
+`/admin` is a separate, code-split back-office for Solvelt staff (own shell and sign-in; it does not share the seller session): staff sign-in with two-factor, dashboard, seller applications queue and review (with the kosher certificate), seller accounts, users, moderation, support lookups (personal data masked, reveal with a reason), integration health (dead letters), audit log (filters, CSV export), platform settings (fee, legal versions, application questions with a branching preview) and staff management. Every action asks for a reason; sensitive ones ask for the authenticator code again. What each role sees mirrors the backend's permission matrix (`docs/ADMIN.md` in the backend repository), which remains the authority. Design notes: `docs/DESIGN.md` ("Staff admin area"); screenshots `docs/screenshots/admin-*`.
+The staff token lives in memory only and is not refreshed, so reloading the page signs staff out on purpose.
+
 ## Configuration (`public/config.json`, loaded at runtime – edit without rebuilding)
 | key | meaning |
 |---|---|
