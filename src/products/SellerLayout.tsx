@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { PIcon, type PIconName } from './ui'
+import { useBadgeCounts } from '../orders/live'
 import './products.css'
 
-interface Item { to: string; label: string; icon: PIconName; end?: boolean; show?: boolean }
+interface Item { to: string; label: string; icon: PIconName; end?: boolean; show?: boolean; badge?: number; badgeLabel?: string }
 
 /**
  * Seller area shell: sidebar (drawer on small screens) around the pages. It sits UNDER the app-wide header (account + brand switchers),
@@ -16,7 +17,10 @@ export default function SellerLayout() {
   const [open, setOpen] = useState(false)
   const btn = useRef<HTMLButtonElement>(null)
   const admin = user?.role === 'Owner' || user?.role === 'Admin' || user?.role == null
+  const { orders, messages } = useBadgeCounts()
   const items: Item[] = [
+    { to: '/orders', label: 'Orders', icon: 'box', badge: orders?.needsAction, badgeLabel: 'need action' },
+    { to: '/messages', label: 'Messages', icon: 'msg', badge: messages?.unread, badgeLabel: 'unread' },
     { to: '/products', label: 'Products', icon: 'box', end: true }, { to: '/products/import', label: 'Bulk upload', icon: 'upload' },
     { to: '/questions', label: 'Questions', icon: 'msg' },
   ]
@@ -34,7 +38,9 @@ export default function SellerLayout() {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus() } }
     document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k)
   }, [open])
-  const link = (i: Item) => <li key={i.to}><NavLink to={i.to} end={i.end}><PIcon name={i.icon} />{i.label}</NavLink></li>
+  const link = (i: Item) => (
+    <li key={i.to}><NavLink to={i.to} end={i.end}><PIcon name={i.icon} />{i.label}{!!i.badge && <span className="nav-badge">{i.badge > 99 ? '99+' : i.badge}<span className="sr-only"> {i.badgeLabel}</span></span>}</NavLink></li>
+  )
   return (
     <div className="seller-shell">
       <div className="side-bar-mobile">
