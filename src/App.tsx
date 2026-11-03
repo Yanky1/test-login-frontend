@@ -19,6 +19,7 @@ const OrdersListPage = lazy(() => import('./orders/OrdersList'))
 const OrderDetailPage = lazy(() => import('./orders/OrderDetail'))
 const MessagesPage = lazy(() => import('./orders/Messages'))
 const SimulatorPage = import.meta.env.DEV ? lazy(() => import('./orders/Simulator')) : null
+const AdminApp = lazy(() => import('./admin/AdminApp'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
 const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/l/:token" element={<PhoneLinkPage />} />
         <Route path="/l" element={<PhoneLinkPage />} />
+        <Route path="/admin/*" element={<AdminApp />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="/invite" element={<InvitePage />} />
