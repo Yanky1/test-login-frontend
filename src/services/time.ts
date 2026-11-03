@@ -24,10 +24,14 @@ export function offsetAt(ms: number, tz: string): number {
 /** The UTC instant of a wall-clock time in a zone. A time inside a spring-forward gap moves forward by the gap (02:30 -> 03:30). */
 export function zonedToUtc(y: number, m: number, d: number, h: number, min: number, tz: string): Date {
   const guess = Date.UTC(y, m - 1, d, h, min)
+  // An ambiguous time (fall back, 01:30 shows twice) resolves to STANDARD time, the later instant, like the backend's slot engine.
+  const offs = new Set([offsetAt(guess - 86400000, tz), offsetAt(guess + 86400000, tz)])
+  const valid: number[] = []
+  for (const o of offs) { const t = guess - o * 60000; const b = partsIn(t, tz); if (b.h === h && b.min === min && b.d === d) valid.push(t) }
+  if (valid.length) return new Date(Math.max(...valid))
+  // nonexistent local time (spring-forward gap): shift forward by the size of the gap (02:30 -> 03:30)
   let t = guess - offsetAt(guess, tz) * 60000
-  const off2 = offsetAt(t, tz)
-  t = guess - off2 * 60000
-  // nonexistent local time: the zone's wall clock never shows it, shift forward by the size of the gap
+  t = guess - offsetAt(t, tz) * 60000
   const back = partsIn(t, tz)
   if (back.h !== h || back.min !== min) t += (h * 60 + min - (back.h * 60 + back.min)) * 60000
   return new Date(t)
@@ -46,6 +50,12 @@ export const daysInMonth = (s: string) => { const { y, m } = parseYmd(s); return
 
 export const localDate = (iso: string | Date, tz: string) => ymd(partsIn(iso, tz))
 export const dayStartUtc = (s: string, tz: string) => { const p = parseYmd(s); return zonedToUtc(p.y, p.m, p.d, 0, 0, tz) }
+/** Minutes (wall clock) from local midnight of day `d` where an interval starts and ends on that day; clamps to the day. DST days are 23/25 h long but the grid keeps 24 wall-clock rows, like the labels. */
+export function spanOnDay(startAt: string | Date, endAt: string | Date, d: string, tz: string): { start: number; end: number } {
+  const startsToday = localDate(startAt, tz) === d
+  const endsToday = localDate(new Date(new Date(endAt).getTime() - 1), tz) === d
+  return { start: startsToday ? minutesOfDay(startAt, tz) : 0, end: endsToday ? minutesOfDay(new Date(new Date(endAt).getTime() - 1), tz) + 1 : 1440 }
+}
 export const minutesOfDay = (iso: string | Date, tz: string) => { const p = partsIn(iso, tz); return p.h * 60 + p.min }
 
 export const fmtTime = (iso: string | Date, tz: string) => new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(new Date(iso))
