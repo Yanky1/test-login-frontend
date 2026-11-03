@@ -54,6 +54,12 @@ export function TimeDialog({ title, tz, initial, confirm, hint, onSubmit, onClos
   )
 }
 
+/** A question with no input: confirm before something that cannot be undone. */
+export function ConfirmDialog({ title, message, confirm, destructive, onSubmit, onClose }: { title: string; message: ReactNode; confirm: string; destructive?: boolean; onSubmit: () => Promise<unknown>; onClose: () => void }) {
+  const s = useSubmit(onClose)
+  return <Shell title={title} onClose={onClose} busy={s.busy} err={s.err} confirm={confirm} destructive={destructive} onConfirm={() => void s.run(onSubmit)}><p>{message}</p></Shell>
+}
+
 export function ReasonDialog({ title, label, required, confirm, destructive, hint, onSubmit, onClose }: { title: string; label: string; required?: boolean; confirm: string; destructive?: boolean; hint?: ReactNode; onSubmit: (reason: string) => Promise<unknown>; onClose: () => void }) {
   const [reason, setReason] = useState(''); const [touched, setTouched] = useState(false)
   const s = useSubmit(onClose)

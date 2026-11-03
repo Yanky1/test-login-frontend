@@ -107,7 +107,7 @@ Code: `src/orders/**` (lazy routes `/orders`, `/orders/:id`, `/messages/:id?`, d
 
 
 ## Services, calendar & bookings (workstream F)
-Code: `src/services/**` (lazy routes `/calendar`, `/availability`, `/bookings`, `/bookings/:id`, `/quotes`), styles `src/services/services.css`. Backend contract: backend `docs/SERVICES.md`.
+Code: `src/services/**` (lazy routes `/calendar`, `/bookings`, `/bookings/:id`, `/bookings/quotes/:id`, and Settings → Availability at `/settings/availability`), styles `src/services/services.css`. Backend contract: backend `docs/SERVICES.md`.
 
 - **Catalog:** services share the products catalog. "Add" starts with a Product / Service picker; the list has a Type filter and shows the service rate in the price column. The service editor adds sections (Service, Where, Pricing, Booking rules, Intake questions, Policies, Providers) revealed progressively: service area only for "at the customer's location", travel fee/buffer only there, hourly rate vs fixed price vs quote-required. Autosave and the version token are shared with the product editor; the status indicator merges both save streams (error > saving > dirty > saved).
 - **Calendar:** day, week, month and list views. Each member who provides services has their own calendar, plus a combined view. The month grid is a roving-tabindex grid (arrow keys); the week grid shows events as buttons whose visible text is contained in the accessible name (WCAG 2.5.3, extra detail in `sr-only` text). The list view is the non-visual/keyboard alternative to the grids. Times are rendered in the provider's time zone using `Intl.DateTimeFormat` (no date library), DST-safe.
