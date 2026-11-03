@@ -11,7 +11,7 @@ export const item = (o: Partial<OrderListItem> = {}): OrderListItem => ({
   deliverByAt: new Date(Date.now() + 8 * 86_400_000).toISOString(), late: false, oversold: false, cancelRequested: false, returnOpen: false, shippingSpeed: 'standard', version: 1, redacted: false, needsAction: true, ...o,
 })
 
-export const ACTIONS = { accept: false, hold: false, resume: false, ship: false, editTracking: false, markDelivered: false, cancel: false, cancelRemainder: false, refund: false, refundLimitCents: null, note: true }
+export const ACTIONS = { accept: false, hold: false, resume: false, ship: false, editTracking: false, markDelivered: false, cancel: false, cancelRemainder: false, refund: false, refundLimitCents: null, note: true, decideCancellation: false, decideReturn: false, receiveReturn: false }
 
 export function order(o: Partial<OrderDetail> = {}): OrderDetail {
   return {
@@ -39,7 +39,7 @@ export const conv = (o: Partial<ConversationItem> = {}): ConversationItem => ({
 export const convDetail = (o: Partial<ConversationDetail> = {}, c: Partial<ConversationItem> = {}): ConversationDetail => ({
   conversation: conv(c), order: { id: 'o1', number: 'SO-2026-000001', status: 'Accepted', totalCents: 4820, currency: 'USD', shipByAt: '2026-11-05T00:00:00Z', placedAt: '2026-11-01T10:00:00Z' }, product: null,
   messages: [{ id: 'm1', direction: 'buyer', text: 'Where is my order?', createdAt: '2026-11-01T10:00:00Z', delivery: 'delivered', author: null, authorId: null, contactWarning: false, reported: false, respondedAt: null, attachments: [] }],
-  notes: [], canWrite: true, ...o,
+  notes: [], canWrite: true, me: 'u1', assignees: [{ userId: 'u1', name: 'me@x.com', isMe: true }], ...o,
 })
 
 /** Mocks the order endpoints; returns the recorded POST/PUT bodies. */

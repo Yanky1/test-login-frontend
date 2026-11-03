@@ -3,6 +3,7 @@ import { api, onAccountLost, onSessionEnded, refreshSession, tokenStore, type Ac
 import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
 import { canLeave, LeaveRefused } from './lib/unsaved'
+import { clearDrafts } from './lib/drafts'
 
 export interface User {
   email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
@@ -70,12 +71,12 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
     return () => { alive = false }
   }, [initialConfig])
 
-  useEffect(() => onSessionEnded(() => { tokenStore.set(null); setUser(null); setStatus('anon') }), [])
+  useEffect(() => onSessionEnded(() => { tokenStore.set(null); clearDrafts(); setUser(null); setStatus('anon') }), [])
 
   // Another tab logged out (manually or by inactivity): follow it without calling the API again.
   useEffect(() => crossTab().subscribe((m) => {
     if (m.type !== 'logout') return
-    tokenStore.set(null)
+    tokenStore.set(null); clearDrafts()
     setUser(null); setStatus('anon')
     setLogoutReason(m.reason === 'idle' ? 'idle' : null)
   }), [])
@@ -110,7 +111,7 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
     if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
-    tokenStore.set(null)
+    tokenStore.set(null); clearDrafts()
     setUser(null); setStatus('anon')
     setLogoutReason(reason === 'idle' ? 'idle' : null)
     try { sessionStorage.removeItem('offerPasskey') } catch { /* ignore */ }

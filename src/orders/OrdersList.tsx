@@ -7,6 +7,7 @@ import { AuthImage } from '../products/AuthImage'
 import { fetchBlob, saveBlob } from '../products/api'
 import { PIcon, SelectField, TextField } from '../products/ui'
 import { useCanWrite } from '../products/usePermissions'
+import { TabList, tabPanelProps } from './tabs'
 import { ordersApi, type Dashboard, type OrderCounts, type OrderList, type OrderListItem, type PackingSlip } from './api'
 import { day, money, shipByText, statusLabel, statusTone } from './format'
 import { useLiveReload } from './live'
@@ -97,9 +98,8 @@ export default function OrdersListPage() {
         </section>
       )}
 
-      <div className="stabs" role="tablist" aria-label="Order groups">
-        {TABS.map(([id, label, key]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => set({ tab: id === 'needs_action' ? '' : id })}>{label}{counts && <>{' '}<span className="pcount">{counts[key]}</span></>}</button>)}
-      </div>
+      <TabList label="Order groups" idPrefix="otab" value={tab} onChange={(id) => set({ tab: id === 'needs_action' ? '' : id })}
+        tabs={TABS.map(([id, label, key]) => ({ id, label: <>{label}{counts && <>{' '}<span className="pcount">{counts[key]}</span></>}</> }))} />
 
       <div className="filters">
         <div className="field search"><label className="sr-only" htmlFor="order-search">Search orders</label><PIcon name="search" /><input id="order-search" type="search" role="searchbox" aria-label="Search orders" placeholder="Order number, buyer, SKU or tracking number" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
@@ -130,6 +130,7 @@ export default function OrdersListPage() {
       )}
       {!canWrite && sel.size > 0 && <div className="bulkbar-sel"><Button onClick={() => void printSlips()}>Print packing slips</Button></div>}
 
+      <div {...tabPanelProps('otab', tab)}>
       {loading && !data && <div className="skel-table" aria-busy="true" aria-label="Loading orders">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton row-sk" />)}</div>}
       {data && items.length === 0 && !loading && (
         <div className="pempty"><PIcon name="box" />
@@ -175,6 +176,7 @@ export default function OrdersListPage() {
           </nav>
         </>
       )}
+      </div>
       {slips && <PackingSlips slips={slips} onClose={() => setSlips(null)} />}
       {importing && <TrackingImport onClose={() => setImporting(false)} onDone={(n) => { setNotice({ kind: 'success', text: `${n} order${n === 1 ? '' : 's'} marked as shipped.` }); void load() }} />}
     </main>

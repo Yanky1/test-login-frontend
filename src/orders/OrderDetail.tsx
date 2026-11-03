@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api'
 import { Alert, Button, Skeleton } from '../components/ui'
@@ -35,8 +35,11 @@ export default function OrderDetailPage() {
     try { setO(await ordersApi.get(id)); setError('') } catch (e) { if (e instanceof ApiError && e.status === 404) setNotFound(true); else setError(e instanceof ApiError ? e.message2 : 'Could not load this order.') }
   }, [id])
   useEffect(() => { setO(null); setNotFound(false); void load() }, [load])
-  useLiveReload(['order.changed'], () => { if (!dlg) void load() })   // never reload under an open dialog
-  const done = (next: OrderDetail, msg?: string) => { setO(next); setDlg(null); if (msg) setFlash(msg) }
+  // Never reload under an open dialog (it would change the order version beneath the user's input): remember it and reload when the dialog closes.
+  const pending = useRef(false)
+  useLiveReload(['order.changed'], () => { if (dlg) pending.current = true; else void load() })
+  const closeDlg = () => { setDlg(null); if (pending.current) { pending.current = false; void load() } }
+  const done = (next: OrderDetail, msg?: string) => { pending.current = false; setO(next); setDlg(null); if (msg) setFlash(msg) }
 
   if (notFound) return <main className="pwrap" aria-labelledby="page-title"><h1 id="page-title" tabIndex={-1}>Order not found</h1><p>This order doesn’t exist, or you don’t have access to it.</p><Link className="btn" to="/orders">Back to orders</Link></main>
   if (!o) return <main className="pwrap" aria-labelledby="page-title"><h1 id="page-title" tabIndex={-1}>Order</h1><Alert>{error}</Alert><div aria-busy="true" aria-label="Loading order"><Skeleton lines={6} /></div></main>
@@ -47,8 +50,8 @@ export default function OrderDetailPage() {
   const accept = async () => { done(await ordersApi.act(o.id, 'accept', { version: o.version }), 'Order accepted.') }
   const next = (() => {
     if (!canWrite) return null
-    if (openCancel) return <Button variant="primary" onClick={() => setDlg({ k: 'creq', id: openCancel.id, approve: true })}>Review cancellation request</Button>
-    if (retReq) return <a className="btn primary" href="#ret-h">Review the return request</a>
+    if (openCancel && a.decideCancellation) return <Button variant="primary" onClick={() => setDlg({ k: 'creq', id: openCancel.id, approve: true })}>Review cancellation request</Button>
+    if (retReq && a.decideReturn) return <a className="btn primary" href="#ret-h">Review the return request</a>
     if (a.accept) return <ActionButton primary run={accept} onError={setError}>Accept order</ActionButton>
     if (a.ship) return <Button variant="primary" onClick={() => setDlg({ k: 'ship' })}>Ship order</Button>
     if (a.resume) return <ActionButton primary run={async () => done(await ordersApi.act(o.id, 'resume', { version: o.version }), 'Hold removed.')} onError={setError}>Remove hold</ActionButton>
@@ -125,7 +128,7 @@ export default function OrderDetailPage() {
                 <li key={c.id}>
                   <p><strong>{c.requestedBy === 'Buyer' ? 'The buyer asked to cancel' : 'Cancelled by you'}</strong> · {reasonLabel(c.reason)} <span className="chip">{c.status}</span></p>
                   {c.note && <p className="sub">“{c.note}”</p>}{c.decisionNote && <p className="sub">Your answer: {c.decisionNote}</p>}
-                  {c.status === 'Requested' && canWrite && <div className="actions"><Button variant="primary" onClick={() => setDlg({ k: 'creq', id: c.id, approve: true })}>Approve<span className="sr-only"> cancellation</span></Button><Button onClick={() => setDlg({ k: 'creq', id: c.id, approve: false })}>Decline<span className="sr-only"> cancellation</span></Button></div>}
+                  {c.status === 'Requested' && a.decideCancellation && <div className="actions"><Button variant="primary" onClick={() => setDlg({ k: 'creq', id: c.id, approve: true })}>Approve<span className="sr-only"> cancellation</span></Button><Button onClick={() => setDlg({ k: 'creq', id: c.id, approve: false })}>Decline<span className="sr-only"> cancellation</span></Button></div>}
                 </li>))}</ul>
             </section>
           )}
@@ -138,8 +141,8 @@ export default function OrderDetailPage() {
                   <p className="sub">{reasonLabel(r.reason)}{r.buyerComment ? ` – “${r.buyerComment}”` : ''}</p>
                   {r.decisionReason && <p className="sub">Decision: {r.decisionReason}</p>}
                   {canWrite && <div className="actions">
-                    {r.status === 'Requested' && <><ActionButton primary run={async () => done(await ordersApi.act(o.id, `returns/${r.id}/approve`, { version: o.version }), 'Return approved.')} onError={setError}>Approve return</ActionButton><Button onClick={() => setDlg({ k: 'rreject', id: r.id })}>Reject return</Button></>}
-                    {r.status === 'Approved' && <Button variant="primary" onClick={() => setDlg({ k: 'rreceive', id: r.id })}>Mark as received</Button>}
+                    {r.status === 'Requested' && a.decideReturn && <><ActionButton primary run={async () => done(await ordersApi.act(o.id, `returns/${r.id}/approve`, { version: o.version }), 'Return approved.')} onError={setError}>Approve return</ActionButton><Button onClick={() => setDlg({ k: 'rreject', id: r.id })}>Reject return</Button></>}
+                    {r.status === 'Approved' && a.receiveReturn && <Button variant="primary" onClick={() => setDlg({ k: 'rreceive', id: r.id })}>Mark as received</Button>}
                     {r.status === 'Received' && a.refund && <Button variant="primary" onClick={() => setDlg({ k: 'refund', returnId: r.id })}>Refund this return</Button>}
                   </div>}
                 </li>))}</ul>
@@ -211,16 +214,16 @@ export default function OrderDetailPage() {
         </aside>
       </div>
 
-      {dlg?.k === 'ship' && <ShipDialog order={o} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Shipment saved.')} />}
-      {dlg?.k === 'hold' && <HoldDialog order={o} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Order on hold.')} />}
-      {dlg?.k === 'cancel' && <CancelDialog order={o} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Cancelled.')} />}
-      {dlg?.k === 'refund' && <RefundDialog order={o} returnId={dlg.returnId} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Refund issued.')} />}
-      {dlg?.k === 'tracking' && <TrackingDialog order={o} shipmentId={dlg.id} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Tracking updated.')} />}
-      {dlg?.k === 'creq' && <CancelRequestDialog order={o} request={o.cancellations.find((c) => c.id === dlg.id)!} approve={dlg.approve} onClose={() => setDlg(null)} onDone={(n) => done(n, dlg.approve ? 'Order cancelled.' : 'Request declined.')} />}
-      {dlg?.k === 'rreject' && <ReturnRejectDialog order={o} ret={o.returns.find((r) => r.id === dlg.id)!} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Return rejected.')} />}
-      {dlg?.k === 'rreceive' && <ReturnReceiveDialog order={o} ret={o.returns.find((r) => r.id === dlg.id)!} onClose={() => setDlg(null)} onDone={(n) => done(n, 'Return marked as received.')} />}
-      {dlg?.k === 'deliver' && <ConfirmDialog title="Mark as delivered?" confirm="Yes, it was delivered" onClose={() => setDlg(null)} body={<p>Only do this if the carrier hasn’t confirmed the delivery yet and you know the parcel arrived.</p>} onConfirm={async () => done(await ordersApi.act(o.id, 'deliver', { version: o.version }), 'Marked as delivered.')} />}
-      {dlg?.k === 'slip' && <PackingSlips slips={[dlg.slip]} onClose={() => setDlg(null)} />}
+      {dlg?.k === 'ship' && <ShipDialog reload={load} order={o} onClose={closeDlg} onDone={(n) => done(n, 'Shipment saved.')} />}
+      {dlg?.k === 'hold' && <HoldDialog reload={load} order={o} onClose={closeDlg} onDone={(n) => done(n, 'Order on hold.')} />}
+      {dlg?.k === 'cancel' && <CancelDialog reload={load} order={o} onClose={closeDlg} onDone={(n) => done(n, 'Cancelled.')} />}
+      {dlg?.k === 'refund' && <RefundDialog reload={load} order={o} returnId={dlg.returnId} onClose={closeDlg} onDone={(n) => done(n, 'Refund issued.')} />}
+      {dlg?.k === 'tracking' && <TrackingDialog reload={load} order={o} shipmentId={dlg.id} onClose={closeDlg} onDone={(n) => done(n, 'Tracking updated.')} />}
+      {dlg?.k === 'creq' && <CancelRequestDialog reload={load} order={o} request={o.cancellations.find((c) => c.id === dlg.id)!} approve={dlg.approve} onClose={closeDlg} onDone={(n) => done(n, dlg.approve ? 'Order cancelled.' : 'Request declined.')} />}
+      {dlg?.k === 'rreject' && <ReturnRejectDialog reload={load} order={o} ret={o.returns.find((r) => r.id === dlg.id)!} onClose={closeDlg} onDone={(n) => done(n, 'Return rejected.')} />}
+      {dlg?.k === 'rreceive' && <ReturnReceiveDialog reload={load} order={o} ret={o.returns.find((r) => r.id === dlg.id)!} onClose={closeDlg} onDone={(n) => done(n, 'Return marked as received.')} />}
+      {dlg?.k === 'deliver' && <ConfirmDialog title="Mark as delivered?" confirm="Yes, it was delivered" onClose={closeDlg} body={<p>Only do this if the carrier hasn’t confirmed the delivery yet and you know the parcel arrived.</p>} onConfirm={async () => done(await ordersApi.act(o.id, 'deliver', { version: o.version }), 'Marked as delivered.')} />}
+      {dlg?.k === 'slip' && <PackingSlips slips={[dlg.slip]} onClose={closeDlg} />}
     </main>
   )
 }

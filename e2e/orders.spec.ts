@@ -117,7 +117,18 @@ test('a Manager of brand X cannot see brand Y\'s order; a Viewer cannot act', as
   await expectNoSeriousA11y(page)
   await page.goto(`/orders/${ox.id}`)
   await expect(page.getByRole('button', { name: 'Accept order' }).first()).toBeVisible()      // works the orders of their brand
+  // The refund check must run on an order that CAN be refunded (shipped), otherwise it is vacuous: the Owner sees the button, the Manager doesn't.
+  await orderAction(request, s.token, ox.id, 'accept')
+  await orderAction(request, s.token, ox.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' })
+  await orderAction(request, s.token, ox.id, 'deliver')
+  await page.reload()
+  await expect(page.getByRole('heading', { name: /^Order SO-/, level: 1 })).toBeVisible()
+  await expect(page.getByText('Delivered').first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Issue a refund…' })).toHaveCount(0)
+  const owner = await browser.newContext(); await owner.route('**/config.json', (r) => r.fulfill({ json: { idleTimeoutMinutes: 15, warningSeconds: 60, refreshIntervalMinutes: 5, turnstileSiteKey: 'stub', features: { apple: false } } }))
+  const op = await owner.newPage(); await signIn(op, s.email, `/orders/${ox.id}`)
+  await expect(op.getByRole('button', { name: 'Issue a refund…' })).toBeVisible()
+  await owner.close()
 
   const ctx = await browser.newContext(); await ctx.route('**/config.json', (r) => r.fulfill({ json: { idleTimeoutMinutes: 15, warningSeconds: 60, refreshIntervalMinutes: 5, turnstileSiteKey: 'stub', features: { apple: false } } }))
   const vp = await ctx.newPage(); await signIn(vp, viewer, `/orders/${ox.id}`)

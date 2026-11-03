@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth'
+import { onSessionEnded } from '../api'
 import { messagesApi, ordersApi, readEvents, type MessageCounts, type OrderCounts } from './api'
 
 type Listener = (type: string) => void
@@ -21,6 +22,18 @@ function connect() {
       timer = setTimeout(connect, Math.min(60_000, 2_000 * 2 ** Math.min(failures, 5)))
     })
 }
+
+/** Drops the current stream and opens a new one with the current token and account. The server binds a stream to the account it was opened for, so this runs on every account switch and after a sign-out. */
+export function resetLive() {
+  abort?.abort(); abort = null
+  if (timer) clearTimeout(timer)
+  failures = 0
+  connect()
+}
+onSessionEnded(() => { abort?.abort(); abort = null; if (timer) clearTimeout(timer) })
+
+/** Test helper: deliver an event as if the server had sent it. */
+export const emitLiveForTest = (type: string) => listeners.forEach((l) => l(type))
 
 export function subscribeLive(l: Listener) {
   listeners.add(l)
@@ -57,7 +70,7 @@ export function useBadgeCounts(): { orders: OrderCounts | null; messages: Messag
     ordersApi.counts().then(setOrders).catch(() => undefined)
     messagesApi.counts().then(setMessages).catch(() => undefined)
   }
-  useEffect(() => { load.current() }, [account])
+  useEffect(() => { load.current(); resetLive() }, [account])   // a new account: fresh counts and a stream opened for THAT account
   useEffect(() => { const i = setInterval(() => load.current(), 30_000); return () => clearInterval(i) }, [])
   useLiveReload(['order.new', 'order.changed', 'order.cancel_requested', 'order.return_requested', 'message.new', 'message.status', 'message.overdue'], () => load.current())
   return { orders, messages }

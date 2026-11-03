@@ -238,7 +238,7 @@ describe('order detail', () => {
   })
 
   it('return handling: approve, reject needs an allowed reason, receive with the restock switch, then refund that return', async () => {
-    const base = order({ status: 'ReturnRequested', actions: { ...ACTIONS, refund: true }, lines: order().lines.map((l) => ({ ...l, shippedQty: l.quantity, unshippedQty: 0 })), returns: [{ id: 'r1', status: 'Requested', reason: 'damaged', buyerComment: 'Arrived broken', decisionReason: null, restock: false, refundCents: 0, createdAt: '2026-11-03T10:00:00Z', decidedAt: null, receivedAt: null, lines: [{ lineId: 'l1', quantity: 1 }] }] })
+    const base = order({ status: 'ReturnRequested', actions: { ...ACTIONS, refund: true, decideReturn: true, receiveReturn: true }, lines: order().lines.map((l) => ({ ...l, shippedQty: l.quantity, unshippedQty: 0 })), returns: [{ id: 'r1', status: 'Requested', reason: 'damaged', buyerComment: 'Arrived broken', decisionReason: null, restock: false, refundCents: 0, createdAt: '2026-11-03T10:00:00Z', decidedAt: null, receivedAt: null, lines: [{ lineId: 'l1', quantity: 1 }] }] })
     const m = mockOrder(base)
     mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
     expect(await screen.findByText(/Arrived broken/)).toBeInTheDocument(); expect(screen.getByRole('link', { name: 'Review the return request' })).toHaveAttribute('href', '#ret-h')
@@ -258,7 +258,7 @@ describe('order detail', () => {
   })
 
   it('buyer cancellation request: approve with restock or decline with a note', async () => {
-    const m = mockOrder(order({ status: 'Accepted', cancelRequested: true, cancellations: [{ id: 'c1', requestedBy: 'Buyer', status: 'Requested', reason: 'changed_mind', note: 'Too slow', decisionNote: null, createdAt: '2026-11-03T10:00:00Z', resolvedAt: null }] }))
+    const m = mockOrder(order({ status: 'Accepted', cancelRequested: true, actions: { ...ACTIONS, cancel: true, decideCancellation: true }, cancellations: [{ id: 'c1', requestedBy: 'Buyer', status: 'Requested', reason: 'changed_mind', note: 'Too slow', decisionNote: null, createdAt: '2026-11-03T10:00:00Z', resolvedAt: null }] }))
     mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
     expect(await screen.findByText('Cancellation requested')).toBeInTheDocument(); expect(screen.getByText(/Too slow/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /^Decline/ }))
