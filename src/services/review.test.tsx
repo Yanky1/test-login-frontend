@@ -115,3 +115,29 @@ describe('review fixes: links', () => {
     expect(await screen.findByRole('link', { name: 'Availability' })).toHaveAttribute('href', '/settings/availability')
   })
 })
+
+describe('account settings (Owners and Admins)', () => {
+  it('saves the account time zone and creates the team-wide calendar feed', async () => {
+    const puts: unknown[] = []; let created = 0
+    mockSchedule()
+    server.use(
+      http.put(`${API}/seller/booking-settings`, async ({ request }) => { puts.push(await request.json()); return HttpResponse.json({ timeZone: 'Europe/London' }) }),
+      http.get(`${API}/seller/calendar/ics`, () => HttpResponse.json({ active: false, createdAt: null })),
+      http.post(`${API}/seller/calendar/ics`, () => { created++; return HttpResponse.json({ token: 'acct-tok', path: '/x' }) }),
+    )
+    mount(<AvailabilityPage />, '/availability')
+    const tz = await screen.findByLabelText('Time zone', { selector: '#av-acc-tz' }, { timeout: 5000 })
+    await userEvent.clear(tz); await userEvent.type(tz, 'Europe/London')
+    await userEvent.click(screen.getByRole('button', { name: 'Save account time zone' }))
+    expect(await screen.findByText('Account time zone saved.')).toBeInTheDocument(); expect(puts).toEqual([{ timeZone: 'Europe/London' }])
+    const feedSection = (await screen.findByRole('heading', { name: 'Team calendar feed' }, { timeout: 5000 })).closest('section')!
+    await userEvent.click(within(feedSection).getByRole('button', { name: 'Create a private link' }))
+    await waitFor(() => expect(created).toBe(1))
+  })
+  it('hides the account settings from a Manager', async () => {
+    mockSchedule()
+    mount(<AvailabilityPage />, '/availability', '/availability', { activeAccountId: 'a1', accounts: [{ sellerId: 'a1', vendorName: 'A', role: 'Manager', accountStatus: 'Approved', brandCount: 1 }] })
+    await screen.findByRole('heading', { name: 'Provider settings' }, { timeout: 5000 })
+    expect(screen.queryByRole('heading', { name: 'Account time zone' })).toBeNull()
+  })
+})
