@@ -199,6 +199,7 @@ test('closing an account asks for the authenticator code again (step-up) and sig
   await uiStaffLogin(page, sa)
   await page.getByRole('link', { name: 'Sellers' }).click()
   await page.getByLabel('Search').fill(s.sellerId)
+  await expect(page.getByRole('link', { name: 'Acme Co' })).toHaveCount(1)   // the filter has been applied
   await page.getByRole('link', { name: 'Acme Co' }).click()
   await expect(page.getByRole('heading', { name: 'Acme Co', level: 1 })).toBeVisible()
   await page.getByRole('button', { name: 'Close account' }).click()
