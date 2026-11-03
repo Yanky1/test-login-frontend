@@ -27,7 +27,7 @@ export interface ProductForm {
 }
 
 export interface ProductDetail extends ProductForm {
-  id: string; status: Status; brandName: string | null
+  id: string; status: Status; type?: 'Product' | 'Service'; service?: import('../services/types').ServiceDetails | null; brandName: string | null
   margin: number | null; currentPrice: number | null; onSale: boolean; available: number
   barcodeCheck: { valid: boolean; type: string | null; error: string | null } | null
   descriptionHtml: string
@@ -40,7 +40,7 @@ export interface ProductDetail extends ProductForm {
 export interface ListItem {
   id: string; title: string; sku: string | null; status: Status; brandId: string; brandName: string | null; categoryId: string | null
   price: number | null; currentPrice: number | null; onSale: boolean; quantity: number; hasVariants: boolean; variantCount: number
-  qualityScore: number; canPublish: boolean; needsAttention: boolean; lowStock: boolean; version: number; updatedAt: string; thumbnailUrl: string | null
+  type?: 'Product' | 'Service'; priceModel?: string | null; durationMinutes?: number | null; qualityScore: number; canPublish: boolean; needsAttention: boolean; lowStock: boolean; version: number; updatedAt: string; thumbnailUrl: string | null
 }
 export interface ListResult { items: ListItem[]; total: number; page: number; pageSize: number; counts: { all: number; draft: number; active: number; inactive: number; archived: number; outOfStock: number; attention: number } }
 

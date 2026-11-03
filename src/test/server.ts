@@ -15,6 +15,9 @@ export const handlers = [
   http.get(`${API}/seller/orders/counts`, () => HttpResponse.json({ needsAction: 0, pending: 0, shipped: 0, delivered: 0, cancelled: 0, returns: 0, late: 0, all: 0 })),
   http.get(`${API}/seller/messages/counts`, () => HttpResponse.json({ unread: 0, needsReply: 0, overdue: 0, all: 0 })),
   http.get(`${API}/seller/events`, () => new HttpResponse(null, { status: 204 })),
+  http.get(`${API}/seller/bookings/counts`, () => HttpResponse.json({ requests: 0, today: 0, upcoming: 0, quoteRequests: 0, needsAction: 0 })),
+  http.get(`${API}/seller/bookings`, () => HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 5 })),
+  http.get(`${API}/seller/providers`, () => HttpResponse.json({ accountTimeZone: 'UTC', providers: [] })),
   http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
   http.get(`${API}/public-config`, () => HttpResponse.json({
     marketplaceUrl: 'https://market.example', termsVersion: '1', sellerAgreementVersion: '1', smsWordingVersion: '1',

@@ -5,6 +5,7 @@ const PATHS = {
   search: 'M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-5-5', copy: 'M9 9h11v11H9zM5 15H4V4h11v1', up: 'M12 19V5M6 11l6-6 6 6', down: 'M12 5v14M6 13l6 6 6-6',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 100-6 3 3 0 000 6z', warn: 'M12 3l10 18H2zM12 10v5M12 18h.01', check: 'M5 12l5 5L20 7',
   x: 'M6 6l12 12M18 6L6 18', menu: 'M4 6h16M4 12h16M4 18h16', upload: 'M12 16V4M7 9l5-5 5 5M5 20h14', download: 'M12 4v11M7 11l5 5 5-5M5 20h14', msg: 'M4 5h16v11H9l-5 4z',
+  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4', clock: 'M12 4a8 8 0 100 16 8 8 0 000-16zM12 8v4l3 2', inbox: 'M3 13l3-8h12l3 8M3 13v6h18v-6M3 13h5l1 3h6l1-3h5',
   box: 'M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10', grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01', star: 'M12 3l2.800 5.700 6.200.9-4.500 4.400 1 6.200L12 17.200 6.500 20.200l1-6.200L3 9.600l6.200-.9z',
 } as const
 export type PIconName = keyof typeof PATHS

@@ -137,7 +137,7 @@ export function useProductEditor(initial: ProductDetail): EditorApi {
   return useMemo(() => ({
     detail, form, errors, set, options, variants, faqs, setVariantState, setFaqs, images: detail.images, setImages, attrConfig, changeCategory,
     issues: detail.issues, score: detail.qualityScore, canPublish: detail.canPublish, enqueue, refreshReadiness, save, conflict, resolveConflict, live,
-    patchDetail: (p) => setDetail((d) => ({ ...d, ...p })), replaceDetail,
+    patchDetail: (p) => { if (p.version !== undefined) versionRef.current = p.version; setDetail((d) => ({ ...d, ...p })) }, replaceDetail,
   }), [detail, form, errors, set, options, variants, faqs, setVariantState, setFaqs, setImages, attrConfig, changeCategory, enqueue, refreshReadiness, save, conflict, resolveConflict, live, replaceDetail])
 }
 

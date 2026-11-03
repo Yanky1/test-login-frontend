@@ -3,7 +3,7 @@ import { scoreLabel } from './lib/format'
 
 const SECTION_OF: Record<string, string> = { basics: 'basics', media: 'media', description: 'description', price: 'price', identifiers: 'identifiers', variations: 'variations', details: 'details', shipping: 'shipping', policies: 'policies', seo: 'seo' }
 const FIELD_OF: Record<string, string> = { title: 'f-title', title_length: 'f-title', category: 'f-category', condition_note: 'f-conditionNote', price: 'f-price', stock: 'f-quantity', sku: 'f-sku', barcode: 'f-barcode',
-  weight: 'f-weight', handling: 'f-handling', returns: 'f-returns', search_terms: 'f-searchTerms', bullets: 'f-bullet-0', description: 'f-description', images: 'sec-media', images_more: 'sec-media', images_resolution: 'sec-media', images_alt: 'sec-media' }
+  weight: 'f-weight', handling: 'f-handling', returns: 'f-returns', search_terms: 'f-searchTerms', bullets: 'f-bullet-0', description: 'f-description', images: 'sec-media', images_more: 'sec-media', images_resolution: 'sec-media', images_alt: 'sec-media', price_model: 'f-svc-model', duration: 'f-svc-duration', location: 'sec-location', online_instructions: 'f-svc-instr', service_area: 'f-svc-area', seller_address: 'f-svc-address', providers: 'sec-providers', intake: 'f-svc-mode', requirements: 'f-svc-req', service: 'sec-pricing' }
 
 export function focusIssue(i: Issue) {
   const id = i.key.startsWith('attr:') ? `f-attr-${i.key.slice(5)}` : FIELD_OF[i.key]
