@@ -19,6 +19,10 @@ const OrdersListPage = lazy(() => import('./orders/OrdersList'))
 const OrderDetailPage = lazy(() => import('./orders/OrderDetail'))
 const MessagesPage = lazy(() => import('./orders/Messages'))
 const SimulatorPage = import.meta.env.DEV ? lazy(() => import('./orders/Simulator')) : null
+const CalendarPage = lazy(() => import('./services/CalendarPage'))
+const BookingsPage = lazy(() => import('./services/BookingsPage'))
+const BookingDetailPage = lazy(() => import('./services/BookingDetailPage'))
+const QuotePage = lazy(() => import('./services/QuotePage'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
 const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
@@ -62,6 +66,10 @@ export default function App() {
             <Route path="/products/import" element={<CsvPage />} />
             <Route path="/products/:id" element={<ProductEditorPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/bookings" element={<BookingsPage />} />
+            <Route path="/bookings/quotes/:id" element={<QuotePage />} />
+            <Route path="/bookings/:id" element={<BookingDetailPage />} />
           </Route>
           <Route path="/signup" element={<WizardLayout />}>
             <Route path="business" element={<BusinessStep />} />

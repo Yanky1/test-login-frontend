@@ -14,6 +14,7 @@ import './products.css'
 export default function NewProductPage() {
   const nav = useNavigate()
   const { selected } = useBrands()
+  const [type, setType] = useState<'product' | 'service'>('product')
   const [title, setTitle] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
@@ -26,7 +27,7 @@ export default function NewProductPage() {
     e.preventDefault()
     if (!title.trim()) { setErr({ title: 'Enter what you are selling.' }); return }
     setBusy(true); setErr({}); setMsg('')
-    try { const d = await productsApi.create({ title: title.trim(), categoryId, brandId: brands.length > 1 ? brandId : undefined }); nav(`/products/${d.id}`, { replace: true }) }
+    try { const d = await productsApi.create({ title: title.trim(), categoryId, brandId: brands.length > 1 ? brandId : undefined, ...(type === 'service' ? { type } : {}) }); nav(`/products/${d.id}`, { replace: true }) }
     catch (x) { if (x instanceof ApiError) { setErr(x.fieldErrors()); if (!Object.keys(x.fieldErrors()).length) setMsg(x.message2) } else setMsg('Something went wrong.'); setBusy(false) }
   }
   return (
@@ -35,7 +36,14 @@ export default function NewProductPage() {
         <h1 id="page-title" tabIndex={-1}>What are you selling?</h1>
         <p className="lead">Start with a name and a category. You can add photos, price and the rest on the next page - everything saves as a draft automatically.</p>
         <form onSubmit={submit} noValidate className="pcard">
-          <TextField id="n-title" label="Product title" value={title} maxLength={200} error={err.title} autoFocus onChange={(e) => setTitle(e.target.value)} hint="Good titles are 60-150 characters: brand + product + key attribute." />
+          <fieldset className="plain type-picker">
+            <legend>What are you adding?</legend>
+            <div className="type-options">
+              <label className={`type-opt${type === 'product' ? ' on' : ''}`}><input type="radio" name="listing-type" value="product" checked={type === 'product'} onChange={() => setType('product')} /><strong>Product</strong><span>Something you ship or hand over: stock, shipping, variations.</span></label>
+              <label className={`type-opt${type === 'service' ? ' on' : ''}`}><input type="radio" name="listing-type" value="service" checked={type === 'service'} onChange={() => setType('service')} /><strong>Service</strong><span>Time you sell: online, at the customer's home or at your place, booked on a calendar.</span></label>
+            </div>
+          </fieldset>
+          <TextField id="n-title" label={type === 'service' ? 'Service title' : 'Product title'} value={title} maxLength={200} error={err.title} autoFocus onChange={(e) => setTitle(e.target.value)} hint="Good titles are 60-150 characters: brand + product + key attribute." />
           <CategoryPicker id="n-category" value={categoryId} error={err.categoryId} onChange={(id) => setCategoryId(id)} />
           {brands.length > 1 && <SelectField id="n-brand" label="Brand" value={brandId} onChange={(e) => setBrandId(e.target.value)} error={err.brandId}>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</SelectField>}
           <Alert>{msg}</Alert>

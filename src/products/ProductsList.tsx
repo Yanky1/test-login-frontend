@@ -10,7 +10,11 @@ import { useBrands } from '../pages/teams/BrandContext'
 import { useCanWrite } from './usePermissions'
 import { PIcon, QualityBadge, SelectField, StatusChip } from './ui'
 import type { ListItem, ListResult } from './types'
+import { durationLabel } from '../services/time'
+import TodayCard from '../services/TodayCard'
 import './products.css'
+
+const servicePrice = (i: ListItem) => (i.priceModel === 'quote' ? 'Quote required' : i.priceModel === 'hourly' ? `${money(i.price) || 'No rate'}/h` : money(i.price) || 'No price')
 
 const TABS = [
   { id: '', label: 'All', key: 'all' }, { id: 'Draft', label: 'Drafts', key: 'draft' }, { id: 'Active', label: 'Active', key: 'active' }, { id: 'Inactive', label: 'Inactive', key: 'inactive' },
@@ -45,6 +49,7 @@ export default function ProductsListPage() {
   const { brands, selected } = useBrands()
   const canWrite = useCanWrite()
   const tab = sp.get('tab') ?? ''; const q = sp.get('q') ?? ''; const brandId = selected === 'all' ? '' : selected
+  const type = sp.get('type') ?? ''
   const sort = sp.get('sort') ?? 'updated'; const dir = sp.get('dir') ?? 'desc'; const page = Number(sp.get('page') ?? 1) || 1
   const [data, setData] = useState<ListResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,10 +61,10 @@ export default function ProductsListPage() {
 
   const params = useCallback(() => {
     const p: Record<string, string | number> = { sort, dir, page, pageSize: 20 }
-    if (q) p.q = q; if (brandId) p.brandId = brandId
+    if (q) p.q = q; if (brandId) p.brandId = brandId; if (type) p.type = type
     if (tab === 'outofstock' || tab === 'attention') p.filter = tab; else if (tab) p.status = tab
     return p
-  }, [q, brandId, tab, sort, dir, page])
+  }, [q, brandId, tab, type, sort, dir, page])
   const load = useCallback(async () => {
     const my = ++req.current
     setLoading(true); setError('')
@@ -98,6 +103,7 @@ export default function ProductsListPage() {
             {canWrite && <Link className="btn primary" to="/products/new"><PIcon name="plus" /> Add product</Link>}
           </div>
         </header>
+        <TodayCard />
         <div className="stabs" role="tablist" aria-label="Filter by status">
           {TABS.map((t) => (
             <button key={t.key} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => update({ tab: t.id, page: '' })}>
@@ -108,6 +114,7 @@ export default function ProductsListPage() {
         <div className="filters">
           <div className="field search"><label htmlFor="p-search" className="sr-only">Search products</label><PIcon name="search" /><input id="p-search" type="search" placeholder="Search by title or SKU" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
           {brandId && <p className="hint brand-note" role="status">Showing {brands.find((b) => b.id === brandId)?.name ?? 'one brand'} only. Change it with the brand switcher in the header.</p>}
+          <SelectField label="Type" id="p-type" value={type} onChange={(e) => update({ type: e.target.value, page: '' })}><option value="">All listings</option><option value="product">Products</option><option value="service">Services</option></SelectField>
           <SelectField label="Sort by" id="p-sort" value={`${sort}:${dir}`} onChange={(e) => { const [s, d] = e.target.value.split(':'); update({ sort: s, dir: d }) }}>
             <option value="updated:desc">Recently updated</option><option value="title:asc">Title A-Z</option><option value="title:desc">Title Z-A</option><option value="price:asc">Price: low to high</option>
             <option value="price:desc">Price: high to low</option><option value="stock:asc">Stock: low to high</option><option value="quality:asc">Quality: lowest first</option>
@@ -148,8 +155,10 @@ export default function ProductsListPage() {
                     <tr key={i.id}>
                       <td>{canWrite && <input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} />}</td>
                       <td><div className="pcell"><AuthImage src={i.thumbnailUrl} alt="" className="pthumb" /><div><Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link><div className="sub">{i.sku ? `SKU ${i.sku}` : 'No SKU'}{i.brandName && brands.length > 1 && !brandId ? ` · ${i.brandName}` : ''}{i.hasVariants ? ` · ${i.variantCount} variations` : ''}</div></div></div></td>
-                      <td><QuickEdit readOnly={!canWrite} item={i} field="price" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.onSale && <div className="sub ok-text">Sale {money(i.currentPrice)}</div>}</td>
-                      <td><QuickEdit readOnly={!canWrite} item={i} field="quantity" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.lowStock && <div className="sub warn-text">Low stock</div>}</td>
+                      {i.type === 'Service'
+                        ? <><td>{servicePrice(i)}</td><td><span className="chip svc-chip">Service</span> {i.durationMinutes ? durationLabel(i.durationMinutes) : ''}</td></>
+                        : <><td><QuickEdit readOnly={!canWrite} item={i} field="price" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.onSale && <div className="sub ok-text">Sale {money(i.currentPrice)}</div>}</td>
+                      <td><QuickEdit readOnly={!canWrite} item={i} field="quantity" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.lowStock && <div className="sub warn-text">Low stock</div>}</td></>}
                       <td><StatusChip status={i.status} />{i.needsAttention && <div className="sub warn-text">Needs attention</div>}</td>
                       <td><QualityBadge score={i.qualityScore} /></td>
                       <td className="acts"><Link className="btn link" to={`/products/${i.id}`}>Edit<span className="sr-only"> {i.title}</span></Link>{canWrite && <button className="btn link" onClick={() => void dup(i.id)}>Duplicate<span className="sr-only"> {i.title}</span></button>}</td>
@@ -167,7 +176,7 @@ export default function ProductsListPage() {
                     <Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link>
                     <div className="sub">{i.sku ? `SKU ${i.sku}` : 'No SKU'}</div>
                     <div className="pc-meta"><StatusChip status={i.status} /><QualityBadge score={i.qualityScore} /></div>
-                    <div className="pc-meta"><span>{money(i.currentPrice ?? i.price) || 'No price'}</span><span>{i.quantity} in stock</span></div>
+                    <div className="pc-meta">{i.type === 'Service' ? <><span>{servicePrice(i)}</span><span>Service{i.durationMinutes ? ` · ${durationLabel(i.durationMinutes)}` : ''}</span></> : <><span>{money(i.currentPrice ?? i.price) || 'No price'}</span><span>{i.quantity} in stock</span></>}</div>
                   </div>
                 </li>
               ))}
