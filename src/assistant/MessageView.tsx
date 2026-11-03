@@ -7,8 +7,6 @@ import { linkFor } from './routes'
 import { useAssistant } from './context'
 import type { ChatMessage } from './types'
 
-/** Defence in depth: the server already strips links and images; Markdown here never renders raw HTML and never links to model-supplied URLs. */
-export const withoutLinks = (t: string) => t.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
 
 export function MessageView({ m, last }: { m: ChatMessage; last: boolean }) {
   const { retry, busy } = useAssistant()
@@ -32,7 +30,7 @@ export function MessageView({ m, last }: { m: ChatMessage; last: boolean }) {
           ))}
         </ul>
       )}
-      {m.text ? <Markdown source={withoutLinks(m.text)} /> : m.streaming && running.length === 0 ? <p className="as-muted"><Spinner /> Thinking…</p> : null}
+      {m.text ? <Markdown source={m.text} links={false} /> : m.streaming && running.length === 0 ? <p className="as-muted"><Spinner /> Thinking…</p> : null}
       {(m.links?.length ?? 0) > 0 && (
         <ul className="as-links" aria-label="Mentioned">
           {m.links!.map((l) => { const to = linkFor(l); return <li key={l.id}>{to ? <Link to={to}>{l.label}</Link> : <span>{l.label}</span>}</li> })}
