@@ -19,6 +19,7 @@ export default function PendingStep() {
   const { app } = useWizard()
   const idx = trackerIndex(app.status)
   const decided = app.status === 'Approved' || app.status === 'Live'
+  const preparing = app.status === 'PendingReview' || app.status === 'NeedsInfo' // drafts are allowed while the application is in review
   return (
     <StepFrame index={5}>
       <div className="pending-head">
@@ -28,7 +29,9 @@ export default function PendingStep() {
       {app.status === 'Rejected' && <p role="status" className="alert error">Unfortunately your application was not approved.</p>}
       {app.status === 'Suspended' && <p role="status" className="alert error">Your account is suspended.</p>}
       {decided
-        ? <p role="status" className="alert success">Congratulations{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Your seller application has been approved.</p>
+        ? <p role="status" className="alert success">{app.status === 'Live'
+            ? 'Your shop is live on the marketplace.'
+            : 'You\u2019re approved \u2014 you can now publish products.'}{app.business.vendorName ? ` Welcome, ${app.business.vendorName}!` : ''}</p>
         : <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed. You can safely close this page.</p>}
       </div>
       <ol className="tracker" aria-label="Application status">
@@ -38,16 +41,25 @@ export default function PendingStep() {
           </li>
         ))}
       </ol>
-      <div className="next">
-        <h2>What happens next</h2>
-        <ul>
-          <li>Our team reviews your business details and kosher information.</li>
-          <li>We email you at your account address with the decision, or if we need anything else.</li>
-          <li>Once approved, your storefront goes live on the marketplace.</li>
-        </ul>
-      </div>
+      {decided ? (
+        <div className="next">
+          <h2>You&rsquo;re all set</h2>
+          <p>Add your products, check how they look and publish them whenever you&rsquo;re ready.</p>
+          <div className="row"><Link className="btn primary" to="/products">Go to your products</Link></div>
+        </div>
+      ) : (
+        <div className="next">
+          <h2>What happens next</h2>
+          <ul>
+            <li>Our team reviews your business details and kosher information.</li>
+            <li>We email you at your account address with the decision, or if we need anything else.</li>
+            <li>Once approved, your storefront goes live on the marketplace.</li>
+          </ul>
+          {preparing && <p><Link to="/products">Start preparing your products (saved as drafts)</Link></p>}
+        </div>
+      )}
       <div className="row">
-        <a className="btn primary" href={app.marketplaceUrl} target="_blank" rel="noreferrer">Visit marketplace</a>
+        <a className="btn" href={app.marketplaceUrl} target="_blank" rel="noreferrer">Visit marketplace</a>
         <Link className="btn" to="/guest">Guest mode</Link>
       </div>
     </StepFrame>
