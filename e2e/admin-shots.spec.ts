@@ -1,6 +1,6 @@
 import { test, expect, createSeller } from './helpers'
 import { bearer, product, seller, tokenFor } from './ordersKit'
-import { insertDeadLetter, placeOrder, signedPost, staffMember, totp, uiStaffLogin } from './adminKit'
+import { insertDeadLetter, placeOrder, signedPost, staffMember, totp } from './adminKit'
 import { makePng } from './png'
 import type { Page } from '@playwright/test'
 
