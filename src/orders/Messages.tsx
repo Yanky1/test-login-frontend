@@ -107,7 +107,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
           <form className="composer" onSubmit={(e) => { e.preventDefault(); if (text.trim() || atts.length) void send(false) }}>
             <AreaField label="Your reply" rows={4} maxLength={4000} value={text} onChange={(e) => edit(e.target.value)} hint="Keep the conversation on Solvelt: don’t share emails, phone numbers or payment links. Reply within 24 hours." />
             {atts.length > 0 && <ul className="attach-list" aria-label="Attached files">{atts.map((a) => <li key={a.id}><span className="chip">{a.fileName}</span> <button type="button" className="btn link" onClick={() => void messagesApi.removeAttachment(id, a.id).then(() => setAtts((x) => x.filter((y) => y.id !== a.id)))}>Remove<span className="sr-only"> {a.fileName}</span></button></li>)}</ul>}
-            {warn && <Alert kind="info">This message looks like it shares {warn.includes('payment') ? 'payment details' : 'contact details or a link'}. Sharing them outside Solvelt is against marketplace rules, and we keep a record. <Button onClick={() => void send(true)}>Send anyway</Button></Alert>}
+            {warn && <Alert kind="info">This message looks like it shares {warn.includes('payment') ? 'payment details' : 'contact details or a link'}. Sharing them outside Solvelt is against marketplace rules, and we keep a record. <Button type="button" onClick={() => void send(true)}>Send anyway</Button></Alert>}
             <Alert>{sendErr}</Alert>
             <div className="actions">
               <Button variant="primary" type="submit" loading={busy} disabled={!text.trim() && atts.length === 0}>Send reply</Button>

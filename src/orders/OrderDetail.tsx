@@ -268,7 +268,7 @@ function Messages({ order, canWrite }: { order: OrderDetail; canWrite: boolean }
         <form onSubmit={(e) => { e.preventDefault(); if (text.trim()) void send(false) }}>
           {templates.length > 0 && <SelectField label="Saved reply" value="" onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (t) setText(t.body) }}><option value="">Insert a saved reply…</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}</SelectField>}
           <AreaField label="Message to the buyer" rows={3} maxLength={4000} value={text} onChange={(e) => { setText(e.target.value); setWarn(false) }} error={err} hint="Keep the conversation on Solvelt: don't share emails, phone numbers or payment links." />
-          {warn && <Alert kind="info">This looks like it shares contact details or a payment link. Sharing them outside Solvelt is against marketplace rules. <Button onClick={() => void send(true)}>Send anyway</Button></Alert>}
+          {warn && <Alert kind="info">This looks like it shares contact details or a payment link. Sharing them outside Solvelt is against marketplace rules. <Button type="button" onClick={() => void send(true)}>Send anyway</Button></Alert>}
           <div aria-live="polite">{ok && <p className="ok-text">{ok}</p>}</div>
           <Button variant="primary" type="submit" loading={busy} disabled={!text.trim()}>Send message</Button>
         </form>
