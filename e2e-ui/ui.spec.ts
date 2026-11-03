@@ -124,3 +124,43 @@ test('saved theme is applied under the README CSP (production build, no inline-s
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   expect(blocked).toEqual([])
 })
+
+// React applies style={{…}} through the CSSOM (element.style), which CSP style-src does not block; only style attributes
+// in HTML markup are blocked. Prove it for real: serve the production build with the README CSP and check the widths apply.
+test('inline style widths (progress bar, skeleton) apply under the README CSP with no violation reports', async ({ page }) => {
+  await page.addInitScript(() => {
+    ;(window as unknown as { __csp: string[] }).__csp = []
+    document.addEventListener('securitypolicyviolation', (e) => (window as unknown as { __csp: string[] }).__csp.push(`${e.violatedDirective} ${e.blockedURI} @ ${e.sourceFile}:${e.lineNumber}:${e.columnNumber} sample=${e.sample}`))
+  })
+  const consoleCsp: string[] = []
+  page.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) consoleCsp.push(m.text()) })
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
+  await mock(page, { authed: true, status: 'Draft', draftStep: 3 })
+  // hold /account/me so the Settings skeleton stays on screen
+  let release!: () => void
+  const gate = new Promise<void>((r) => { release = r })
+  await page.route('**/api/v1/account/me', async (r) => { await gate; await r.fulfill({ json: { email: login.email, emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 0, logins: [], sellerStatus: 'Pending', vendorName: 'Rivka Bakes' } }) })
+  await page.route('http://localhost:4173/**', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.fallback()
+    const res = await route.fetch()
+    await route.fulfill({ response: res, headers: { ...res.headers(), 'content-security-policy': README_CSP } })
+  })
+  // 1) wizard progress bar: step 3 of 6 = 50% of the track
+  await page.goto('http://localhost:4173/signup/business')
+  const fill = page.locator('.progress-fill')
+  await expect(fill).toBeVisible()
+  const bar = await fill.evaluate((el) => ({ inline: (el as HTMLElement).style.width, w: el.getBoundingClientRect().width, track: el.parentElement!.getBoundingClientRect().width }))
+  expect(bar.inline).toMatch(/%$/)
+  expect(bar.w / bar.track).toBeGreaterThan(0.45)
+  expect(bar.w / bar.track).toBeLessThan(0.55)
+  // 2) settings skeleton: the three lines have different widths (90/75/60%)
+  await page.goto('http://localhost:4173/settings/security')
+  const lines = page.locator('.skeleton')
+  await expect(lines).toHaveCount(4)
+  const widths = await lines.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().width)))
+  expect(new Set(widths).size).toBeGreaterThan(1)
+  release()
+  await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible()
+  const violations = await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp)
+  expect([...violations, ...consoleCsp]).toEqual([])
+})
