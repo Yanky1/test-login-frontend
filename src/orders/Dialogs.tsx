@@ -58,12 +58,12 @@ export function HoldDialog({ order, onClose, onDone, reload }: Common) {
 }
 
 // ---- ship ------------------------------------------------------------------------------------------------------------------
-export function ShipDialog({ order, onClose, onDone, reload }: Common) {
+export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { now?: Date }) {
   const open = order.lines.filter((l) => l.unshippedQty > 0)
   const [qty, setQty] = useState<Record<string, string>>(() => Object.fromEntries(open.map((l) => [l.id, String(l.unshippedQty)])))
   const [carrier, setCarrier] = useState(order.reasons.carriers[0] ?? 'UPS')
   const [tracking, setTracking] = useState(''); const [service, setService] = useState('')
-  const today = localDate()
+  const today = localDate(now)                 // `now` is injectable so the default can be tested in any time zone
   const [date, setDate] = useState(today)
   const [touched, setTouched] = useState(false)
   const { busy, errorNode, run } = useRun(onDone, reload)

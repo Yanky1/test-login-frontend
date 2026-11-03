@@ -57,6 +57,45 @@ describe('review: refund preview and confirmation', () => {
   })
 })
 
+describe('review: refund input keying', () => {
+  it('hides the old total as soon as the inputs change and cannot confirm it', async () => {
+    mockOrder(delivered())
+    server.use(http.post(`${API}/seller/orders/:id/refunds/preview`, async ({ request }) => {
+      const b = (await request.json()) as { lines: { quantity: number }[]; shippingCents: number }; const qty = b.lines.reduce((n, l) => n + l.quantity, 0)
+      if (qty === 4) await new Promise((r) => setTimeout(r, 700))      // the new total is slow to arrive
+      return HttpResponse.json({ amountCents: qty * 1080 + b.shippingCents, shippingCents: b.shippingCents, maxCents: 8000, lines: [] })
+    }))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Issue a refund…' }))
+    const dlg = await screen.findByRole('dialog', { name: /Refund order/ })
+    const q = within(dlg).getByLabelText('Refund quantity of Blue mug'); await userEvent.clear(q); await userEvent.type(q, '1')
+    const n = within(dlg).getByLabelText('Refund quantity of Linen napkin'); await userEvent.clear(n); await userEvent.type(n, '1')   // a second line keeps the form valid while the first is edited
+    await userEvent.selectOptions(within(dlg).getByLabelText('Reason'), 'goodwill')
+    expect(await within(dlg).findByText('$21.60')).toBeInTheDocument()
+    await userEvent.clear(q); await userEvent.type(q, '3')
+    expect(within(dlg).queryByText('$21.60')).toBeNull()                // the old number is gone immediately, not when the new one arrives
+    expect(within(dlg).getByText('Calculating the total…')).toBeInTheDocument()
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Review refund' }))
+    expect(screen.queryByRole('button', { name: 'Yes, refund $21.60' })).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Yes, refund $43.20' })).toBeInTheDocument()
+  })
+})
+
+describe('review: return and cancellation buttons follow the server flags', () => {
+  it('are hidden when decideReturn / receiveReturn / decideCancellation are false, even for a role that can write', async () => {
+    const lines = order().lines.map((l) => ({ ...l, shippedQty: l.quantity, unshippedQty: 0 }))
+    mockOrder(order({ status: 'ReturnRequested', cancelRequested: true, lines, actions: { ...ACTIONS, refund: true },
+      returns: [{ id: 'r1', status: 'Requested', reason: 'damaged', buyerComment: 'Arrived broken', decisionReason: null, restock: false, refundCents: 0, createdAt: '2026-11-03T10:00:00Z', decidedAt: null, receivedAt: null, lines: [{ lineId: 'l1', quantity: 1 }] } as never, { id: 'r2', status: 'Approved', reason: 'damaged', buyerComment: null, decisionReason: null, restock: false, refundCents: 0, createdAt: '2026-11-03T10:00:00Z', decidedAt: '2026-11-03T11:00:00Z', receivedAt: null, lines: [{ lineId: 'l1', quantity: 1 }] } as never],
+      cancellations: [{ id: 'c1', requestedBy: 'Buyer', status: 'Requested', reason: 'changed_mind', note: 'Too slow', decisionNote: null, createdAt: '2026-11-01T10:00:00Z' } as never] }))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1', { activeAccountId: 'a1', role: 'Admin', accounts: [{ sellerId: 'a1', vendorName: 'Acme', role: 'Admin', accountStatus: 'Approved', brandCount: 1 }] })
+    expect(await screen.findByText(/Arrived broken/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Issue a refund…' })).toBeInTheDocument()   // this role can write
+    for (const n of [/^Approve return/, /^Reject return/, /^Mark as received/, /^Approve/, /^Decline/, /Review the return request/, /Review cancellation request/]) {
+      expect(screen.queryByRole('button', { name: n })).toBeNull(); expect(screen.queryByRole('link', { name: n })).toBeNull()
+    }
+  })
+})
+
 describe('review: live reloads and conflicts', () => {
   it('queues a live reload while a dialog is open and runs it when the dialog closes', async () => {
     const o = order(); mockOrder(o)
@@ -80,6 +119,17 @@ describe('review: live reloads and conflicts', () => {
     await userEvent.click(await within(dlg).findByRole('button', { name: 'Reload order' }))
     await waitFor(() => expect(within(dlg).queryByRole('button', { name: 'Reload order' })).toBeNull())
     expect(screen.getByRole('dialog', { name: /Cancel order/ })).toBeInTheDocument()
+  })
+
+  it('a version conflict on an out-of-dialog button (Accept) also offers Reload order', async () => {
+    const o = order(); mockOrder(o)
+    server.use(http.post(`${API}/seller/orders/:id/accept`, () => HttpResponse.json({ code: 'version_conflict', title: 'Changed' }, { status: 409 })))
+    let gets = 0; server.use(http.get(`${API}/seller/orders/:id`, () => { gets++; return HttpResponse.json(o) }))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Accept order' }))[0])
+    const reload = await screen.findByRole('button', { name: 'Reload order' }); const before = gets
+    await userEvent.click(reload)
+    await waitFor(() => expect(gets).toBeGreaterThan(before)); await waitFor(() => expect(screen.queryByRole('button', { name: 'Reload order' })).toBeNull())
   })
 
   it('defaults the ship date to the local date, not UTC', () => {
@@ -158,6 +208,27 @@ describe('review: messages', () => {
     const input = await screen.findByLabelText('Choose files to attach')
     fireEvent.change(input, { target: { files: [new File([new Uint8Array(6 * 1024 * 1024)], 'big.png', { type: 'image/png' })] } })
     expect(await screen.findByText(/big\.png is larger than 5 MB/)).toBeInTheDocument()
+  })
+
+  it('counts files already attached plus the ones being added: picking 7 at once uploads only 5', async () => {
+    inbox(); let uploads = 0
+    server.use(http.post(`${API}/seller/messages/:id/attachments`, () => { uploads++; return HttpResponse.json({ id: `a${uploads}`, fileName: `p${uploads}.png`, contentType: 'image/png', size: 10 }, { status: 201 }) }))
+    mount(<MessagesPage />, '/messages/:id?', '/messages/c1')
+    const input = await screen.findByLabelText('Choose files to attach')
+    fireEvent.change(input, { target: { files: Array.from({ length: 7 }, (_, i) => new File(['x'], `f${i}.png`, { type: 'image/png' })) } })
+    expect(await screen.findByText('You can attach up to 5 files to a reply.')).toBeInTheDocument()
+    expect(uploads).toBe(5)
+  })
+
+  it('also counts files that were already attached: 3, then 4 more, uploads only 2 of them', async () => {
+    inbox(); let uploads = 0
+    server.use(http.post(`${API}/seller/messages/:id/attachments`, () => { uploads++; return HttpResponse.json({ id: `a${uploads}`, fileName: `p${uploads}.png`, contentType: 'image/png', size: 10 }, { status: 201 }) }))
+    mount(<MessagesPage />, '/messages/:id?', '/messages/c1')
+    const input = await screen.findByLabelText('Choose files to attach')
+    const pick = (n: number) => fireEvent.change(input, { target: { files: Array.from({ length: n }, (_, i) => new File(['x'], `f${i}.png`, { type: 'image/png' })) } })
+    pick(3); await waitFor(() => expect(uploads).toBe(3)); expect(await screen.findByLabelText('Attached files')).toBeInTheDocument()
+    pick(4); expect(await screen.findByText('You can attach up to 5 files to a reply.')).toBeInTheDocument()
+    expect(uploads).toBe(5)
   })
 
   it('paginates the inbox', async () => {

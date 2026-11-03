@@ -28,17 +28,18 @@ export default function OrderDetailPage() {
   const { id = '' } = useParams()
   const canWrite = useCanWrite()
   const [o, setO] = useState<OrderDetail | null>(null)
-  const [error, setError] = useState(''); const [notFound, setNotFound] = useState(false)
+  const [error, setError] = useState(''); const [stale, setStale] = useState(false); const [notFound, setNotFound] = useState(false)
   const [dlg, setDlg] = useState<Dlg | null>(null)
   const [flash, setFlash] = useState('')
   const load = useCallback(async () => {
-    try { setO(await ordersApi.get(id)); setError('') } catch (e) { if (e instanceof ApiError && e.status === 404) setNotFound(true); else setError(e instanceof ApiError ? e.message2 : 'Could not load this order.') }
+    try { setO(await ordersApi.get(id)); setError(''); setStale(false) } catch (e) { if (e instanceof ApiError && e.status === 404) setNotFound(true); else setError(e instanceof ApiError ? e.message2 : 'Could not load this order.') }
   }, [id])
   useEffect(() => { setO(null); setNotFound(false); void load() }, [load])
   // Never reload under an open dialog (it would change the order version beneath the user's input): remember it and reload when the dialog closes.
   const pending = useRef(false)
   useLiveReload(['order.changed'], () => { if (dlg) pending.current = true; else void load() })
   const closeDlg = () => { setDlg(null); if (pending.current) { pending.current = false; void load() } }
+  const fail = (m: string, conflict?: boolean) => { setError(m); setStale(!!conflict) }
   const done = (next: OrderDetail, msg?: string) => { pending.current = false; setO(next); setDlg(null); if (msg) setFlash(msg) }
 
   if (notFound) return <main className="pwrap" aria-labelledby="page-title"><h1 id="page-title" tabIndex={-1}>Order not found</h1><p>This order doesn’t exist, or you don’t have access to it.</p><Link className="btn" to="/orders">Back to orders</Link></main>
@@ -52,9 +53,9 @@ export default function OrderDetailPage() {
     if (!canWrite) return null
     if (openCancel && a.decideCancellation) return <Button variant="primary" onClick={() => setDlg({ k: 'creq', id: openCancel.id, approve: true })}>Review cancellation request</Button>
     if (retReq && a.decideReturn) return <a className="btn primary" href="#ret-h">Review the return request</a>
-    if (a.accept) return <ActionButton primary run={accept} onError={setError}>Accept order</ActionButton>
+    if (a.accept) return <ActionButton primary run={accept} onError={fail}>Accept order</ActionButton>
     if (a.ship) return <Button variant="primary" onClick={() => setDlg({ k: 'ship' })}>Ship order</Button>
-    if (a.resume) return <ActionButton primary run={async () => done(await ordersApi.act(o.id, 'resume', { version: o.version }), 'Hold removed.')} onError={setError}>Remove hold</ActionButton>
+    if (a.resume) return <ActionButton primary run={async () => done(await ordersApi.act(o.id, 'resume', { version: o.version }), 'Hold removed.')} onError={fail}>Remove hold</ActionButton>
     if (a.markDelivered) return <Button variant="primary" onClick={() => setDlg({ k: 'deliver' })}>Mark as delivered</Button>
     if (retReceived && a.refund) return <Button variant="primary" onClick={() => setDlg({ k: 'refund', returnId: retReceived.id })}>Refund the return</Button>
     return null
@@ -81,6 +82,7 @@ export default function OrderDetailPage() {
       </header>
       <div aria-live="polite" className="flash">{flash && <Alert kind="success">{flash}</Alert>}</div>
       <Alert>{error}</Alert>
+      {stale && <p><Button onClick={() => void load()}>Reload order</Button></p>}
       {o.stockMismatch && <Alert kind="info">Some units couldn’t be taken off your stock automatically when this order shipped. Please check the stock count of its items.</Alert>}
       {o.redacted && <Alert kind="info">The buyer’s details were removed after the retention period.</Alert>}
 
@@ -141,7 +143,7 @@ export default function OrderDetailPage() {
                   <p className="sub">{reasonLabel(r.reason)}{r.buyerComment ? ` – “${r.buyerComment}”` : ''}</p>
                   {r.decisionReason && <p className="sub">Decision: {r.decisionReason}</p>}
                   {canWrite && <div className="actions">
-                    {r.status === 'Requested' && a.decideReturn && <><ActionButton primary run={async () => done(await ordersApi.act(o.id, `returns/${r.id}/approve`, { version: o.version }), 'Return approved.')} onError={setError}>Approve return</ActionButton><Button onClick={() => setDlg({ k: 'rreject', id: r.id })}>Reject return</Button></>}
+                    {r.status === 'Requested' && a.decideReturn && <><ActionButton primary run={async () => done(await ordersApi.act(o.id, `returns/${r.id}/approve`, { version: o.version }), 'Return approved.')} onError={fail}>Approve return</ActionButton><Button onClick={() => setDlg({ k: 'rreject', id: r.id })}>Reject return</Button></>}
                     {r.status === 'Approved' && a.receiveReturn && <Button variant="primary" onClick={() => setDlg({ k: 'rreceive', id: r.id })}>Mark as received</Button>}
                     {r.status === 'Received' && a.refund && <Button variant="primary" onClick={() => setDlg({ k: 'refund', returnId: r.id })}>Refund this return</Button>}
                   </div>}
@@ -197,10 +199,10 @@ export default function OrderDetailPage() {
             <section className="pcard" aria-labelledby="act-h">
               <h2 id="act-h">More actions</h2>
               <div className="stack">
-                {a.accept && <ActionButton run={accept} onError={setError}>Accept order</ActionButton>}
+                {a.accept && <ActionButton run={accept} onError={fail}>Accept order</ActionButton>}
                 {a.ship && <Button onClick={() => setDlg({ k: 'ship' })}>Ship items…</Button>}
                 {a.hold && <Button onClick={() => setDlg({ k: 'hold' })}>Put on hold…</Button>}
-                {a.resume && <ActionButton run={async () => done(await ordersApi.act(o.id, 'resume', { version: o.version }), 'Hold removed.')} onError={setError}>Remove hold</ActionButton>}
+                {a.resume && <ActionButton run={async () => done(await ordersApi.act(o.id, 'resume', { version: o.version }), 'Hold removed.')} onError={fail}>Remove hold</ActionButton>}
                 {a.markDelivered && <Button onClick={() => setDlg({ k: 'deliver' })}>Mark as delivered…</Button>}
                 {a.cancel && <Button variant="destructive" onClick={() => setDlg({ k: 'cancel' })}>{a.cancelRemainder ? 'Cancel unshipped items…' : 'Cancel order…'}</Button>}
                 {a.refund && <Button onClick={() => setDlg({ k: 'refund' })}>Issue a refund…</Button>}
@@ -228,9 +230,9 @@ export default function OrderDetailPage() {
   )
 }
 
-function ActionButton({ run, onError, primary, children }: { run: () => Promise<void>; onError: (m: string) => void; primary?: boolean; children: string }) {
+function ActionButton({ run, onError, primary, children }: { run: () => Promise<void>; onError: (m: string, conflict?: boolean) => void; primary?: boolean; children: string }) {
   const [busy, setBusy] = useState(false)
-  return <Button variant={primary ? 'primary' : 'secondary'} loading={busy} onClick={async () => { setBusy(true); try { await run() } catch (e) { onError(e instanceof ApiError ? (e.code === 'version_conflict' ? 'This order was changed somewhere else. Reload to see the latest.' : e.message2) : 'Something went wrong.') } finally { setBusy(false) } }}>{children}</Button>
+  return <Button variant={primary ? 'primary' : 'secondary'} loading={busy} onClick={async () => { setBusy(true); try { await run() } catch (e) { onError(e instanceof ApiError ? (e.code === 'version_conflict' ? 'This order was changed somewhere else. Reload to see the latest.' : e.message2) : 'Something went wrong.', e instanceof ApiError && e.code === 'version_conflict') } finally { setBusy(false) } }}>{children}</Button>
 }
 
 function Notes({ order, canWrite, onChange }: { order: OrderDetail; canWrite: boolean; onChange: (o: OrderDetail) => void }) {

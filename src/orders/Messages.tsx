@@ -97,10 +97,11 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
   }
   const upload = async (files: FileList | null) => {
     if (!files) return
+    let count = atts.length                       // already attached + the ones added in this pick (state doesn't update inside the loop)
     for (const f of Array.from(files)) {
       if (f.size > MAX_BYTES) { setSendErr(`${f.name} is larger than 5 MB.`); continue }
-      if (atts.length >= MAX_FILES) { setSendErr('You can attach up to 5 files to a reply.'); break }
-      try { const a = await messagesApi.upload(id, f); setAtts((x) => [...x, a]) } catch (e) { setSendErr(e instanceof ApiError ? (e.status === 415 ? 'Only JPEG, PNG, WebP images and PDF files can be attached.' : e.message2) : 'Could not attach that file.') }
+      if (count >= MAX_FILES) { setSendErr('You can attach up to 5 files to a reply.'); break }
+      try { const a = await messagesApi.upload(id, f); count++; setAtts((x) => [...x, a]) } catch (e) { setSendErr(e instanceof ApiError ? (e.status === 415 ? 'Only JPEG, PNG, WebP images and PDF files can be attached.' : e.message2) : 'Could not attach that file.') }
     }
     if (file.current) file.current.value = ''
   }
