@@ -35,7 +35,7 @@ test('staff signs in with two-factor, reviews an application with its certificat
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   await expectNoSeriousA11y(page)
 
-  await page.getByRole('link', { name: 'Applications' }).click()
+  await page.getByRole('navigation', { name: 'Staff areas' }).getByRole('link', { name: 'Applications', exact: true }).click()
   await page.getByLabel('Search business or email').fill(s.email)
   await page.getByRole('link', { name: 'Acme Kosher Bakery' }).click()
   await expect(page.getByRole('heading', { name: 'Acme Kosher Bakery', level: 1 })).toBeVisible()
@@ -133,7 +133,7 @@ test('support retries a dead-lettered event with a reason; it shows in the audit
   await expect(preview).toContainText('[redacted]')
   await expect(preview).not.toContainText('jane@example.com')                                      // the payload preview is redacted by the server
   await expect(preview).not.toContainText('1 Main St')
-  await expect(page.getByRole('button', { name: 'Discard' })).toHaveCount(0)                       // Support may retry, not discard
+  await expect(page.getByRole('button', { name: 'Discard', exact: true })).toHaveCount(0)                       // Support may retry, not discard
   await expectNoSeriousA11y(page)
   await page.getByRole('button', { name: 'Retry delivery' }).click()
   const dlg = page.getByRole('dialog', { name: 'Retry this event' })
