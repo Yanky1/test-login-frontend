@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto'
+import { totp } from './totp'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -12,17 +13,7 @@ const SECRET_FILE = path.join(E2E_DIR, 'admin-staff.json')
 
 export interface Staff { email: string; password: string; secret: string; role: string }
 
-/** RFC 6238 (SHA-1, 30 s, 6 digits) for a base32 key: the same code an authenticator app shows. */
-export function totp(secret: string, at = Date.now()): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-  let bits = 0, acc = 0; const bytes: number[] = []
-  for (const ch of secret.replace(/[ =]/g, '').toUpperCase()) { acc = (acc << 5) | alphabet.indexOf(ch); bits += 5; if (bits >= 8) { bytes.push((acc >> (bits - 8)) & 0xff); bits -= 8 } }
-  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(at / 1000 / 30)))
-  const h = createHmac('sha1', Buffer.from(bytes)).update(counter).digest()
-  const o = h[h.length - 1] & 0x0f
-  const bin = ((h[o] & 0x7f) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]
-  return String(bin % 1_000_000).padStart(6, '0')
-}
+export { totp }
 
 const post = (request: APIRequestContext, p: string, data: object, token?: string) =>
   request.post(`/api/v1/admin${p}`, { data, headers: token ? { Authorization: `Bearer ${token}` } : {} })

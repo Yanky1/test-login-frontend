@@ -1,4 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { totp } from './totp'
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test'
 
 export const PASSWORD = 'Tr1cky-Horse-Battery!'
@@ -52,8 +55,14 @@ export async function createSeller(request: APIRequestContext, email = newEmail(
   return { email, password, sellerId: login.sellerId as string }
 }
 
+/** The seeded admin may have two-factor enabled by the admin specs (e2e/adminKit.ts remembers its key next to the database): then the ordinary sign-in needs the code too. */
+function adminCode(): string | undefined {
+  try { return totp((JSON.parse(readFileSync(path.resolve('.e2e/admin-staff.json'), 'utf8')) as { admin?: { secret: string } }).admin?.secret ?? '') } catch { return undefined }
+}
+
 export async function adminToken(request: APIRequestContext): Promise<string> {
-  const res = await request.post('/api/v1/auth/login', { data: ADMIN })
+  const code = adminCode()
+  const res = await request.post('/api/v1/auth/login', { data: code ? { ...ADMIN, totpCode: code } : ADMIN })
   expect(res.ok()).toBeTruthy()
   return (await res.json()).accessToken
 }
