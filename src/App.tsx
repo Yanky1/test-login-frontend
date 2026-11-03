@@ -23,6 +23,7 @@ const CalendarPage = lazy(() => import('./services/CalendarPage'))
 const BookingsPage = lazy(() => import('./services/BookingsPage'))
 const BookingDetailPage = lazy(() => import('./services/BookingDetailPage'))
 const QuotePage = lazy(() => import('./services/QuotePage'))
+const AdminApp = lazy(() => import('./admin/AdminApp'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
 const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/l/:token" element={<PhoneLinkPage />} />
         <Route path="/l" element={<PhoneLinkPage />} />
+        <Route path="/admin/*" element={<AdminApp />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="/invite" element={<InvitePage />} />
