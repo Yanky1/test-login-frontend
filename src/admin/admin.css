@@ -45,7 +45,7 @@
 .adm-badge.ok { background: var(--ok-soft); color: var(--ok); } .adm-badge.warn { background: var(--surface-2); color: var(--warn); border-color: var(--warn); }
 .adm-badge.err { background: var(--err-soft); color: var(--err); } .adm-badge.muted { background: var(--surface-2); color: var(--muted); border-color: var(--border); }
 .adm-badge.role { background: var(--primary-soft); color: var(--primary); }
-.adm-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-sm); margin: var(--s1) 0; }
+.adm-tablewrap { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-sm); margin: var(--s1) 0; }
 .adm-table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); }
 .adm-table th, .adm-table td { text-align: left; padding: var(--s1) var(--s2); border-bottom: 1px solid var(--surface-2); vertical-align: top; }
 .adm-table thead th { background: var(--surface-2); font-weight: 600; white-space: nowrap; } .adm-table tbody th { font-weight: 600; }
