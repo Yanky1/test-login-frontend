@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { Alert, Button, Skeleton } from '../components/ui'
 import { PIcon, SelectField, TextField, Toggle } from '../products/ui'
 import { servicesApi } from './api'
+import { ConfirmDialog } from './ActionDialogs'
 import { BlockDialog } from './BlockDialog'
 import { DAYS, validateIntervals, type IntervalInput } from './hours'
 import { useProviders } from './shared'
@@ -175,7 +176,7 @@ export function Hours({ id }: { id: string }) {
 }
 
 function TimeOff({ id, tz }: { id: string; tz: string }) {
-  const [blocks, setBlocks] = useState<BlockDto[] | null>(null); const [adding, setAdding] = useState(false); const [err, setErr] = useState(''); const [note, setNote] = useState('')
+  const [blocks, setBlocks] = useState<BlockDto[] | null>(null); const [adding, setAdding] = useState(false); const [err, setErr] = useState(''); const [note, setNote] = useState(''); const [removing, setRemoving] = useState<BlockDto | null>(null)
   const load = useCallback(() => servicesApi.blocks(id).then((r) => setBlocks(r.blocks)).catch(() => setErr('Could not load time off.')), [id])
   useEffect(() => { void load() }, [load])
   const upcoming = useMemo(() => (blocks ?? []).filter((b) => new Date(b.endAt) > new Date()), [blocks])
@@ -187,9 +188,10 @@ function TimeOff({ id, tz }: { id: string; tz: string }) {
       <ul className="plainlist">
         {upcoming.map((b) => (
           <li key={b.id} className="row tight"><span><strong>{b.kind === 'timeoff' ? 'Time off' : 'Busy'}</strong> · {b.allDay ? `${fmtDateTime(b.startAt, tz).split(',')[0]} – ${fmtDateTime(new Date(new Date(b.endAt).getTime() - 1), tz).split(',')[0]}` : `${fmtDateTime(b.startAt, tz)} – ${fmtDateTime(b.endAt, tz)}`}{b.note ? ` · ${b.note}` : ''}</span>
-            <Button variant="ghost" onClick={() => void servicesApi.deleteBlock(id, b.id).then(load).catch(() => setErr('Could not remove it.'))}>Remove<span className="sr-only"> {b.kind === 'timeoff' ? 'time off' : 'block'} {b.note ?? ''}</span></Button></li>
+            <Button variant="ghost" onClick={() => setRemoving(b)}>Remove<span className="sr-only"> {b.kind === 'timeoff' ? 'time off' : 'block'} {b.note ?? ''}</span></Button></li>
         ))}
       </ul>
+      {removing && <ConfirmDialog title={removing.kind === 'timeoff' ? 'Remove this time off?' : 'Remove this block?'} message="Those hours become bookable again right away." confirm="Remove" destructive onClose={() => setRemoving(null)} onSubmit={() => servicesApi.deleteBlock(id, removing.id).then(load)} />}
       <Button onClick={() => setAdding(true)}><PIcon name="plus" /> Add time off</Button>
       {adding && <BlockDialog providers={[{ membershipId: id, email: 'you', timeZone: tz }]} defaultProvider={id} tz={tz} onClose={() => setAdding(false)} onSaved={(n) => { setNote(n > 0 ? `${n} booking${n === 1 ? ' falls' : 's fall'} inside this time: reschedule or cancel ${n === 1 ? 'it' : 'them'}.` : ''); void load() }} />}
     </section>
@@ -197,7 +199,7 @@ function TimeOff({ id, tz }: { id: string; tz: string }) {
 }
 
 function Feed({ id, active }: { id: string; active: boolean }) {
-  const [token, setToken] = useState<string | null>(null); const [on, setOn] = useState(active); const [err, setErr] = useState(''); const [copied, setCopied] = useState(false)
+  const [token, setToken] = useState<string | null>(null); const [on, setOn] = useState(active); const [err, setErr] = useState(''); const [copied, setCopied] = useState(false); const [regen, setRegen] = useState(false)
   const url = token ? `${location.origin}/api/calendar/feeds/${token}.ics` : ''
   const create = async () => { setErr(''); try { const r = await servicesApi.createIcs(id); setToken(r.token); setOn(true); setCopied(false) } catch { setErr('Could not create the link.') } }
   const revoke = async () => { if (!window.confirm('Stop sharing this calendar? Apps using the current link will stop updating.')) return; try { await servicesApi.revokeIcs(id); setToken(null); setOn(false) } catch { setErr('Could not stop sharing.') } }
@@ -208,9 +210,10 @@ function Feed({ id, active }: { id: string; active: boolean }) {
       <Alert>{err}</Alert>
       {token && <><p role="status">Copy this link now: it is shown only once.</p><code data-testid="ics-url">{url}</code><Button onClick={() => void navigator.clipboard?.writeText(url).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy link'}</Button></>}
       <div className="actions">
-        <Button onClick={() => void create()}>{on ? 'Generate a new link (the old one stops working)' : 'Create a private link'}</Button>
+        <Button onClick={() => (on ? setRegen(true) : void create())}>{on ? 'Generate a new link (the old one stops working)' : 'Create a private link'}</Button>
         {on && <Button variant="destructive" onClick={() => void revoke()}>Stop sharing</Button>}
       </div>
+      {regen && <ConfirmDialog title="Generate a new link?" message="The old link stops working at once, so every calendar app using it has to be given the new one." confirm="Generate a new link" destructive onClose={() => setRegen(false)} onSubmit={create} />}
     </section>
   )
 }
