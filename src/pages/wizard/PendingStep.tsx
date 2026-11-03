@@ -8,18 +8,28 @@ const TRACK = ['Sent', 'Review', 'Approved', 'Live'] as const
 export const trackerIndex = (status: string) =>
   ({ Draft: -1, PendingReview: 1, NeedsInfo: 1, Rejected: 1, Approved: 2, Suspended: 2, Live: 3 } as Record<string, number>)[status] ?? 1
 
+const HEADING: Record<string, string> = {
+  Approved: 'Your application is approved',
+  Live: 'Your shop is live',
+  Rejected: 'Your application was not approved',
+  Suspended: 'Your account is suspended',
+}
+
 export default function PendingStep() {
   const { app } = useWizard()
   const idx = trackerIndex(app.status)
+  const decided = app.status === 'Approved' || app.status === 'Live'
   return (
     <StepFrame index={5}>
       <div className="pending-head">
-      <span className="hero" aria-hidden="true"><Icon name={idx >= 3 ? 'check' : 'clock'} /></span>
-      <h1 tabIndex={-1}>Your application is pending</h1>
+      <span className="hero" aria-hidden="true"><Icon name={decided ? 'check' : 'clock'} /></span>
+      <h1 tabIndex={-1}>{HEADING[app.status] ?? 'Your application is pending'}</h1>
       {app.status === 'NeedsInfo' && <p role="status" className="alert info">We need more information. {app.statusNote} <Link to="/signup/business">Update your application</Link></p>}
       {app.status === 'Rejected' && <p role="status" className="alert error">Unfortunately your application was not approved.</p>}
       {app.status === 'Suspended' && <p role="status" className="alert error">Your account is suspended.</p>}
-      <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed. You can safely close this page.</p>
+      {decided
+        ? <p role="status" className="alert success">Congratulations{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Your seller application has been approved.</p>
+        : <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed. You can safely close this page.</p>}
       </div>
       <ol className="tracker" aria-label="Application status">
         {TRACK.map((t, i) => (

@@ -8,7 +8,7 @@ import { StepFrame } from './shared'
 
 /** Step 2 is public: the account has no session until the mailbox is proven (the response to sign-up never reveals if an address exists). */
 export default function VerifyStep() {
-  const { applyLogin, status } = useAuth()
+  const { applyLogin, status, user } = useAuth()
   const nav = useNavigate()
   const [email, setEmail] = useState(pendingEmail())
   const [code, setCode] = useState('')
@@ -18,13 +18,25 @@ export default function VerifyStep() {
   const [busy, setBusy] = useState(false)
   const justVerified = useRef(false)
 
-  // already signed in (e.g. opened the page by hand): nothing to verify
-  useEffect(() => { if (status === 'authed' && !justVerified.current) nav('/', { replace: true }) }, [status, nav])
   useEffect(() => {
     if (wait <= 0) return
     const t = setTimeout(() => setWait((w) => w - 1), 1000)
     return () => clearTimeout(t)
   }, [wait])
+
+  // Already signed in (Back from the business step, or opened by hand): sessions exist only after verification, so this step is done
+  if (status === 'authed' && !justVerified.current) {
+    return (
+      <StepFrame index={1}>
+        <h1 tabIndex={-1}>Verify your email</h1>
+        <Alert kind="success">Your email {user?.email} is verified.</Alert>
+        <div className="nav-row">
+          <button type="button" className="btn" onClick={() => nav('/signup')}>← Back</button>
+          <button type="button" className="btn primary" onClick={() => nav('/')}>Continue</button>
+        </div>
+      </StepFrame>
+    )
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -96,7 +96,7 @@ test('admin approves via API; login, redirect-back and logout', async ({ page, r
   await expect(page.getByRole('list', { name: 'Application status' }).getByText('Approved').locator('..')).toHaveAttribute('aria-current', 'step')
   // reload keeps the session (refresh cookie); logout ends it
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Your application is pending' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your application is approved' })).toBeVisible()
   await page.getByRole('button', { name: 'Log out' }).click()
   await expect(page).toHaveURL(/\/login/)
   await page.goto('/')

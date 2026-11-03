@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { Route, Routes } from 'react-router-dom'
 import { RequireAuth } from '../components/RequireAuth'
 import { WizardLayout } from './wizard/shared'
+import BusinessStep from './wizard/BusinessStep'
 import KosherStep from './wizard/KosherStep'
 import VerifyStep from './wizard/VerifyStep'
 import ReviewStep from './wizard/ReviewStep'
@@ -116,6 +117,45 @@ describe('wizard navigation and guards', () => {
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/signup/business'))
   })
 
+  it('Back from the business step shows the verified email step, and Back again reaches the account step', async () => {
+    const user = userEvent.setup()
+    backend(application({ draftStep: 3 }))
+    renderAt(
+      <Routes>
+        <Route path="/signup" element={<div>account step</div>} />
+        <Route path="/signup/verify" element={<VerifyStep />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/signup" element={<WizardLayout />}><Route path="business" element={<BusinessStep />} /></Route>
+        </Route>
+      </Routes>, '/signup/business')
+    await user.click(await screen.findByRole('button', { name: '← Back' }))
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/signup/verify'))
+    expect(await screen.findByText('Your email seller@example.com is verified.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Verification code')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← Back' }))
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/signup$/))
+  })
+
+  it('Continue on the verified email step goes on to the saved wizard step', async () => {
+    const user = userEvent.setup()
+    backend(application({ draftStep: 3 }))
+    renderAt(
+      <Routes>
+        <Route path="/signup/verify" element={<VerifyStep />} />
+        <Route path="/" element={<div>home</div>} />
+      </Routes>, '/signup/verify')
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/$/))
+  })
+
+  it('Back on the kosher step returns to the business step', async () => {
+    const user = userEvent.setup()
+    backend()
+    renderAt(wizardRoutes, '/signup/kosher')
+    await user.click(await screen.findByRole('button', { name: '← Back' }))
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/signup/business'))
+  })
+
   it('sends anonymous visitors to login with ?next', async () => {
     renderAt(wizardRoutes, '/signup/business')
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/login?next=%2Fsignup%2Fbusiness'))
@@ -148,6 +188,15 @@ describe('wizard navigation and guards', () => {
     expect(within(tracker).getByText('Review').closest('li')).toHaveAttribute('aria-current', 'step')
     expect(screen.getByRole('link', { name: 'Visit marketplace' })).toHaveAttribute('href', 'https://market.example')
     expect(screen.getByRole('link', { name: 'Guest mode' })).toHaveAttribute('href', '/guest')
+  })
+
+  it('pending screen: says approved once the seller is approved', async () => {
+    backend(application({ status: 'Approved', draftStep: 5 }))
+    renderAt(wizardRoutes, '/signup/pending')
+    expect(await screen.findByText('Your application is approved')).toBeInTheDocument()
+    expect(screen.queryByText(/Management will reach out/)).not.toBeInTheDocument()
+    const tracker = screen.getByRole('list', { name: 'Application status' })
+    expect(within(tracker).getByText('Approved').closest('li')).toHaveAttribute('aria-current', 'step')
   })
 
   it('shows a progress bar for the current step', async () => {
