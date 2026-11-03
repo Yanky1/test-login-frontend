@@ -22,6 +22,9 @@ Button (primary/secondary/ghost/destructive, loading), Field (label, hint, error
 - Security behaviour untouched: token handling, CSRF, multi-tab coordination, 2FA prompts, step-up, redirect safety.
 - Tests: `npm test` (Vitest), `npm run test:ui` (mocked-API Playwright + axe, light/dark, 390/1440), `npm run e2e` (real backend).
 - Route-level code splitting: Settings and the authed wizard steps (business, kosher, review, pending) and Guest are `React.lazy` chunks behind one `Suspense` spinner.
+- Theme bootstrap lives in `public/theme.js` (external script) so it works under a strict `script-src 'self'` CSP; `ThemeToggle` also reads the saved choice itself. Covered by a Vitest test and a CSP-header UI test against the production build.
+- `ErrorBoundary` wraps the lazy routes: a chunk-load failure after a deploy shows a "Reload" card instead of a blank page.
+- Signed-in pages render a single header (`AppHeaderContext` tells `Shell` not to add its own logo + theme toggle).
 
 ## Phone number, Phone PIN and texted links
 - Settings → Security has a **Phone number** card (add or change with a texted code, remove) and a **Phone PIN** card (set or change, with the same strength rules as the server: 6 digits, no repeated digit, no sequence, no repeating pattern; `src/lib/pin.ts`). Both use `SettingCard`, `Field`, `PasswordField`, `Alert`; code in `src/pages/PhoneSettings.tsx`.

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Route, Routes, Navigate } from 'react-router-dom'
 import { Spinner } from './components/ui'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { RedirectIfAuthed, RequireAuth } from './components/RequireAuth'
 import LoginPage from './pages/Login'
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/Recovery'
@@ -21,6 +22,7 @@ export default function App() {
   return (
     <>
       <a href="#page-title" className="skip">Skip to content</a>
+      <ErrorBoundary>
       <Suspense fallback={<div className="center"><Spinner /></div>}>
       <Routes>
         <Route path="/login" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
@@ -44,6 +46,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </>
   )
 }

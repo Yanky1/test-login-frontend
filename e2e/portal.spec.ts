@@ -136,6 +136,9 @@ test('forgot and reset password', async ({ page, request }) => {
   const s = await createSeller(request)
   await page.goto('/login')
   await page.getByRole('link', { name: 'Forgot password?' }).click()
+  // Wait for the route change first: until then getByLabel('Email') still resolves to the outgoing Login form,
+  // the fill is lost on unmount and the Forgot form is submitted empty (no request is ever sent).
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
   await page.getByLabel('Email').fill(s.email)
   const [forgot] = await Promise.all([
     page.waitForResponse((r) => r.url().includes('/auth/forgot-password')),

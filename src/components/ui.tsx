@@ -1,4 +1,4 @@
-import { Children, forwardRef, useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Children, createContext, forwardRef, useContext, useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { passwordChecks } from '../lib/password'
 
@@ -87,9 +87,12 @@ export function Icon({ name, label }: { name: IconName; label?: string }) {
 
 /* ---- theme (system by default, manual override persisted) ---- */
 const systemDark = () => typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
+function savedTheme(): 'light' | 'dark' | null {
+  try { const t = localStorage.getItem('solvelt-theme'); return t === 'light' || t === 'dark' ? t : null } catch { return null }
+}
 export function ThemeToggle() {
   const [dark, setDark] = useState(() => {
-    const t = document.documentElement.dataset.theme
+    const t = document.documentElement.dataset.theme ?? savedTheme()
     return t ? t === 'dark' : systemDark()
   })
   useEffect(() => {
@@ -111,9 +114,13 @@ export function Logo() {
   return <Link to="/" className="logo" aria-label="Solvelt home"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt</span></Link>
 }
 
+/** True inside the signed-in layout, which renders its own header (so Shell must not add a second logo + theme toggle). */
+export const AppHeaderContext = createContext(false)
+
 /** Page shell: brand panel (desktop, auth screens) + top bar with theme toggle. */
 export function Shell({ children, split }: { children: ReactNode; split?: boolean }) {
   const { pathname } = useLocation()
+  const hasAppHeader = useContext(AppHeaderContext)
   const cross = !split ? null : pathname.startsWith('/signup') ? { q: 'Already selling?', to: '/login', t: 'Sign in' } : pathname === '/login' ? { q: 'New to Solvelt?', to: '/signup', t: 'Start selling' } : null
   return (
     <div className={split ? 'shell split' : 'shell'}>
@@ -140,7 +147,7 @@ export function Shell({ children, split }: { children: ReactNode; split?: boolea
         </aside>
       )}
       <div className="shell-main">
-        <div className="topbar">{split ? <span className="logo-mini-spacer" /> : null}<Logo /><span className="spacer" />{cross && <span className="topbar-cross"><span className="topbar-q">{cross.q}</span> <Link className="btn topbar-cta" to={cross.to}>{cross.t}</Link></span>}<ThemeToggle /></div>
+        {!hasAppHeader && <div className="topbar">{split ? <span className="logo-mini-spacer" /> : null}<Logo /><span className="spacer" />{cross && <span className="topbar-cross"><span className="topbar-q">{cross.q}</span> <Link className="btn topbar-cta" to={cross.to}>{cross.t}</Link></span>}<ThemeToggle /></div>}
         <div className="shell-content">{children}</div>
       </div>
     </div>
