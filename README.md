@@ -27,6 +27,9 @@ lockout (2 tries left → last try + captcha → locked), forgot/reset, passkey 
 ## Seller products
 Sidebar area for the catalog: `/products` (list, inline edit, bulk actions), `/products/new` and `/products/:id` (one-page editor with autosave, buyer preview and a publish checklist), `/questions` and `/products/import` (CSV). Design notes in `docs/DESIGN.md`; API in the backend's `docs/PRODUCTS.md`. The real-backend E2E (`npm run e2e`) needs the backend `main` (it uses the Testing-only `/api/dev/questions`).
 
+## Seller assistant
+A chat assistant in the header ("Assistant"): a drawer on desktop, full screen on a phone. It streams answers (SSE), shows what it is looking up, links to the listings/orders it mentions, and **prepares changes as "Do this?" cards that only happen when you press Confirm** (Viewers see no action buttons and an explanation). Code: `src/assistant/**`; backend and safety model: `docs/ASSISTANT.md` in the backend repository; UI decisions: `docs/DESIGN.md` ("Seller assistant"). Tests: `src/assistant/assistant.test.tsx` (Vitest + MSW) and `e2e/assistant.spec.ts` (real backend with the scripted fake model, axe; needs `Orders__InboundSecret` etc. from `playwright.config.ts`). Screenshots: `docs/screenshots/assistant-*.png`.
+
 ## Configuration (`public/config.json`, loaded at runtime – edit without rebuilding)
 | key | meaning |
 |---|---|
