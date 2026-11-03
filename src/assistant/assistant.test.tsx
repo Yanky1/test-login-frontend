@@ -217,6 +217,18 @@ describe('assistant entry point and panel', () => {
   })
 })
 
+describe('assistant link safety (review F1)', () => {
+  it('nested or odd link syntax in an answer never becomes an anchor', async () => {
+    mount()
+    const evil = '[[Mug](x)](https://evil.example/login) and [[[a](b)](c)](mailto:x@evil.example) and [r][1]\n\n[1]: https://evil.example'
+    server.use(http.post(`${API}/assistant/messages/stream`, () => sse([['conversation', { conversationId: 'c1', title: 't' }], ['text', { delta: evil }], ['done', { messageId: 'm1', conversationId: 'c1', text: evil, status: 'ok', links: [] }]])))
+    await openPanel(); await userEvent.type(screen.getByLabelText('Message the assistant'), 'go{Enter}')
+    await screen.findByText(/Mug/)
+    expect(document.querySelector('.as-bot .md a')).toBeNull()
+    expect(document.querySelector('.as-bot a')).toBeNull()
+  })
+})
+
 describe('assistant helpers', () => {
   it('parses SSE blocks across chunk boundaries and ignores malformed ones', async () => {
     const body = new ReadableStream<Uint8Array>({ start(c) { c.enqueue(enc.encode('event: text\ndata: {"delta":"he')); c.enqueue(enc.encode('llo"}\n\nevent: x\ndata: not-json\n\nevent: done\ndata: {"messageId":"m"}\n\n')); c.close() } })

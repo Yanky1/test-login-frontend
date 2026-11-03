@@ -36,7 +36,7 @@ function fromServer(m: Record<string, unknown>): ChatMessage {
 }
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, status } = useAuth()
   const { pathname } = useLocation()
   const account = user?.activeAccountId ?? 'none'
   const [config, setConfig] = useState<AssistantConfig | null>(null)
@@ -56,10 +56,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   // config: hides the entry point when the feature is off or the server has none
   useEffect(() => {
     let live = true
-    if (user?.accounts && !user.activeAccountId) { setConfig(null); return }   // no account picked yet: nothing to ask the server
+    // not before the session and the active account are settled (a request without an account is a 403 that would bounce the account picker)
+    if (status !== 'authed' || (user?.accounts && !user.activeAccountId)) { setConfig(null); return }
     assistantApi.config().then((c) => { if (live) setConfig(c) }).catch(() => { if (live) setConfig(null) })
     return () => { live = false; abort.current?.abort() }
-  }, [account]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [account, status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reloadConversations = useCallback(async () => {
     try { setConversations((await assistantApi.conversations()).items) } catch { /* the list is a convenience */ }
