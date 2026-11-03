@@ -18,7 +18,7 @@ export default function TeamPage({ hasPassword, twoFactorEnabled }: Props) {
   const [invites, setInvites] = useState<Invite[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
   const [msg, setMsg] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
-  const [dlg, setDlg] = useState<null | { type: 'invite' } | { type: 'edit'; m: Member } | { type: 'remove'; m: Member } | { type: 'leave' } | { type: 'transfer' }>(null)
+  const [dlg, setDlg] = useState<null | { type: 'invite' } | { type: 'edit'; m: Member } | { type: 'remove'; m: Member } | { type: 'leave' } | { type: 'transfer' } | { type: 'close' }>(null)
 
   const load = useCallback(async () => {
     try {
@@ -94,6 +94,12 @@ export default function TeamPage({ hasPassword, twoFactorEnabled }: Props) {
         </SettingCard>
       )}
 
+      {can(role, 'account.close') && (
+        <SettingCard id="team-close" icon="lock" title="Close this account" desc="Permanently locks everyone out of this seller account. Your data is kept, your login is not affected.">
+          <button type="button" className="btn danger" onClick={() => setDlg({ type: 'close' })}>Close account…</button>
+        </SettingCard>
+      )}
+
       {dlg?.type === 'invite' && <InviteDialog role={role!} brands={brands.filter((b) => b.status === 'Active')} onClose={() => setDlg(null)} onDone={(t) => void done(t)} />}
       {dlg?.type === 'edit' && <EditDialog actor={role!} member={dlg.m} brands={brands.filter((b) => b.status === 'Active')} onClose={() => setDlg(null)} onDone={(t) => void done(t)} />}
       {dlg?.type === 'remove' && <ConfirmDialog id="rm" title={`Remove ${dlg.m.email}?`} confirm="Remove member"
@@ -102,6 +108,7 @@ export default function TeamPage({ hasPassword, twoFactorEnabled }: Props) {
       {dlg?.type === 'leave' && <ConfirmDialog id="lv" title="Leave this account?" confirm="Leave account"
         body="You will lose access to this seller account. An account always keeps at least one Owner."
         run={async () => { await api('/team/leave', { method: 'POST', body: {} }) }} onClose={() => setDlg(null)} onDone={() => { nav('/accounts', { replace: true }) }} onAfter={true} />}
+      {dlg?.type === 'close' && <CloseAccountDialog name={user?.vendorName ?? ''} hasPassword={hasPassword} twoFactor={twoFactorEnabled} onClose={() => setDlg(null)} onDone={() => { setDlg(null); nav('/accounts', { replace: true }) }} />}
       {dlg?.type === 'transfer' && <TransferDialog members={(members ?? []).filter((m) => !m.isMe && m.status === 'Active')} hasPassword={hasPassword} twoFactor={twoFactorEnabled} onClose={() => setDlg(null)} onDone={() => void done('Ownership transferred. You are now an Admin.')} />}
     </>
   )
@@ -228,18 +235,35 @@ function ConfirmDialog({ id, title, body, confirm, run, onClose, onDone, onAfter
   )
 }
 
-function TransferDialog({ members, hasPassword, twoFactor, onClose, onDone }: { members: Member[]; hasPassword: boolean; twoFactor: boolean; onClose: () => void; onDone: () => void }) {
-  const [to, setTo] = useState(members[0]?.id ?? '')
+/** Step-up fields shared by the destructive owner dialogs: password (+ authenticator code), or an emailed code for passwordless accounts. */
+function useStepUp(hasPassword: boolean, twoFactor: boolean) {
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [totp, setTotp] = useState('')
   const [needCode, setNeedCode] = useState(false)
+  const body = () => ({ currentPassword: hasPassword ? password : undefined, stepUpCode: !hasPassword ? code || undefined : undefined, totpCode: twoFactor ? totp : undefined })
+  const fields = (
+    <>
+      {hasPassword
+        ? <PasswordField label="Confirm with your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        : needCode && <Field label="Code from your email" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />}
+      {twoFactor && <Field label="Authentication code" inputMode="numeric" autoComplete="one-time-code" value={totp} onChange={(e) => setTotp(e.target.value)} />}
+    </>
+  )
+  return { body, fields, needCode, setNeedCode, emailFirst: !hasPassword && !needCode }
+}
+
+function TransferDialog({ members, hasPassword, twoFactor, onClose, onDone }: { members: Member[]; hasPassword: boolean; twoFactor: boolean; onClose: () => void; onDone: () => void }) {
+  const [to, setTo] = useState(members[0]?.id ?? '')
+  const step = useStepUp(hasPassword, twoFactor)
+  const { refreshAccounts } = useAuth()
   const { err, busy, run } = useSubmit()
   const submit = (e: FormEvent) => {
     e.preventDefault()
     void run(async () => {
-      const r = await api<{ stepUpRequired?: boolean } | null>('/team/transfer-ownership', { body: { memberId: to, currentPassword: hasPassword ? password : undefined, stepUpCode: !hasPassword ? code || undefined : undefined, totpCode: twoFactor ? totp : undefined } })
-      if (r?.stepUpRequired) { setNeedCode(true); return } // passwordless account: a code was emailed to the current address
+      const r = await api<{ stepUpRequired?: boolean } | null>('/team/transfer-ownership', { body: { memberId: to, ...step.body() } })
+      if (r?.stepUpRequired) { step.setNeedCode(true); return } // passwordless account: a code was emailed to the current address
+      await refreshAccounts() // the former Owner is an Admin now: the header badge, the Transfer card and row actions must follow
       onDone()
     })
   }
@@ -252,17 +276,50 @@ function TransferDialog({ members, hasPassword, twoFactor, onClose, onDone }: { 
             <select id="tr-to" value={to} onChange={(e) => setTo(e.target.value)}>{members.map((m) => <option key={m.id} value={m.id}>{m.email} ({m.role})</option>)}</select>
           </div>
           <p className="hint">You will become an Admin. Both of you get an email.</p>
-          {hasPassword
-            ? <PasswordField label="Confirm with your password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            : needCode && <Field label="Code from your email" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />}
-          {twoFactor && <Field label="Authentication code" inputMode="numeric" autoComplete="one-time-code" value={totp} onChange={(e) => setTotp(e.target.value)} />}
+          {step.fields}
           <Alert>{err}</Alert>
           <div className="row">
-            <button className="btn danger" type="submit" disabled={busy} aria-busy={busy || undefined}>{!hasPassword && !needCode ? 'Email me a code' : 'Transfer ownership'}</button>
+            <button className="btn danger" type="submit" disabled={busy} aria-busy={busy || undefined}>{step.emailFirst ? 'Email me a code' : 'Transfer ownership'}</button>
             <button className="btn" type="button" onClick={onClose}>Cancel</button>
           </div>
         </form>
       )}
+    </Dialog>
+  )
+}
+
+function CloseAccountDialog({ name, hasPassword, twoFactor, onClose, onDone }: { name: string; hasPassword: boolean; twoFactor: boolean; onClose: () => void; onDone: () => void }) {
+  const [sure, setSure] = useState(false)
+  const [sureErr, setSureErr] = useState<string | undefined>()
+  const step = useStepUp(hasPassword, twoFactor)
+  const { refreshAccounts } = useAuth()
+  const { err, busy, run } = useSubmit()
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!sure) { setSureErr('Tick the box to confirm you understand.'); return }
+    setSureErr(undefined)
+    void run(async () => {
+      const r = await api<{ stepUpRequired?: boolean } | null>('/team/close-account', { body: step.body() })
+      if (r?.stepUpRequired) { step.setNeedCode(true); return }
+      await refreshAccounts() // the account is gone for everyone: the app falls back to the account chooser
+      onDone()
+    })
+  }
+  return (
+    <Dialog id="close-title" title={`Close ${name || 'this account'}?`} onClose={onClose}>
+      <form onSubmit={submit} noValidate>
+        <Alert kind="info">Closing the account locks everyone out of it, including you. Nobody can sign in to it or change it again. Your data is kept. Your own login and your other accounts are not affected.</Alert>
+        <div className="field check">
+          <label><input type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} aria-invalid={sureErr ? true : undefined} data-autofocus /> I understand that nobody will be able to use this account</label>
+          <div className="field-error" aria-live="polite">{sureErr}</div>
+        </div>
+        {step.fields}
+        <Alert>{err}</Alert>
+        <div className="row">
+          <button className="btn danger" type="submit" disabled={busy} aria-busy={busy || undefined}>{step.emailFirst ? 'Email me a code' : 'Close account'}</button>
+          <button className="btn" type="button" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
     </Dialog>
   )
 }

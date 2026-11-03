@@ -49,6 +49,7 @@ const screens: { name: string; path: string; opts: Opts; heading: RegExp; act?: 
   { name: 'team-invite-modal', path: '/settings/team', opts: {}, heading: /account settings/i, act: async (p) => { await p.getByRole('button', { name: 'Invite a team member' }).click(); await p.getByLabel('Role').selectOption('Manager'); await p.getByLabel('Only selected brands').check() } },
   { name: 'brands', path: '/settings/brands', opts: { role: 'Admin' }, heading: /account settings/i, act: async (p) => { await expect(p.getByRole('list', { name: 'Brands', exact: true })).toBeVisible() } },
   { name: 'brand-edit-modal', path: '/settings/brands', opts: { role: 'Admin' }, heading: /account settings/i, act: async (p) => { await p.getByRole('button', { name: 'Add a brand' }).click(); await p.getByLabel('Brand name').fill('Rivka Kids') } },
+  { name: 'close-account-modal', path: '/settings/team', opts: {}, heading: /account settings/i, act: async (p) => { await p.getByRole('button', { name: 'Close account…' }).click(); await expect(p.getByRole('dialog')).toBeVisible() } },
   { name: 'account-switcher', path: '/settings/profile', opts: {}, heading: /account settings/i, act: async (p) => { await p.getByRole('button', { name: /Rivka Bakes/ }).first().click(); await expect(p.getByRole('group', { name: 'Switch account' })).toBeVisible() } },
   { name: 'invite-new-user', path: '/invite/tok', opts: { preview: preview() }, heading: /you're invited/i },
   { name: 'invite-expired', path: '/invite/tok', opts: { preview: preview('expired') }, heading: /has expired/i },

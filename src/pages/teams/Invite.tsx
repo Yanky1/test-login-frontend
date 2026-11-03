@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError, type LoginResponse } from '../../api'
 import { useAuth } from '../../auth'
 import { Alert, Card, Field, PasswordField, Skeleton, StrengthMeter } from '../../components/ui'
@@ -14,9 +14,37 @@ const GONE: Record<string, { title: string; text: string }> = {
   declined: { title: 'This invitation was declined', text: 'Ask the account Owner or an Admin to send a new one if you changed your mind.' },
 }
 
-/** /invite/:token for signed-in and signed-out visitors, including the new-user join flow (no seller sign-up wizard). */
+const KEY = 'solvelt-invite'
+const store = {
+  get: () => { try { return sessionStorage.getItem(KEY) } catch { return null } },
+  set: (t: string) => { try { sessionStorage.setItem(KEY, t) } catch { /* ignore */ } },
+  clear: () => { try { sessionStorage.removeItem(KEY) } catch { /* ignore */ } },
+}
+
+/**
+ * /invite/:token for signed-in and signed-out visitors, including the new-user join flow (no seller sign-up wizard).
+ * The token is a credential: as soon as the page opens it is moved out of the URL (history entry REPLACED, token kept in router state) and
+ * into sessionStorage so it survives the trip through /login without ever being copied into `?next=` or a provider `returnUrl` (server logs).
+ */
 export default function InvitePage() {
-  const { token = '' } = useParams()
+  const { token: urlToken = '' } = useParams()
+  const nav = useNavigate()
+  const held = (useLocation().state as { invite?: string } | null)?.invite
+  useEffect(() => {
+    if (!urlToken) return
+    store.set(urlToken)
+    nav('/invite', { replace: true, state: { invite: urlToken } })
+  }, [urlToken, nav])
+  if (urlToken) return <Card title="Invitation"><Skeleton lines={3} /></Card>
+  const token = held ?? store.get() ?? ''
+  return token ? <InviteBody token={token} /> : <Missing />
+}
+
+function Missing() {
+  return <Card title="This invitation link isn't valid"><p>The link may be incomplete or was replaced by a newer invitation. Check your email for the latest one.</p><p className="links"><Link to="/login">Go to sign in</Link></p></Card>
+}
+
+function InviteBody({ token }: { token: string }) {
   const { status, user, applyLogin, switchAccount, refreshAccounts, logout } = useAuth()
   const nav = useNavigate()
   const [pv, setPv] = useState<InvitePreview | null | 'missing'>(null)
@@ -33,9 +61,10 @@ export default function InvitePage() {
   }, [token])
 
   if (status === 'loading' || pv === null) return <Card title="Invitation"><Skeleton lines={3} /></Card>
-  if (pv === 'missing') return <Card title="This invitation link isn't valid"><p>The link may be incomplete or was replaced by a newer invitation. Check your email for the latest one.</p><p className="links"><Link to="/login">Go to sign in</Link></p></Card>
+  if (pv === 'missing') { store.clear(); return <Missing /> }
   if (declined) return <Card title="Invitation declined"><p>We let the account know you declined. You can close this page.</p><p className="links"><Link to="/login">Go to sign in</Link></p></Card>
   if (pv.state !== 'pending') {
+    store.clear()
     const g = GONE[pv.state]
     return <Card title={g.title}><p>{g.text}</p><p className="links"><Link to="/login">Go to sign in</Link></p></Card>
   }
@@ -49,7 +78,7 @@ export default function InvitePage() {
   )
   const decline = async () => {
     setBusy(true)
-    try { await api(`/invitations/${encodeURIComponent(token)}/decline`, { method: 'POST', body: {}, auth: false }); setDeclined(true) } catch { setMsg('Something went wrong. Please try again.') } finally { setBusy(false) }
+    try { await api(`/invitations/${encodeURIComponent(token)}/decline`, { method: 'POST', body: {}, auth: false }); store.clear(); setDeclined(true) } catch { setMsg('Something went wrong. Please try again.') } finally { setBusy(false) }
   }
 
   if (status === 'authed') {
@@ -57,6 +86,7 @@ export default function InvitePage() {
       setBusy(true); setMsg(null)
       try {
         const r = await api<{ sellerId: string }>(`/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST', body: {} })
+        store.clear()
         await refreshAccounts()
         await switchAccount(r.sellerId)
         nav('/', { replace: true })
@@ -70,7 +100,7 @@ export default function InvitePage() {
         <Card title="Wrong email address">
           <Alert>{`This invitation was sent to ${pv.email}, but you are signed in as ${user?.email}.`}</Alert>
           <p>Sign out and sign in with <strong>{pv.email}</strong> to accept it.</p>
-          <button type="button" className="btn primary" onClick={() => void logout().then(() => nav(`/login?next=${encodeURIComponent(`/invite/${token}`)}`, { replace: true }))}>Sign out and continue</button>
+          <button type="button" className="btn primary" onClick={() => void logout().then(() => nav(`/login?next=${encodeURIComponent('/invite')}`, { replace: true }))}>Sign out and continue</button>
         </Card>
       )
     }
@@ -87,7 +117,7 @@ export default function InvitePage() {
     )
   }
 
-  return <JoinForm token={token} pv={pv} summary={summary} onDecline={decline} busy={busy} onJoined={(r) => { applyLogin(r, 'password'); nav('/', { replace: true }) }} />
+  return <JoinForm token={token} pv={pv} summary={summary} onDecline={decline} busy={busy} onJoined={(r) => { store.clear(); applyLogin(r, 'password'); nav('/', { replace: true }) }} />
 }
 
 function JoinForm({ token, pv, summary, onDecline, busy: parentBusy, onJoined }: { token: string; pv: InvitePreview; summary: React.ReactNode; onDecline: () => void; busy: boolean; onJoined: (r: LoginResponse) => void }) {
@@ -114,7 +144,7 @@ function JoinForm({ token, pv, summary, onDecline, busy: parentBusy, onJoined }:
       else setMsg(e2 instanceof ApiError ? e2.message2 : 'Something went wrong. Please try again.')
     } finally { setBusy(false) }
   }
-  const signIn = `/login?next=${encodeURIComponent(`/invite/${token}`)}`
+  const signIn = `/login?next=${encodeURIComponent('/invite')}` // the token stays in sessionStorage, never in the URL
   if (existing) {
     return (
       <Card title="Sign in to accept" lead="This email already has a Solvelt login.">
@@ -127,7 +157,7 @@ function JoinForm({ token, pv, summary, onDecline, busy: parentBusy, onJoined }:
     <Card title="You're invited" lead="Create your login to join. You won't need to fill in the seller application.">
       {summary}
       <form onSubmit={(e) => void submit(e)} noValidate>
-        <Field label="Email" type="email" value={pv.email} readOnly aria-readonly="true" hint="This is the address the invitation was sent to." />
+        <Field label="Email" type="email" autoComplete="username" value={pv.email} readOnly aria-readonly="true" hint="This is the address the invitation was sent to." />
         <PasswordField label="Choose a password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password}
           hint="At least 10 characters with upper and lower case, a number and a symbol." />
         <StrengthMeter value={password} />

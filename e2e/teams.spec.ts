@@ -80,7 +80,8 @@ test('owner invites a Manager scoped to one brand; the invitee (new user) joins 
   await page.getByLabel(/I agree to the Terms/).check()
   await page.getByRole('button', { name: 'Create login and join' }).click()
   await dismissPasskeyOffer(page)
-  await expect(page).toHaveURL(/\/settings\/brands/)
+  await expect(page).toHaveURL(/\/products/) // team members land on the product catalog
+  await page.goto('/settings/brands')
   const brands = page.getByRole('list', { name: 'Brands' })
   await expect(brands.locator('strong', { hasText: 'Second Brand' })).toBeVisible()
   await expect(brands.locator('strong', { hasText: 'Alpha Bakery' })).toHaveCount(0) // out of scope
@@ -114,7 +115,8 @@ test('a user in two accounts signs in, chooses an account and switches', async (
   await expect(list.getByText('Owner')).toBeVisible()
   await expectNoSeriousA11y(page)
   await page.getByRole('button', { name: 'Continue to Alpha Bakery' }).click()
-  await expect(page).toHaveURL(/\/settings\/brands/) // a Viewer lands on the brands, read-only
+  await expect(page).toHaveURL(/\/products/) // a Viewer lands on the catalog, read-only
+  await page.goto('/settings/brands')
   await expect(page.getByRole('button', { name: 'Add a brand' })).toHaveCount(0)
   // switch via the header switcher
   await page.getByRole('button', { name: /Alpha Bakery/ }).click()
@@ -142,7 +144,7 @@ test('owner removes a member: their very next action is denied', async ({ page, 
 
   const other = await freshPage(browser)
   await signIn(other, memberEmail)
-  await expect(other).toHaveURL(/\/settings\/brands/)
+  await expect(other).toHaveURL(/\/products/)
   await other.getByRole('link', { name: 'Team' }).click()
   await expect(other.getByRole('heading', { name: 'Team members' })).toBeVisible()
 

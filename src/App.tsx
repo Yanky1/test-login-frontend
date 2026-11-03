@@ -43,6 +43,7 @@ export default function App() {
         <Route path="/l" element={<PhoneLinkPage />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/invite" element={<InvitePage />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Home />} />
           <Route path="/settings/:tab?" element={<SettingsPage />} />

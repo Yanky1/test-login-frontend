@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { Route, Routes } from 'react-router-dom'
+import { createMemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom'
+import { AuthProvider } from '../../auth'
+import { defaultConfig } from '../../config'
+import Home from '../Home'
 import SettingsPage from '../Settings'
 import InvitePage from './Invite'
 import ChooseAccount from './ChooseAccount'
@@ -31,6 +34,7 @@ const shell = (
   <Routes>
     <Route path="/login" element={<div>login page</div>} />
     <Route path="/invite/:token" element={<InvitePage />} />
+    <Route path="/invite" element={<InvitePage />} />
     <Route element={<RequireAuth />}>
       <Route path="/" element={<div>home page</div>} />
       <Route path="/accounts" element={<ChooseAccount />} />
@@ -339,7 +343,7 @@ describe('invitation pages', () => {
       http.post(`${API}/invitations/tok/join`, () => HttpResponse.json({ code: 'sign_in_required' }, { status: 409 })),
     )
     renderAt(shell, '/invite/tok')
-    expect(await screen.findByRole('link', { name: 'I already have a Solvelt login' })).toHaveAttribute('href', '/login?next=%2Finvite%2Ftok')
+    expect(await screen.findByRole('link', { name: 'I already have a Solvelt login' })).toHaveAttribute('href', '/login?next=%2Finvite')
     await user.type(screen.getByLabelText('Choose a password'), 'Tr1cky-Horse-Battery!')
     await user.click(screen.getByLabelText(/I agree to the Terms/))
     await user.click(screen.getByRole('button', { name: 'Create login and join' }))
@@ -388,5 +392,117 @@ describe('invitation pages', () => {
     expect(screen.getByText(/invitation was sent to invitee@example.com, but you are signed in as seller@example.com/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Sign out and continue' }))
     expect(await screen.findByText('login page')).toBeInTheDocument()
+  })
+})
+
+describe('review follow-ups', () => {
+  it('D1: after an ownership transfer the former Owner is an Admin in the UI (badge, Transfer card, row actions follow)', async () => {
+    const user = userEvent.setup()
+    asRole('Owner')
+    let transferred = false
+    server.use(
+      http.get(`${API}/team/members`, () => HttpResponse.json(transferred
+        ? [member({ id: 'm0', email: 'seller@example.com', isMe: true, role: 'Admin' }), member({ id: 'm2', email: 'mgr@example.com', role: 'Owner' })]
+        : [member({ id: 'm0', email: 'seller@example.com', isMe: true, role: 'Owner' }), member({ id: 'm2', email: 'mgr@example.com', role: 'Manager' })])),
+      http.post(`${API}/team/transfer-ownership`, () => { transferred = true; return HttpResponse.json({ ownerMemberId: 'm2', yourRole: 'Admin' }) }),
+      http.get(`${API}/session`, () => HttpResponse.json({ activeAccountId: A, vendorName: 'Acme Co', accountStatus: null, role: 'Admin', accounts: [acct(A, 'Acme Co', 'Admin')] })),
+    )
+    renderAt(shell, '/settings/team')
+    expect(await screen.findByRole('heading', { name: 'Transfer ownership' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Transfer ownership…' }))
+    const dlg = screen.getByRole('dialog', { name: 'Transfer ownership' })
+    await user.type(within(dlg).getByLabelText('Confirm with your password'), 'Tr1cky-Horse-Battery!')
+    await user.click(within(dlg).getByRole('button', { name: 'Transfer ownership' }))
+    expect(await screen.findByText('Ownership transferred. You are now an Admin.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Transfer ownership' })).not.toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Close this account' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: /Acme Co/ })).getByText('Admin')).toBeInTheDocument() // header badge
+    const row = screen.getByRole('row', { name: /mgr@example.com/ })
+    expect(within(row).queryByRole('button', { name: /Change/ })).not.toBeInTheDocument() // a new Owner can't be touched by an Admin
+    expect(within(row).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
+  })
+
+  it('D2: the invitation token never stays in the URL or history, and the login link carries no token', async () => {
+    server.use(http.get(`${API}/invitations/tok-secret`, () => HttpResponse.json({ state: 'pending', email: 'invitee@example.com', accountName: 'Acme Co', role: 'Manager', allBrands: true, brands: [], expiresAt: '2026-12-01T00:00:00Z' })))
+    const router = createMemoryRouter([{ path: '/invite/:token', element: <InvitePage /> }, { path: '/invite', element: <InvitePage /> }, { path: '/login', element: <div>login page</div> }], { initialEntries: ['/invite/tok-secret'] })
+    render(<AuthProvider initialConfig={{ ...defaultConfig, turnstileSiteKey: 'stub' }}><RouterProvider router={router} /></AuthProvider>)
+    const signIn = await screen.findByRole('link', { name: 'I already have a Solvelt login' })
+    expect(router.state.location.pathname).toBe('/invite')
+    expect(router.state.historyAction).toBe('REPLACE') // a PUSH would leave the token in history
+    expect(router.state.location.pathname + router.state.location.search).not.toContain('tok-secret')
+    expect(signIn.getAttribute('href')).toBe('/login?next=%2Finvite')
+    expect(signIn.getAttribute('href')).not.toContain('tok-secret')
+  })
+
+  it('D2: after sign-in the invitation is found again without a token in the URL', async () => {
+    server.use(http.get(`${API}/invitations/tok-secret`, () => HttpResponse.json({ state: 'pending', email: 'invitee@example.com', accountName: 'Acme Co', role: 'Manager', allBrands: true, brands: [], expiresAt: '2026-12-01T00:00:00Z' })))
+    sessionStorage.setItem('solvelt-invite', 'tok-secret') // what the page stored before the visitor went to /login
+    renderAt(shell, '/invite')
+    expect(await screen.findByRole('heading', { name: "You're invited" })).toBeInTheDocument()
+  })
+
+  it('D2: /invite with nothing remembered is a plain "isn\'t valid" page', async () => {
+    renderAt(shell, '/invite')
+    expect(await screen.findByRole('heading', { name: "This invitation link isn't valid" })).toBeInTheDocument()
+  })
+
+  it('D3: the locked email field is announced as the username for password managers', async () => {
+    server.use(http.get(`${API}/invitations/tok`, () => HttpResponse.json({ state: 'pending', email: 'invitee@example.com', accountName: 'Acme Co', role: 'Viewer', allBrands: true, brands: [], expiresAt: '2026-12-01T00:00:00Z' })))
+    renderAt(shell, '/invite/tok')
+    expect(await screen.findByLabelText('Email')).toHaveAttribute('autocomplete', 'username')
+  })
+
+  it('D4: a logo URL that is not our own API never gets the bearer token', async () => {
+    asRole('Admin')
+    let leaked = false
+    server.use(
+      http.get(`${API}/brands`, () => HttpResponse.json([brand('b1', 'Acme Co', { hasLogo: true, logoUrl: 'https://evil.example/steal.png' })])),
+      http.get('https://evil.example/steal.png', () => { leaked = true; return new HttpResponse(null, { status: 200 }) }),
+    )
+    URL.createObjectURL = () => 'blob:x'
+    renderAt(shell, '/settings/brands')
+    expect(await screen.findByRole('list', { name: 'Brands' })).toBeInTheDocument()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(leaked).toBe(false)
+    expect(screen.queryByRole('img', { name: 'Acme Co logo' })).not.toBeInTheDocument()
+  })
+
+  it('Close account: Owner-only card; the dialog warns, needs the checkbox and the password, then returns to the account chooser', async () => {
+    const user = userEvent.setup()
+    asRole('Owner')
+    let body: Record<string, unknown> | null = null
+    server.use(
+      http.post(`${API}/team/close-account`, async ({ request }) => { body = (await request.json()) as Record<string, unknown>; return HttpResponse.json({ closed: true }) }),
+      http.get(`${API}/session`, () => HttpResponse.json({ activeAccountId: null, vendorName: '', accountStatus: null, role: null, accounts: [] })),
+      http.get(`${API}/account/invitations`, () => HttpResponse.json([])),
+    )
+    renderAt(shell, '/settings/team')
+    await user.click(await screen.findByRole('button', { name: 'Close account…' }))
+    const dlg = screen.getByRole('dialog', { name: /Close Acme Co\?/ })
+    expect(within(dlg).getByText(/locks everyone out of it, including you/)).toBeInTheDocument()
+    await user.type(within(dlg).getByLabelText('Confirm with your password'), 'Tr1cky-Horse-Battery!')
+    await user.click(within(dlg).getByRole('button', { name: 'Close account' }))
+    expect(await within(dlg).findByText('Tick the box to confirm you understand.')).toBeInTheDocument()
+    expect(body).toBeNull()
+    await user.click(within(dlg).getByLabelText(/I understand/))
+    await user.click(within(dlg).getByRole('button', { name: 'Close account' }))
+    await waitFor(() => expect(body).toEqual({ currentPassword: 'Tr1cky-Horse-Battery!' }))
+    expect(await screen.findByRole('heading', { name: "You're not part of any seller account" })).toBeInTheDocument()
+  })
+
+  it('Close account is not offered to Admins', async () => {
+    asRole('Admin')
+    renderAt(shell, '/settings/team')
+    await screen.findByRole('cell', { name: 'mgr@example.com' })
+    expect(screen.queryByRole('heading', { name: 'Close this account' })).not.toBeInTheDocument()
+  })
+
+  it('Managers, Viewers and Admins land on the product catalog, Owners keep the application flow', async () => {
+    for (const role of ['Manager', 'Viewer', 'Admin']) {
+      asRole(role)
+      const { unmount } = renderAt(<Routes><Route path="/" element={<Home />} /><Route path="/products" element={<div>products page</div>} /></Routes>, '/')
+      expect(await screen.findByText('products page')).toBeInTheDocument()
+      unmount()
+    }
   })
 })

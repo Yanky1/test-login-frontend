@@ -11,9 +11,9 @@ export const ROLE_DESC: Record<Role, string> = {
   Viewer: 'Can look but not change anything, for the brands they are given.',
 }
 
-export type Perm = 'members.read' | 'members.manage' | 'brands.manage' | 'business.edit' | 'ownership.transfer'
+export type Perm = 'members.read' | 'members.manage' | 'brands.manage' | 'business.edit' | 'ownership.transfer' | 'account.close'
 const MATRIX: Record<Role, Perm[]> = {
-  Owner: ['members.read', 'members.manage', 'brands.manage', 'business.edit', 'ownership.transfer'],
+  Owner: ['members.read', 'members.manage', 'brands.manage', 'business.edit', 'ownership.transfer', 'account.close'],
   Admin: ['members.read', 'members.manage', 'brands.manage'],
   Manager: [],
   Viewer: [],

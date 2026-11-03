@@ -13,7 +13,8 @@ const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 export function BrandLogo({ brand, size = 48 }: { brand: Pick<Brand, 'id' | 'name' | 'hasLogo' | 'logoUrl'>; size?: number }) {
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {
-    if (!brand.hasLogo || !brand.logoUrl || typeof URL.createObjectURL !== 'function') { setSrc(null); return }
+    // only ever send the bearer token to our own API, whatever the payload says
+    if (!brand.hasLogo || !brand.logoUrl?.startsWith('/api/') || typeof URL.createObjectURL !== 'function') { setSrc(null); return }
     let alive = true; let url: string | null = null
     fetch(brand.logoUrl, { headers: { Authorization: `Bearer ${tokenStore.get() ?? ''}` } })
       .then((r) => (r.ok ? r.blob() : null))
