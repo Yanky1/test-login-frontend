@@ -110,8 +110,13 @@ export function ThemeToggle() {
   )
 }
 
+/** Small gold four-point sparkle of the Solvelt wordmark (decorative). */
+function Sparkle() {
+  return <svg className="logo-spark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 1c.8 6.2 4.8 10.2 11 11-6.2.8-10.2 4.8-11 11-.8-6.2-4.8-10.2-11-11 6.2-.8 10.2-4.8 11-11z" /></svg>
+}
+
 export function Logo() {
-  return <Link to="/" className="logo" aria-label="Solvelt home"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt</span></Link>
+  return <Link to="/" className="logo" aria-label="Solvelt home"><span className="logo-mark" aria-hidden="true" /><span className="logo-word"><b>Solvelt<Sparkle /></b><small aria-hidden="true" /></span></Link>
 }
 
 /** True inside the signed-in layout, which renders its own header (so Shell must not add a second logo + theme toggle). */
@@ -126,7 +131,7 @@ export function Shell({ children, split }: { children: ReactNode; split?: boolea
     <div className={split ? 'shell split' : 'shell'}>
       {split && (
         <aside className="shell-brand" aria-hidden="true">
-          <span className="logo"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt</span></span>
+          <span className="logo"><span className="logo-mark" aria-hidden="true" /><span className="logo-word"><b>Solvelt<Sparkle /></b><small aria-hidden="true" /></span></span>
           <div className="brand-copy">
             <span className="brand-eyebrow">Solvelt for sellers</span>
             <h2>Open your shop. Reach more buyers.</h2>
