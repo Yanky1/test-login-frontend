@@ -10,11 +10,18 @@ import { createCredential, passkeysSupported } from '../lib/passkeys'
 import { renderSVG } from 'uqr'
 import { PhoneCards } from './PhoneSettings'
 import { Alert, Field, Icon, PasswordField, SettingCard, Shell, Skeleton, StrengthMeter } from '../components/ui'
+import { lazy, Suspense } from 'react'
+import { can } from '../lib/teams'
+const TeamPage = lazy(() => import('./teams/Team'))
+const BrandsPage = lazy(() => import('./teams/Brands'))
 
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
 
 export default function SettingsPage() {
   const { tab = 'profile' } = useParams()
+  const { user } = useAuth()
+  const teamTab = !!user?.activeAccountId && can(user.role, 'members.read')
+  const brandsTab = !!user?.activeAccountId
   const [me, setMe] = useState<Me | null>(null)
   const reload = useCallback(async () => setMe(await api<Me>('/account/me')), [])
   useEffect(() => { void reload() }, [reload])
@@ -27,9 +34,14 @@ export default function SettingsPage() {
       <nav className="tabs" aria-label="Settings">
         <NavLink to="/settings/profile">Profile</NavLink>
         <NavLink to="/settings/security">Security</NavLink>
+        {teamTab && <NavLink to="/settings/team">Team</NavLink>}
+        {brandsTab && <NavLink to="/settings/brands">Brands</NavLink>}
         <Link to="/">Back to application</Link>
       </nav>
-      {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} /> : <Profile me={me} />}
+      {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} />
+        : tab === 'team' && teamTab ? <Suspense fallback={<Skeleton lines={4} />}><TeamPage hasPassword={me.hasPassword} twoFactorEnabled={me.twoFactorEnabled} /></Suspense>
+        : tab === 'brands' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><BrandsPage /></Suspense>
+        : <Profile me={me} />}
     </main></Shell>
   )
 }

@@ -1,9 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, onSessionEnded, refreshSession, tokenStore, type LoginResponse } from './api'
+import { api, onAccountLost, onSessionEnded, refreshSession, tokenStore, type AccountItem, type LoginResponse, type Role } from './api'
 import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
 
-export interface User { email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[] }
+export interface User {
+  email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
+  /** The account this session acts on (null: none selected yet). */
+  activeAccountId: string | null
+  /** null only when talking to a server without multi-account support (then no account gate is shown). */
+  accounts: AccountItem[] | null
+  role: Role | null
+}
+interface AccountsInfo { activeAccountId: string | null; vendorName: string; accountStatus: string | null; role: Role | null; accounts: AccountItem[] }
 type Status = 'loading' | 'authed' | 'anon'
 
 interface AuthCtx {
@@ -13,6 +21,10 @@ interface AuthCtx {
   /** Store a successful login/signup/exchange/refresh response. */
   applyLogin: (r: LoginResponse, method?: 'password' | 'other') => void
   setAccessToken: (t: string, patch?: Partial<User>) => void
+  /** Make another account the active one (server validates the membership and issues a new access token). */
+  switchAccount: (sellerId: string) => Promise<void>
+  /** Re-read the account list / active account from the server. */
+  refreshAccounts: () => Promise<void>
   logout: (reason?: 'idle' | 'manual') => Promise<void>
   logoutReason: string | null
   clearLogoutReason: () => void
@@ -25,7 +37,17 @@ export const useAuth = () => {
   return c
 }
 
-const toUser = (r: LoginResponse): User => ({ email: r.email, sellerId: r.sellerId, vendorName: r.vendorName, accountStatus: r.accountStatus, roles: r.roles })
+const toUser = (r: LoginResponse): User => {
+  const accounts = r.accounts ?? null
+  const active = r.activeAccountId ?? null
+  return {
+    email: r.email, sellerId: r.sellerId, vendorName: r.vendorName, accountStatus: r.accountStatus, roles: r.roles,
+    activeAccountId: active, accounts, role: accounts?.find((a) => a.sellerId === active)?.role ?? null,
+  }
+}
+const withInfo = (u: User, i: AccountsInfo): User => ({
+  ...u, activeAccountId: i.activeAccountId, accounts: i.accounts, role: i.role, sellerId: i.activeAccountId ?? '', vendorName: i.vendorName ?? '',
+})
 
 export function AuthProvider({ children, initialConfig }: { children: ReactNode; initialConfig?: RuntimeConfig }) {
   const [status, setStatus] = useState<Status>('loading')
@@ -68,6 +90,21 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
     if (patch) setUser((u) => (u ? { ...u, ...patch } : u))
   }, [])
 
+  const refreshAccounts = useCallback(async () => {
+    try {
+      const info = await api<AccountsInfo>('/session')
+      setUser((u) => (u ? withInfo(u, info) : u))
+    } catch { /* a 401 ends the session through the normal path */ }
+  }, [])
+
+  const switchAccount = useCallback(async (sellerId: string) => {
+    const r = await api<{ accessToken: string; body: AccountsInfo }>('/session/account', { body: { sellerId } })
+    tokenStore.set(r.accessToken)
+    setUser((u) => (u ? withInfo(u, r.body) : u))
+  }, [])
+
+  useEffect(() => onAccountLost(() => { void refreshAccounts() }), [refreshAccounts])
+
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
     tokenStore.set(null)
@@ -78,8 +115,8 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   }, [])
 
   const value = useMemo<AuthCtx>(() => ({
-    status, user, config, applyLogin, setAccessToken, logout, logoutReason, clearLogoutReason: () => setLogoutReason(null),
-  }), [status, user, config, applyLogin, setAccessToken, logout, logoutReason])
+    status, user, config, applyLogin, setAccessToken, switchAccount, refreshAccounts, logout, logoutReason, clearLogoutReason: () => setLogoutReason(null),
+  }), [status, user, config, applyLogin, setAccessToken, switchAccount, refreshAccounts, logout, logoutReason])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

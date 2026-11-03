@@ -10,6 +10,8 @@ const GuestPage = lazy(() => import('./pages/Guest'))
 import Home from './pages/Home'
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
+const InvitePage = lazy(() => import('./pages/teams/Invite'))
+const ChooseAccount = lazy(() => import('./pages/teams/ChooseAccount'))
 import { WizardLayout } from './pages/wizard/shared'
 import AccountStep from './pages/wizard/AccountStep'
 import VerifyStep from './pages/wizard/VerifyStep'
@@ -34,9 +36,11 @@ export default function App() {
         <Route path="/l/:token" element={<PhoneLinkPage />} />
         <Route path="/l" element={<PhoneLinkPage />} />
         <Route path="/guest" element={<GuestPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Home />} />
           <Route path="/settings/:tab?" element={<SettingsPage />} />
+          <Route path="/accounts" element={<ChooseAccount />} />
           <Route path="/signup" element={<WizardLayout />}>
             <Route path="business" element={<BusinessStep />} />
             <Route path="kosher" element={<KosherStep />} />

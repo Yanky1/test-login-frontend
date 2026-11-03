@@ -1,3 +1,6 @@
+export interface AccountItem { sellerId: string; vendorName: string; role: Role; accountStatus: string; brandCount: number }
+export type Role = 'Owner' | 'Admin' | 'Manager' | 'Viewer'
+
 export interface LoginResponse {
   tokenType: string
   accessToken: string
@@ -8,6 +11,9 @@ export interface LoginResponse {
   vendorName: string
   accountStatus: string
   roles: string[]
+  /** Multi-account fields (absent on very old servers). */
+  activeAccountId?: string | null
+  accounts?: AccountItem[]
 }
 
 export interface Hint {
@@ -33,6 +39,7 @@ export class ApiError extends Error {
     if (e && typeof e === 'object') for (const [k, v] of Object.entries(e)) out[k] = (v as string[]).join(' ')
     return out
   }
+  get code(): string | undefined { return this.body?.code }
   get message2(): string {
     return (this.body?.detail ?? this.body?.title) ?? this.body?.error ?? 'Something went wrong'
   }
@@ -47,6 +54,9 @@ export const tokenStore = {
 
 type Listener = () => void
 const sessionEndedListeners = new Set<Listener>()
+const accountLostListeners = new Set<Listener>()
+/** Fired when the server says the active account is gone (membership removed/suspended): the app re-reads the account list. */
+export const onAccountLost = (l: Listener) => { accountLostListeners.add(l); return () => { accountLostListeners.delete(l) } }
 export const onSessionEnded = (l: Listener) => { sessionEndedListeners.add(l); return () => { sessionEndedListeners.delete(l) } }
 
 function csrfToken(): string {
@@ -102,6 +112,7 @@ export async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T
   const text = await res.text()
   let body: unknown = null
   try { body = text ? JSON.parse(text) : null } catch { body = text }
+  if (res.status === 403 && (body as { code?: string } | null)?.code === 'no_active_account') accountLostListeners.forEach((l) => l())
   if (!res.ok) throw new ApiError(res.status, body)
   return body as T
 }
