@@ -145,9 +145,9 @@ describe('account and brand switchers in the header', () => {
       http.post(`${API}/session/account`, () => HttpResponse.json({ accessToken: 't', body: { activeAccountId: B, vendorName: 'Other Shop', accountStatus: null, role: 'Viewer', accounts: [acct(B, 'Other Shop', 'Viewer')] } })),
     )
     renderAt(shell, '/settings/profile')
-    expect(await screen.findByText('home page')).toBeInTheDocument() // single remaining account is opened automatically
-    // Re-query on every retry: the header remounts when the account switch completes, so a node found earlier can be detached
-    // by the time it is asserted on (this flaked on CI as "element could not be found in the document").
+    // Re-query on every retry (both assertions): the page and header remount while the account switch completes, so a node
+    // found earlier can be detached by the time it is asserted on ("element could not be found in the document" on CI).
+    await waitFor(() => expect(screen.getByText('home page')).toBeInTheDocument()) // single remaining account is opened automatically
     await waitFor(() => expect(screen.getByRole('button', { name: /Other Shop/ })).toBeInTheDocument())
   })
 })

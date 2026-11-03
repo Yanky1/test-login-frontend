@@ -259,11 +259,38 @@ describe('wizard navigation and guards', () => {
       expect(screen.queryByRole('link', { name: /products/i })).not.toBeInTheDocument()
     })
 
-    it.each(['Rejected', 'Suspended'])('%s: no products links at all', async (status) => {
-      await open(status)
+    it('Rejected: no "What happens next" / products links; says how to get in touch and appeal', async () => {
+      await open('Rejected')
+      expect(screen.queryByRole('heading', { name: 'What happens next' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/storefront goes live|shop opens/i)).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Think we got this wrong?' })).toBeInTheDocument()
+      expect(screen.getByText(/Contact Solvelt support/)).toBeInTheDocument()
       expect(productsLinks()).toHaveLength(0)
       expect(screen.queryByRole('link', { name: /products/i })).not.toBeInTheDocument()
-      expect(screen.getByRole('status')).toBeInTheDocument()
+    })
+
+    it('Suspended: no "What happens next" / products links; says the account is paused and to contact support', async () => {
+      await open('Suspended')
+      expect(screen.queryByRole('heading', { name: 'What happens next' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/storefront goes live|shop opens/i)).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Your account is paused' })).toBeInTheDocument()
+      expect(screen.getByText(/contact Solvelt support/i)).toBeInTheDocument()
+      expect(productsLinks()).toHaveLength(0)
+    })
+
+    it('PendingReview: the next-steps list no longer claims the storefront "goes live"', async () => {
+      await open('PendingReview')
+      expect(screen.getByText(/your shop opens and you can publish products/)).toBeInTheDocument()
+      expect(screen.queryByText(/goes live/i)).not.toBeInTheDocument()
+    })
+
+    it.each([
+      ['PendingReview', false], ['Approved', true], ['Rejected', true], ['Suspended', true],
+    ])('%s: the h1 is programmatically focusable (tabIndex -1) and status messages use role="status" (%s)', async (status, hasStatus) => {
+      await open(status)
+      expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('tabindex', '-1')
+      if (hasStatus) expect(screen.getByRole('status')).toBeInTheDocument()
+      else expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
   })
 

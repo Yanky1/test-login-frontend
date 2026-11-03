@@ -18,7 +18,7 @@ export default function PendingStep() {
   const { app } = useWizard()
   const idx = trackerIndex(app.status)
   const decided = app.status === 'Approved'
-  const preparing = app.status === 'PendingReview' || app.status === 'NeedsInfo' // drafts are allowed while the application is in review
+  const reviewing = app.status === 'PendingReview' || app.status === 'NeedsInfo' // still being looked at: drafts are allowed meanwhile
   return (
     <StepFrame index={5}>
       <div className="pending-head">
@@ -44,15 +44,25 @@ export default function PendingStep() {
           <p>Add your products, check how they look and publish them whenever you&rsquo;re ready.</p>
           <div className="row"><Link className="btn primary" to="/products">Go to your products</Link></div>
         </div>
-      ) : (
+      ) : reviewing ? (
         <div className="next">
           <h2>What happens next</h2>
           <ul>
             <li>Our team reviews your business details and kosher information.</li>
             <li>We email you at your account address with the decision, or if we need anything else.</li>
-            <li>Once approved, your storefront goes live on the marketplace.</li>
+            <li>Once approved, your shop opens and you can publish products.</li>
           </ul>
-          {preparing && <p><Link to="/products">Start preparing your products (saved as drafts)</Link></p>}
+          <p><Link to="/products">Start preparing your products (saved as drafts)</Link></p>
+        </div>
+      ) : app.status === 'Rejected' ? (
+        <div className="next">
+          <h2>Think we got this wrong?</h2>
+          <p>You can ask us to take another look. Contact Solvelt support and tell us why you would like your application reviewed again.</p>
+        </div>
+      ) : (
+        <div className="next">
+          <h2>Your account is paused</h2>
+          <p>Please contact Solvelt support to find out why and what happens next.</p>
         </div>
       )}
       <div className="row">
