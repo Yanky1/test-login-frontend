@@ -20,10 +20,10 @@ export default function Basics({ ed }: SectionProps) {
         </SelectField>
       ) : <p className="hint brand-line">Brand: <strong>{brands[0]?.name ?? ed.detail.brandName ?? '-'}</strong></p>}
       <CategoryPicker id="f-category" value={form.categoryId} error={errors.categoryId} onChange={(id) => void ed.changeCategory(id)} />
-      <SelectField id="f-condition" label="Condition" value={form.condition} onChange={(e) => set({ condition: e.target.value as 'New' | 'Used' | 'Refurbished' })} error={errors.condition}>
+      {ed.detail.type !== 'Service' && <SelectField id="f-condition" label="Condition" value={form.condition} onChange={(e) => set({ condition: e.target.value as 'New' | 'Used' | 'Refurbished' })} error={errors.condition}>
         <option>New</option><option>Used</option><option>Refurbished</option>
-      </SelectField>
-      {form.condition !== 'New' && (
+      </SelectField>}
+      {ed.detail.type !== 'Service' && form.condition !== 'New' && (
         <AreaField id="f-conditionNote" label="Condition notes" rows={3} maxLength={300} value={form.conditionNote ?? ''} error={errors.conditionNote}
           onChange={(e) => set({ conditionNote: e.target.value })} hint="Be specific: wear, missing parts, what was refurbished. Honest notes mean fewer returns." />
       )}
