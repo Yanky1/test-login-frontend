@@ -193,6 +193,24 @@ describe('sensitive actions', () => {
     expect(closeBody).toEqual({ reason: 'Owner asked by phone' })
   })
 
+  it('a wrong authenticator code at step-up shows an error and keeps the staff session (only a real expiry ends it)', async () => {
+    server.use(
+      http.get(`${A}/sellers/s-1`, () => HttpResponse.json(seller)),
+      http.post(`${A}/sellers/s-1/close`, () => HttpResponse.json({ code: 'step_up_required' }, { status: 403 })),
+      http.post(`${A}/auth/step-up`, () => HttpResponse.json({ code: 'step_up_failed', title: 'That code isn’t right.' }, { status: 401 })),
+    )
+    const user = await signIn('SuperAdmin', '/admin/sellers/s-1')
+    await user.click(await screen.findByRole('button', { name: 'Close account' }))
+    await user.type(within(screen.getByRole('dialog', { name: 'Close this account' })).getByLabelText('Reason (kept in the audit log)'), 'Owner asked by phone')
+    await user.click(within(screen.getByRole('dialog', { name: 'Close this account' })).getByRole('button', { name: 'Close account' }))
+    const step = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.type(within(step).getByLabelText('Authenticator code'), '000000')
+    await user.click(within(step).getByRole('button', { name: 'Confirm' }))
+    expect(await within(step).findByText('That code isn’t right.')).toBeInTheDocument()
+    expect(adminToken.get()).toBe('staff-tok')                                                           // still signed in
+    expect(screen.queryByRole('heading', { name: 'Staff sign-in' })).toBeNull()
+  })
+
   it('shows only the actions a role may use (Moderator can suspend but not close or transfer)', async () => {
     server.use(http.get(`${A}/sellers/s-1`, () => HttpResponse.json(seller)))
     await signIn('Moderator', '/admin/sellers/s-1')
