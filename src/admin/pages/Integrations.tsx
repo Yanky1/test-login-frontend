@@ -43,7 +43,7 @@ function Outbox() {
             {data.items.map((e) => (
               <tr key={e.id}>
                 <th scope="row">{e.eventType}</th><td className="adm-clip">{e.aggregateId}</td><td><Badge value={e.status} /></td><td>{e.attempts}</td><td>{fmtDate(e.createdAt)}</td><td className="adm-clip">{e.lastError ?? ''}</td>
-                <td><button className="btn" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>Details<span className="sr-only"> for {e.eventType} {e.aggregateId}</span></button></td>
+                <td><button className="btn" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>Details{' '}<span className="sr-only">for {e.eventType} {e.aggregateId}</span></button></td>
               </tr>
             ))}
           </Table>

@@ -24,7 +24,7 @@ function RoleAction({ m, onDone }: { m: Member; onDone: () => void }) {
   const [open, setOpen] = useState(false); const [role, setRole] = useState<StaffRole>(m.role)
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Change role<span className="sr-only"> of {m.email}</span></Button>
+      <Button onClick={() => setOpen(true)}>Change role{' '}<span className="sr-only">of {m.email}</span></Button>
       {open && <ReasonDialog title={`Change the role of ${m.email}`} confirm="Change role" lead="Takes effect on their next request. You will be asked for your authenticator code."
         extra={<div className="field"><label htmlFor="chg-role">New role</label><select id="chg-role" value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>{STAFF_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></div>}
         onSubmit={async (reason) => { await adminApi(`/staff/${m.userId}/role`, { method: 'PUT', body: { role, reason } }); onDone() }} onClose={() => setOpen(false)} />}
