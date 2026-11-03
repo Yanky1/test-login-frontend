@@ -7,6 +7,8 @@ import { AppHeaderContext, Spinner, ThemeToggle } from './ui'
 import { PasskeyOffer } from '../pages/PasskeyOffer'
 import { AccountSwitcher } from '../pages/teams/AccountSwitcher'
 import { BrandProvider, BrandSwitcher } from '../pages/teams/BrandContext'
+import { AssistantProvider } from '../assistant/context'
+import { AssistantButton, AssistantPanel } from '../assistant/AssistantPanel'
 import { Fragment, lazy } from 'react'
 const ChooseAccount = lazy(() => import('../pages/teams/ChooseAccount'))
 
@@ -20,11 +22,14 @@ export function RequireAuth() {
   const needAccount = !!user?.accounts && !user.activeAccountId && !loc.pathname.startsWith('/accounts')
   return (
     <BrandProvider>
+      <AssistantProvider key={user?.activeAccountId ?? 'none'}>
       <IdleGuard /><PasskeyOffer /><AppHeader />
       <AppHeaderContext.Provider value>
         {/* keyed by the active account so every page reloads its data after a switch */}
         <Fragment key={user?.activeAccountId ?? 'none'}>{needAccount ? <ChooseAccount /> : <Outlet />}</Fragment>
       </AppHeaderContext.Provider>
+      {!needAccount && <AssistantPanel />}
+      </AssistantProvider>
     </BrandProvider>
   )
 }
@@ -38,6 +43,7 @@ function AppHeader() {
       <AccountSwitcher />
       <BrandSwitcher />
       <span className="spacer" />
+      <AssistantButton />
       <span className="who">{user?.email}</span>
       <Link to="/settings/security">Settings</Link>
       <ThemeToggle />

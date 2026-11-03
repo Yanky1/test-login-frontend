@@ -59,7 +59,7 @@ const accountLostListeners = new Set<Listener>()
 export const onAccountLost = (l: Listener) => { accountLostListeners.add(l); return () => { accountLostListeners.delete(l) } }
 export const onSessionEnded = (l: Listener) => { sessionEndedListeners.add(l); return () => { sessionEndedListeners.delete(l) } }
 
-function csrfToken(): string {
+export function csrfToken(): string {
   const m = document.cookie.split('; ').find((c) => c.startsWith('sl_csrf='))
   return m ? decodeURIComponent(m.slice('sl_csrf='.length)) : ''
 }
@@ -92,14 +92,14 @@ export function refreshSession(): Promise<LoginResponse | null> {
   return refreshing
 }
 
-interface Opts { method?: string; body?: unknown; form?: FormData; auth?: boolean; retry?: boolean }
+interface Opts { method?: string; body?: unknown; form?: FormData; auth?: boolean; retry?: boolean; csrf?: boolean }
 
 export async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T> {
   const { method = opts.body !== undefined || opts.form ? 'POST' : 'GET', auth = true, retry = true } = opts
   const headers: Record<string, string> = {}
   if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (path.startsWith('/auth/logout')) headers['X-CSRF-Token'] = csrfToken()
+  if (path.startsWith('/auth/logout') || opts.csrf) headers['X-CSRF-Token'] = csrfToken()
   const res = await fetch('/api/v1' + path, {
     method, headers, credentials: 'same-origin',
     body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
