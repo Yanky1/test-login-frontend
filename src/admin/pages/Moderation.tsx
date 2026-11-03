@@ -53,7 +53,7 @@ function ListingView({ id, onChange }: { id: string; onChange: () => void }) {
   const post = (p: string) => (reason: string) => adminApi(`/listings/${id}/${p}`, { body: { reason } })
   return (
     <Panel title="Listing (read-only)" actions={<Badge value={l.moderation ? 'Suspended' : l.status} tone={l.moderation ? 'err' : undefined} />}>
-      <KV items={[['Title', l.title], ['Type', l.type], ['Seller', l.seller ? <Link to={`/admin/sellers/${l.seller.id}`}>{l.seller.vendorName}</Link> : '—'], ['Brand', l.brand], ['Price', l.priceCents != null ? (l.priceCents / 100).toFixed(2) : '—'], ['Stock', l.stock], ['Photos', l.images], ['Status', l.moderation ? `Hidden by staff since ${fmtDate(l.moderation.since)}: ${l.moderation.reason}` : l.status]]} />
+      <KV items={[['Title', l.title], ['Type', l.type], ['Seller', l.seller ? <Link key="seller" to={`/admin/sellers/${l.seller.id}`}>{l.seller.vendorName}</Link> : '—'], ['Brand', l.brand], ['Price', l.priceCents != null ? (l.priceCents / 100).toFixed(2) : '—'], ['Stock', l.stock], ['Photos', l.images], ['Status', l.moderation ? `Hidden by staff since ${fmtDate(l.moderation.since)}: ${l.moderation.reason}` : l.status]]} />
       {l.description && <details className="adm-chartdata"><summary>Description (plain text)</summary><pre className="adm-pre">{l.description}</pre></details>}
       {can('ModerationAct') && (
         <div className="adm-actionrow">

@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
 import { server } from '../test/server'
 import AdminApp from './AdminApp'
-import type { Permission, StaffRole } from './api'
+import type { Me, Permission, StaffRole } from './api'
 
 export const A = '*/api/v1/admin'
 
@@ -30,7 +30,7 @@ export const emptyDash = {
 }
 
 /** Server side of a staff sign-in: the password step answers "code needed", the code step issues the token. */
-export function mockSignIn(role: StaffRole, extra: Partial<{ twoFactorSetup: boolean }> = {}) {
+export function mockSignIn(role: StaffRole, extra: Partial<{ twoFactorSetup: boolean; me: Partial<Me> }> = {}) {
   server.use(
     http.post(`${A}/auth/login`, async ({ request }) => {
       const b = (await request.json()) as { totpCode?: string; recoveryCode?: string }
@@ -38,7 +38,7 @@ export function mockSignIn(role: StaffRole, extra: Partial<{ twoFactorSetup: boo
       if (!b.totpCode && !b.recoveryCode) return HttpResponse.json({ error: 'Login failed', twoFactorRequired: true }, { status: 401 })
       return HttpResponse.json({ tokenType: 'Bearer', accessToken: 'staff-tok', expiresIn: 3600, email: 'staff@example.com', role, permissions: PERMS[role] })
     }),
-    http.get(`${A}/auth/me`, () => HttpResponse.json({ userId: 'u-1', email: 'staff@example.com', role, permissions: PERMS[role], sessionExpiresAt: '2026-11-03T11:00:00Z', idleMinutes: 15, stepUpUntil: null })),
+    http.get(`${A}/auth/me`, () => HttpResponse.json({ userId: 'u-1', email: 'staff@example.com', role, permissions: PERMS[role], sessionExpiresAt: new Date(Date.now() + 8 * 3600_000).toISOString(), idleMinutes: 15, stepUpUntil: null, ...extra.me })),
     http.post(`${A}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
     http.get(`${A}/dashboard`, () => HttpResponse.json(emptyDash)),
   )
@@ -51,8 +51,8 @@ export function mount(path = '/admin') {
 }
 
 /** Goes through the real sign-in form (password, then the authenticator code). */
-export async function signIn(role: StaffRole = 'SuperAdmin', path = '/admin') {
-  mockSignIn(role)
+export async function signIn(role: StaffRole = 'SuperAdmin', path = '/admin', me?: Partial<Me>) {
+  mockSignIn(role, { me })
   const user = userEvent.setup()
   mount(path)
   await user.type(await screen.findByLabelText('Email'), 'staff@example.com')

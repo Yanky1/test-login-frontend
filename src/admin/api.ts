@@ -21,6 +21,9 @@ export const adminToken = { get: () => token, set: (t: string | null) => { token
 const endedListeners = new Set<() => void>()
 export const onAdminSessionEnded = (l: () => void) => { endedListeners.add(l); return () => { endedListeners.delete(l) } }
 
+const forbiddenListeners = new Set<() => void>()
+export const onAdminForbidden = (l: () => void) => { forbiddenListeners.add(l); return () => { forbiddenListeners.delete(l) } }
+
 interface Opts { method?: string; body?: unknown; auth?: boolean }
 
 async function send(path: string, opts: Opts): Promise<Response> {
@@ -33,6 +36,10 @@ async function send(path: string, opts: Opts): Promise<Response> {
     // A wrong authenticator code at step-up is a 401 too, but the session is fine: only a real expiry ends it.
     const code = await res.clone().json().then((b: { code?: string }) => b?.code, () => undefined)
     if (code !== 'step_up_failed') { token = null; endedListeners.forEach((l) => l()) }
+  }
+  if (res.status === 403 && auth && token && path !== '/auth/me') {
+    const code = await res.clone().json().then((b: { code?: string }) => b?.code, () => undefined)
+    if (code !== 'step_up_required') forbiddenListeners.forEach((l) => l())
   }
   return res
 }

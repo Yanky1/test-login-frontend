@@ -185,3 +185,31 @@ export function download(blob: Blob, name: string) {
   document.body.appendChild(a); a.click(); a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 5_000)
 }
+
+/** WAI-ARIA tabs: roving tabindex, arrow/Home/End keys, and a tabpanel the tabs control. */
+export function Tabs({ label, tabs, current, onSelect, children }: { label: string; tabs: readonly (readonly [string, string])[]; current: string; onSelect: (id: string) => void; children: ReactNode }) {
+  const base = useId()
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const onKey = (e: React.KeyboardEvent) => {
+    const i = tabs.findIndex(([t]) => t === current)
+    let j = i
+    if (e.key === 'ArrowRight') j = (i + 1) % tabs.length
+    else if (e.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length
+    else if (e.key === 'Home') j = 0
+    else if (e.key === 'End') j = tabs.length - 1
+    else return
+    e.preventDefault()
+    onSelect(tabs[j][0]); refs.current[tabs[j][0]]?.focus()
+  }
+  return (
+    <>
+      <div className="adm-tabs" role="tablist" aria-label={label} onKeyDown={onKey}>
+        {tabs.map(([t, text]) => (
+          <button key={t} ref={(el) => { refs.current[t] = el }} type="button" role="tab" id={`${base}-tab-${t}`} aria-selected={t === current} aria-controls={`${base}-panel`}
+            tabIndex={t === current ? 0 : -1} className={t === current ? 'active' : ''} onClick={() => onSelect(t)}>{text}</button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-tab-${current}`}>{children}</div>
+    </>
+  )
+}

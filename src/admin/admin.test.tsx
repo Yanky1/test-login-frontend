@@ -101,7 +101,7 @@ describe('staff sign-in and two-factor', () => {
     await user.type(await screen.findByLabelText('Authenticator code'), '123456')
     await user.click(screen.getByRole('button', { name: 'Verify and sign in' }))
     await screen.findByRole('navigation', { name: 'Staff areas' })
-    await act(async () => { await vi.advanceTimersByTimeAsync(13 * 60_000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(14 * 60_000) })
     expect(await screen.findByText('You were signed out after a period of inactivity.')).toBeInTheDocument()
     expect(adminToken.get()).toBeNull()
   })
@@ -481,9 +481,13 @@ describe('platform settings', () => {
     { key: 'kosher_certificate', label: 'Certificate', type: 'file', options: null, parentKey: 'is_kosher', parentValue: 'yes', required: true, sortOrder: 3 },
   ]
   it('changes the fee only with a valid number, a reason and a step-up', async () => {
-    let body: Record<string, unknown> | undefined
+    let body: Record<string, unknown> | undefined; let stepped = false
     server.use(http.get(`${A}/settings`, () => HttpResponse.json(settings)), http.get(`${A}/settings/seller-fields`, () => HttpResponse.json({ fields })),
-      http.put(`${A}/settings/fee`, async ({ request }) => { body = (await request.json()) as Record<string, unknown>; return HttpResponse.json({ feeBasisPoints: 1500 }) }))
+      http.put(`${A}/settings/fee`, async ({ request }) => {
+        if (!stepped) return HttpResponse.json({ code: 'step_up_required' }, { status: 403 })
+        body = (await request.json()) as Record<string, unknown>; return HttpResponse.json({ feeBasisPoints: 1500 })
+      }),
+      http.post(`${A}/auth/step-up`, () => { stepped = true; return HttpResponse.json({ stepUpUntil: 'x' }) }))
     const user = await signIn('SuperAdmin', '/admin/settings')
     const input = await screen.findByLabelText('Fee in basis points (100 = 1%)')
     expect(screen.getByRole('button', { name: 'Save fee' })).toBeDisabled()
@@ -495,6 +499,8 @@ describe('platform settings', () => {
     const dlg = screen.getByRole('dialog', { name: 'Change the marketplace fee' })
     await user.type(within(dlg).getByLabelText('Reason (kept in the audit log)'), 'Board decision 2026-11')
     await user.click(within(dlg).getByRole('button', { name: 'Save fee' }))
+    await user.type(await screen.findByLabelText('Authenticator code'), '123456')
+    await user.click(screen.getByRole('button', { name: /Confirm|Verify/ }))
     await screen.findByText('Fee saved.')
     expect(body).toEqual({ feeBasisPoints: 1500, reason: 'Board decision 2026-11' })
   })

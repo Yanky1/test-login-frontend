@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Button, Field } from '../../components/ui'
 import { AdminError, adminApi } from '../api'
+import { useAdmin } from '../AdminAuth'
 import { Can, ErrorNote, KV, Loading, PageHeader, Panel, ReasonAction, useLoad } from '../components'
 
 interface Settings {
@@ -59,6 +60,8 @@ function LegalCard({ s, reload }: { s: Settings; reload: () => void }) {
 }
 
 function FieldEditor() {
+  const { can } = useAdmin()
+  const editable = can('SettingsEdit')
   const { data, error, loading, reload } = useLoad(() => adminApi<{ fields: FieldDef[] }>('/settings/seller-fields'), [])
   const [rows, setRows] = useState<Draft[]>([])
   const [answers, setAnswers] = useState<Record<string, string>>({})
@@ -75,6 +78,13 @@ function FieldEditor() {
     catch (e) { setPreview(null); setPerr(e instanceof AdminError ? Object.values(e.body?.errors ?? {}).flat().join(' ') || e.text : 'Preview failed') }
   }
   if (loading && !data) return <Loading />
+  if (!data) return <Panel title="Seller application questions (kosher and business fields)"><ErrorNote error={error} retry={reload} /></Panel>
+  if (!editable) return (
+    <Panel title="Seller application questions (kosher and business fields)">
+      <p className="adm-muted">You can view the questions but not change them.</p>
+      <ol className="adm-fields">{data.fields.map((f) => <li key={f.key}><strong>{f.label}</strong> <span className="adm-muted">({f.key}, {f.type}{f.required ? ', required' : ''}{f.parentKey ? `, only when ${f.parentKey} is ${f.parentValue}` : ''})</span></li>)}</ol>
+    </Panel>
+  )
   return (
     <Panel title="Seller application questions (kosher and business fields)">
       <p className="adm-muted">Order matters: a branch question must come after the question it depends on. The certificate upload field is required by the application and can’t be removed.</p>

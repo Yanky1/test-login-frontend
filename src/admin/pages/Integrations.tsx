@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert } from '../../components/ui'
 import { adminApi, fmtDate, qs, type Page } from '../api'
-import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonAction, Table, useLoad } from '../components'
+import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonAction, Table, Tabs, useLoad } from '../components'
 
 const TABS = [['outbox', 'Events'], ['inbound', 'Marketplace requests'], ['phone', 'Phone and SMS'], ['jobs', 'Background jobs']] as const
 
@@ -12,13 +12,12 @@ export default function Integrations() {
   return (
     <>
       <PageHeader title="Integration health" lead="Events to the marketplace, requests from it, phone/SMS delivery and background jobs." />
-      <div className="adm-tabs" role="tablist" aria-label="Integration areas">
-        {TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={t === tab} className={t === tab ? 'active' : ''} onClick={() => nav(`/admin/integrations/${t}`)}>{label}</button>)}
-      </div>
-      {tab === 'outbox' && <Outbox />}
-      {tab === 'inbound' && <Inbound />}
-      {tab === 'phone' && <PhoneTab />}
-      {tab === 'jobs' && <Jobs />}
+      <Tabs label="Integration areas" tabs={TABS} current={tab} onSelect={(t) => nav(`/admin/integrations/${t}`)}>
+        {tab === 'outbox' && <Outbox />}
+        {tab === 'inbound' && <Inbound />}
+        {tab === 'phone' && <PhoneTab />}
+        {tab === 'jobs' && <Jobs />}
+      </Tabs>
     </>
   )
 }

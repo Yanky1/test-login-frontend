@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Field } from '../../components/ui'
-import { adminApi, adminBlob, fmtDate, qs, type Page } from '../api'
+import { AdminError, adminApi, adminBlob, fmtDate, qs, type Page } from '../api'
 import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonAction, Table, useLoad } from '../components'
 import { useAdmin } from '../AdminAuth'
 
@@ -60,22 +60,31 @@ function ApplicationList() {
   )
 }
 
+const SAFE_TYPES = ['application/pdf', 'image/png', 'image/jpeg']
+
 function CertificateViewer({ sellerId, file }: { sellerId: string; file: Detail['files'][number] }) {
-  const [url, setUrl] = useState<string | null>(null)
+  const [view, setView] = useState<{ url: string; type: string } | null>(null)
+  const [dl, setDl] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const isImg = file.contentType.startsWith('image/')
   useEffect(() => {
-    let alive = true; let u: string | null = null
-    adminBlob(`/applications/${sellerId}/files/${file.id}`).then(({ blob }) => { if (alive) { u = URL.createObjectURL(blob); setUrl(u) } }).catch(() => alive && setErr('The file could not be loaded.'))
-    return () => { alive = false; if (u) URL.revokeObjectURL(u) }
+    let alive = true; const urls: string[] = []
+    adminBlob(`/applications/${sellerId}/files/${file.id}`).then(({ blob, type }) => {
+      if (!alive) return
+      // Never trust the declared type for rendering: only an allowlisted type is re-wrapped and shown inline.
+      const t = type.split(';')[0].trim().toLowerCase()
+      if (SAFE_TYPES.includes(t)) { const u = URL.createObjectURL(new Blob([blob], { type: t })); urls.push(u); setView({ url: u, type: t }) }
+      else { const u = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' })); urls.push(u); setDl(u) }
+    }).catch(() => alive && setErr('The file could not be loaded.'))
+    return () => { alive = false; urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [sellerId, file.id])
   return (
     <div className="adm-cert">
       <p><strong>{file.originalName}</strong> · {file.contentType} · {Math.max(1, Math.round(file.size / 1024))} KB</p>
       <Alert>{err}</Alert>
-      {url && isImg && <img src={url} alt={`Uploaded certificate ${file.originalName}`} className="adm-certimg" />}
-      {url && !isImg && <object data={url} type={file.contentType} className="adm-certpdf" aria-label={`Certificate ${file.originalName}`}><a href={url} target="_blank" rel="noopener noreferrer">Open the PDF in a new tab</a></object>}
-      {url && <a className="btn" href={url} target="_blank" rel="noopener noreferrer">Open in a new tab</a>}
+      {view && view.type.startsWith('image/') && <img src={view.url} alt={`Uploaded certificate ${file.originalName}`} className="adm-certimg" />}
+      {view && view.type === 'application/pdf' && <object data={view.url} type="application/pdf" className="adm-certpdf" aria-label={`Certificate ${file.originalName}`}><a href={view.url} target="_blank" rel="noopener noreferrer">Open the PDF in a new tab</a></object>}
+      {view && <a className="btn" href={view.url} target="_blank" rel="noopener noreferrer">Open in a new tab</a>}
+      {dl && <><p className="adm-muted">This file type can’t be previewed safely. Download it to inspect it.</p><a className="btn" href={dl} download={file.originalName}>Download the file</a></>}
     </div>
   )
 }
@@ -85,6 +94,8 @@ function ApplicationDetail({ id }: { id: string }) {
   const { me, can } = useAdmin()
   const { data: d, error, loading, reload } = useLoad(() => adminApi<Detail>(`/applications/${id}`), [id])
   const [note, setNote] = useState('')
+  const [noteErr, setNoteErr] = useState<string | null>(null)
+  const [noteBusy, setNoteBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const decidable = d && (d.status === 'PendingReview' || d.status === 'NeedsInfo')
   if (loading && !d) return <Loading />
@@ -139,9 +150,17 @@ function ApplicationDetail({ id }: { id: string }) {
         {(d.detail.notes ?? []).map((n) => <p key={n.id} className="adm-note"><time dateTime={n.at}>{fmtDate(n.at)}</time> {n.text}</p>)}
         {(d.detail.notes ?? []).length === 0 && <p className="adm-muted">No notes yet. Notes are never shown to the seller.</p>}
         {can('ApplicationsDecide') && (
-          <form onSubmit={async (e) => { e.preventDefault(); if (note.trim().length < 3) return; await act('notes', { text: note.trim() }); setNote(''); reload() }}>
+          <form onSubmit={async (e) => {
+            e.preventDefault(); setNoteErr(null)
+            if (note.trim().length < 3) { setNoteErr('Write at least 3 characters.'); return }
+            setNoteBusy(true)
+            try { await act('notes', { text: note.trim() }); setNote(''); reload() }
+            catch (err) { setNoteErr(err instanceof AdminError ? err.text : 'The note could not be saved.') }
+            finally { setNoteBusy(false) }
+          }}>
             <div className="field"><label htmlFor="note">Add a note</label><textarea id="note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} /></div>
-            <Button type="submit">Add note</Button>
+            <Alert>{noteErr}</Alert>
+            <Button type="submit" disabled={noteBusy}>Add note</Button>
           </form>
         )}
       </Panel>

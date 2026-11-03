@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Field } from '../../components/ui'
-import { adminApi, fmtDate, fmtMoney } from '../api'
-import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Panel, ReasonAction, Table, useLoad } from '../components'
+import { AdminError, adminApi, fmtDate, fmtMoney } from '../api'
+import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Panel, ReasonAction, Table, Tabs, useLoad } from '../components'
 
 const KINDS = [['orders', 'Orders'], ['bookings', 'Bookings'], ['quotes', 'Quotes'], ['conversations', 'Conversations']] as const
 type Kind = (typeof KINDS)[number][0]
@@ -19,14 +19,17 @@ export default function Lookups() {
   const search = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setErr(null)
     try { setRows((await adminApi<{ items: Rec[] }>(`/lookups/${k}?q=${encodeURIComponent(q.trim())}`)).items) }
-    catch { setErr('Enter at least 3 characters (a number, id or email).') } finally { setBusy(false) }
+    catch (e) {
+      setErr(e instanceof AdminError
+        ? (e.status === 429 ? 'Too many searches. Wait a moment and try again.' : e.status === 400 ? 'Enter at least 3 characters (a number, id or email).' : e.text)
+        : 'The search could not be completed. Check your connection and try again.')
+    }
+    finally { setBusy(false) }
   }
   return (
     <>
       <PageHeader title="Support lookups" lead="Read-only. Personal data is masked; revealing it needs a reason and is recorded in the audit log." />
-      <div className="adm-tabs" role="tablist" aria-label="What to look up">
-        {KINDS.map(([x, label]) => <button key={x} role="tab" aria-selected={x === k} className={x === k ? 'active' : ''} onClick={() => { setRows(null); nav(`/admin/lookups/${x}`) }}>{label}</button>)}
-      </div>
+      <Tabs label="What to look up" tabs={KINDS} current={k} onSelect={(x) => { setRows(null); nav(`/admin/lookups/${x}`) }}>
       <Panel>
         <form className="adm-filters" role="search" aria-label={`Find ${k}`} onSubmit={search}>
           <Field label={`Find ${k}`} hint={HINT[k]} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -43,6 +46,7 @@ export default function Lookups() {
           ))}
         </Table>}
       </Panel>
+      </Tabs>
       {id && <Detail kind={k} id={id} />}
     </>
   )

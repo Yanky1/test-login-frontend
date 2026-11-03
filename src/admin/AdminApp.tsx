@@ -37,7 +37,7 @@ function Brand() {
 }
 
 function Layout() {
-  const { me, can, logout, signedOut } = useAdmin()
+  const { me, can, logout, signedOut, expiring } = useAdmin()
   const loc = useLocation()
   if (!me) return <Navigate to="/admin/login" replace state={signedOut ? undefined : { from: loc.pathname + loc.search }} />
   return (
@@ -58,6 +58,7 @@ function Layout() {
           </ul>
         </nav>
         <main className="adm-main" id="main">
+          {expiring && <p className="alert alert-error" role="alert">Your staff session ends in about a minute. Finish what you are doing, then sign in again.</p>}
           <ErrorBoundary><Suspense fallback={<div className="center"><Spinner /></div>}><Outlet /></Suspense></ErrorBoundary>
         </main>
       </div>
