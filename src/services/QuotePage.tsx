@@ -5,6 +5,7 @@ import { Alert, Button, Skeleton } from '../components/ui'
 import { AreaField, PIcon, SelectField, TextField } from '../products/ui'
 import { servicesApi } from './api'
 import { ReasonDialog, errText, toIso } from './ActionDialogs'
+import { useCanWrite } from '../products/usePermissions'
 import { LOCATION_LABEL, useProviders } from './shared'
 import { addDays, durationLabel, fmtDateTime, localDate, money } from './time'
 import type { QuoteDto, ServiceProviderChoice } from './types'
@@ -14,12 +15,12 @@ import './services.css'
 export default function QuotePage() {
   const { id = '' } = useParams()
   const [x, setX] = useState<QuoteDto | null>(null); const [failed, setFailed] = useState<number | null>(null)
-  const { tz } = useProviders()
+  const { tz } = useProviders(); const canWrite = useCanWrite()
   const load = () => servicesApi.quote(id).then(setX).catch((e) => setFailed(e instanceof ApiError ? e.status : 0))
   useEffect(() => { void load() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
   if (failed !== null) return <main className="pwrap"><h1 id="page-title" tabIndex={-1}>{failed === 404 ? 'Quote request not found' : 'Could not load this request'}</h1><Link className="btn" to="/bookings?tab=quotes">Back to quote requests</Link></main>
   if (!x) return <main className="pwrap"><h1 id="page-title" tabIndex={-1}>Quote request</h1><Skeleton lines={5} /></main>
-  const open = x.status === 'Requested' || x.status === 'Quoted'
+  const open = (x.status === 'Requested' || x.status === 'Quoted') && canWrite
   return (
     <main className="pwrap" aria-labelledby="page-title">
       <header className="cal-bar"><Link to="/bookings?tab=quotes" className="btn link back">← Quote requests</Link><h1 id="page-title" tabIndex={-1} className="grow">Quote for {x.serviceTitle}</h1><span className={`chip ${x.status === 'Requested' ? 'bks-Requested' : x.status === 'Accepted' ? 'bks-Confirmed' : 'bks-Completed'}`}>{x.status}</span></header>
@@ -36,6 +37,7 @@ export default function QuotePage() {
             <h3>Proposed times</h3><ul className="slot-list">{x.quote.slots.map((s) => <li key={s}>{fmtDateTime(s, tz)}</li>)}</ul>{x.quote.note && <p>{x.quote.note}</p>}</section>}
           {x.bookingId && <p><Link className="btn primary" to={`/bookings/${x.bookingId}`}>Open the booking</Link></p>}
           {open && <Composer quote={x} onDone={load} />}
+          {!canWrite && (x.status === 'Requested' || x.status === 'Quoted') && <Alert kind="info">You have view-only access, so you can't answer this request.</Alert>}
         </div>
       </div>
     </main>
@@ -49,9 +51,8 @@ export function Composer({ quote, onDone }: { quote: QuoteDto; onDone: () => voi
   const [days, setDays] = useState('7'); const [note, setNote] = useState(quote.quote?.note ?? '')
   const [slots, setSlots] = useState<{ date: string; time: string }[]>([{ date: '', time: '09:00' }])
   const [errs, setErrs] = useState<Record<string, string>>({}); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false); const [decline, setDecline] = useState(false)
-  const tzOf = team.find((p) => p.membershipId === provider)?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const { tz: acct } = useProviders()
-  const zone = tzOf || acct
+  const zone = team.find((p) => p.membershipId === provider)?.timeZone || acct   // a provider on the account default has timeZone null: never fall back to the BROWSER's zone
   useEffect(() => { servicesApi.serviceProviders(quote.serviceId).then((r) => { const e = r.providers.filter((p) => p.eligible); setTeam(e); setProvider((cur) => cur || e[0]?.membershipId || '') }).catch(() => setMsg('Could not load the team.')) }, [quote.serviceId])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); const er: Record<string, string> = {}
@@ -65,7 +66,9 @@ export function Composer({ quote, onDone }: { quote: QuoteDto; onDone: () => voi
     setErrs(er); if (Object.keys(er).length) return
     setBusy(true); setMsg('')
     try { await servicesApi.sendQuote(quote.id, { price: p, durationMinutes: m, slots: iso, providerId: provider, expiresAt: new Date(Date.now() + d * 86400000).toISOString(), note: note.trim() || undefined, version: quote.version }); onDone() }
-    catch (x) { setMsg(x instanceof ApiError && x.status === 422 ? (x.body?.title ?? errText(x)) : errText(x)); setBusy(false) }
+    catch (x) {
+      if (x instanceof ApiError && x.status === 409 && x.body?.code === 'version_conflict') { setMsg('This request changed while you were writing. The latest version is shown; check it and send again.'); setBusy(false); onDone(); return }
+      setMsg(x instanceof ApiError && x.status === 422 ? (x.body?.title ?? errText(x)) : errText(x)); setBusy(false) }
   }
   return (
     <section className="pcard" aria-labelledby="q-compose"><h2 id="q-compose">{quote.quote ? 'Send a new quote' : 'Write your quote'}</h2>
