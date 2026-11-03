@@ -5,7 +5,7 @@ import { useAuth } from '../auth'
 import { Card, Spinner } from '../components/ui'
 import { stepPath, type Application } from './wizard/shared'
 
-/** Entry after sign-in: routes the seller to the right wizard step / pending screen. */
+/** Entry after sign-in: routes the seller to the right wizard step / pending screen, or to the catalog once approved. */
 export default function Home() {
   const { user, logout } = useAuth()
   const [app, setApp] = useState<Application | null>(null)
@@ -28,5 +28,7 @@ export default function Home() {
     )
   }
   if (!app) return <div className="center"><Spinner /></div>
+  // Approved / Live owners have nothing left to fill in: they work in the product catalog.
+  if (app.status === 'Approved' || app.status === 'Live') return <Navigate to="/products" replace />
   return <Navigate to={stepPath(app)} replace />
 }

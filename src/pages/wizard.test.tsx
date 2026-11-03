@@ -199,6 +199,59 @@ describe('wizard navigation and guards', () => {
     expect(within(tracker).getByText('Approved').closest('li')).toHaveAttribute('aria-current', 'step')
   })
 
+  describe('pending screen by status', () => {
+    const open = async (status: string, note: string | null = null) => {
+      backend(application({ status, statusNote: note, draftStep: 5 }))
+      renderAt(wizardRoutes, '/signup/pending')
+      await screen.findByRole('heading', { level: 1 })
+    }
+    const productsLinks = () => screen.queryAllByRole('link').filter((l) => l.getAttribute('href') === '/products')
+
+    it('Live: "You\u2019re all set" with the primary products link and the live copy, no "What happens next"', async () => {
+      await open('Live')
+      expect(screen.getByRole('heading', { name: 'Your shop is live' })).toBeInTheDocument()
+      expect(screen.getByText(/Your shop is live on the marketplace/)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /You.re all set/ })).toBeInTheDocument()
+      const go = screen.getByRole('link', { name: 'Go to your products' })
+      expect(go).toHaveAttribute('href', '/products'); expect(go).toHaveClass('primary')
+      expect(screen.queryByRole('heading', { name: 'What happens next' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /Start preparing your products/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Visit marketplace' })).not.toHaveClass('primary') // one primary action per page
+    })
+
+    it('Approved: same, but says "approved \u2014 you can now publish", not that the shop is live', async () => {
+      await open('Approved')
+      expect(screen.getByText(/approved \u2014 you can now publish products/)).toBeInTheDocument()
+      expect(screen.queryByText(/shop is live/i)).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /You.re all set/ })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Go to your products' })).toHaveAttribute('href', '/products')
+      expect(screen.queryByRole('heading', { name: 'What happens next' })).not.toBeInTheDocument()
+    })
+
+    it('PendingReview: "What happens next" and a secondary drafts link, but no "Go to your products"', async () => {
+      await open('PendingReview')
+      expect(screen.getByRole('heading', { name: 'What happens next' })).toBeInTheDocument()
+      const drafts = screen.getByRole('link', { name: 'Start preparing your products (saved as drafts)' })
+      expect(drafts).toHaveAttribute('href', '/products'); expect(drafts).not.toHaveClass('primary')
+      expect(screen.queryByRole('link', { name: 'Go to your products' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: /You.re all set/ })).not.toBeInTheDocument()
+    })
+
+    it('NeedsInfo sellers are sent back to the wizard (the guard never shows them the pending page)', async () => {
+      backend(application({ status: 'NeedsInfo', statusNote: 'Please upload a certificate', draftStep: 5 }))
+      renderAt(wizardRoutes, '/signup/pending')
+      expect(await screen.findByText('business step')).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /products/i })).not.toBeInTheDocument()
+    })
+
+    it.each(['Rejected', 'Suspended'])('%s: no products links at all', async (status) => {
+      await open(status)
+      expect(productsLinks()).toHaveLength(0)
+      expect(screen.queryByRole('link', { name: /products/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('status')).toBeInTheDocument()
+    })
+  })
+
   it('shows a progress bar for the current step', async () => {
     backend(application({ status: 'PendingReview' }))
     renderAt(wizardRoutes, '/signup/pending')
