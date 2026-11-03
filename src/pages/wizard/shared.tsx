@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { api, ApiError } from '../../api'
 import type { FieldConfig } from '../../lib/kosher'
+import { normalizeStatus } from '../../lib/status'
 import { Icon, Shell, Spinner } from '../../components/ui'
 
 export const STEPS = [
@@ -15,7 +16,7 @@ export const STEPS = [
 
 export interface Application {
   sellerId: string
-  status: 'Draft' | 'PendingReview' | 'NeedsInfo' | 'Approved' | 'Live' | 'Rejected' | 'Suspended'
+  status: 'Draft' | 'PendingReview' | 'NeedsInfo' | 'Approved' | 'Rejected' | 'Suspended'
   statusNote: string | null
   draftStep: number
   editable: boolean
@@ -91,7 +92,7 @@ export function WizardLayout() {
     try {
       const [a, f] = await Promise.all([api<Application>('/seller/application'), api<FieldConfig[]>('/seller/field-config')])
       if (!alive.current) return // unmounted while the request was in flight
-      setApp(a); setFields(f)
+      setApp({ ...a, status: normalizeStatus(a.status) as Application['status'] }); setFields(f)
     } catch (e) { if (alive.current) setError(e instanceof ApiError ? e.status : 0) }
   }, [])
   useEffect(() => { void reload() }, [reload])

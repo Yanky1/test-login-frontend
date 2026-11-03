@@ -2,15 +2,14 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../../components/ui'
 import { StepFrame, useWizard } from './shared'
 
-const TRACK = ['Sent', 'Review', 'Approved', 'Live'] as const
+const TRACK = ['Sent', 'Review', 'Approved'] as const
 
 /** index of the tracker stage that is currently active */
 export const trackerIndex = (status: string) =>
-  ({ Draft: -1, PendingReview: 1, NeedsInfo: 1, Rejected: 1, Approved: 2, Suspended: 2, Live: 3 } as Record<string, number>)[status] ?? 1
+  ({ Draft: -1, PendingReview: 1, NeedsInfo: 1, Rejected: 1, Approved: 2, Suspended: 2 } as Record<string, number>)[status] ?? 1
 
 const HEADING: Record<string, string> = {
   Approved: 'Your application is approved',
-  Live: 'Your shop is live',
   Rejected: 'Your application was not approved',
   Suspended: 'Your account is suspended',
 }
@@ -18,7 +17,7 @@ const HEADING: Record<string, string> = {
 export default function PendingStep() {
   const { app } = useWizard()
   const idx = trackerIndex(app.status)
-  const decided = app.status === 'Approved' || app.status === 'Live'
+  const decided = app.status === 'Approved'
   const preparing = app.status === 'PendingReview' || app.status === 'NeedsInfo' // drafts are allowed while the application is in review
   return (
     <StepFrame index={5}>
@@ -29,15 +28,13 @@ export default function PendingStep() {
       {app.status === 'Rejected' && <p role="status" className="alert error">Unfortunately your application was not approved.</p>}
       {app.status === 'Suspended' && <p role="status" className="alert error">Your account is suspended.</p>}
       {decided
-        ? <p role="status" className="alert success">{app.status === 'Live'
-            ? 'Your shop is live on the marketplace.'
-            : 'You\u2019re approved \u2014 you can now publish products.'}{app.business.vendorName ? ` Welcome, ${app.business.vendorName}!` : ''}</p>
+        ? <p role="status" className="alert success">{'You\u2019re approved \u2014 your shop is open and you can publish products.'}{app.business.vendorName ? ` Welcome, ${app.business.vendorName}!` : ''}</p>
         : <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed. You can safely close this page.</p>}
       </div>
       <ol className="tracker" aria-label="Application status">
         {TRACK.map((t, i) => (
-          <li key={t} className={i < idx ? 'done' : i === idx ? 'current' : ''} aria-current={i === idx ? 'step' : undefined}>
-            <span className="dot">{i < idx ? '✓' : i + 1}</span><span className="lbl">{t}</span>
+          <li key={t} className={i < idx || (decided && i === idx) ? 'done' : i === idx ? 'current' : ''} aria-current={i === idx ? 'step' : undefined}>
+            <span className="dot">{i < idx || (decided && i === idx) ? '✓' : i + 1}</span><span className="lbl">{t}</span>
           </li>
         ))}
       </ol>

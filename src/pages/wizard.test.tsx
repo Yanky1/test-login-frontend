@@ -184,7 +184,7 @@ describe('wizard navigation and guards', () => {
     expect(await screen.findByText('Your application is pending')).toBeInTheDocument()
     expect(screen.getByText(/Management will reach out/)).toBeInTheDocument()
     const tracker = screen.getByRole('list', { name: 'Application status' })
-    expect(within(tracker).getAllByRole('listitem').map((l) => l.textContent?.replace(/^[✓\d]+/, ''))).toEqual(['Sent', 'Review', 'Approved', 'Live'])
+    expect(within(tracker).getAllByRole('listitem').map((l) => l.textContent?.replace(/^[✓\d]+/, ''))).toEqual(['Sent', 'Review', 'Approved'])
     expect(within(tracker).getByText('Review').closest('li')).toHaveAttribute('aria-current', 'step')
     expect(screen.getByRole('link', { name: 'Visit marketplace' })).toHaveAttribute('href', 'https://market.example')
     expect(screen.getByRole('link', { name: 'Guest mode' })).toHaveAttribute('href', '/guest')
@@ -207,10 +207,10 @@ describe('wizard navigation and guards', () => {
     }
     const productsLinks = () => screen.queryAllByRole('link').filter((l) => l.getAttribute('href') === '/products')
 
-    it('Live: "You\u2019re all set" with the primary products link and the live copy, no "What happens next"', async () => {
-      await open('Live')
-      expect(screen.getByRole('heading', { name: 'Your shop is live' })).toBeInTheDocument()
-      expect(screen.getByText(/Your shop is live on the marketplace/)).toBeInTheDocument()
+    it('Approved (the final, selling state): "You\u2019re all set" with the primary products link and the "shop is open" copy, no "What happens next"', async () => {
+      await open('Approved')
+      expect(screen.getByRole('heading', { name: 'Your application is approved' })).toBeInTheDocument()
+      expect(screen.getByText(/approved \u2014 your shop is open and you can publish products/)).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: /You.re all set/ })).toBeInTheDocument()
       const go = screen.getByRole('link', { name: 'Go to your products' })
       expect(go).toHaveAttribute('href', '/products'); expect(go).toHaveClass('primary')
@@ -219,13 +219,28 @@ describe('wizard navigation and guards', () => {
       expect(screen.getByRole('link', { name: 'Visit marketplace' })).not.toHaveClass('primary') // one primary action per page
     })
 
-    it('Approved: same, but says "approved \u2014 you can now publish", not that the shop is live', async () => {
+    it('Approved is the last tracker stage and shows as done', async () => {
       await open('Approved')
-      expect(screen.getByText(/approved \u2014 you can now publish products/)).toBeInTheDocument()
+      const tracker = screen.getByRole('list', { name: 'Application status' })
+      const last = within(tracker).getByText('Approved').closest('li')!
+      expect(last).toHaveAttribute('aria-current', 'step'); expect(last).toHaveClass('done')
+      expect(within(tracker).getAllByRole('listitem')).toHaveLength(3)
+    })
+
+    it('a stale "Live" from an older backend is shown exactly like Approved', async () => {
+      await open('Live')
+      expect(screen.getByRole('heading', { name: 'Your application is approved' })).toBeInTheDocument()
+      expect(screen.getByText(/your shop is open and you can publish products/)).toBeInTheDocument()
       expect(screen.queryByText(/shop is live/i)).not.toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: /You.re all set/ })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: 'Go to your products' })).toHaveAttribute('href', '/products')
-      expect(screen.queryByRole('heading', { name: 'What happens next' })).not.toBeInTheDocument()
+      expect(within(screen.getByRole('list', { name: 'Application status' })).getByText('Approved').closest('li')).toHaveAttribute('aria-current', 'step')
+    })
+
+    it('Suspended: error alert, tracker stays on Approved (not done), no products links', async () => {
+      await open('Suspended')
+      const approved = within(screen.getByRole('list', { name: 'Application status' })).getByText('Approved').closest('li')!
+      expect(approved).toHaveAttribute('aria-current', 'step'); expect(approved).not.toHaveClass('done')
+      expect(productsLinks()).toHaveLength(0)
     })
 
     it('PendingReview: "What happens next" and a secondary drafts link, but no "Go to your products"', async () => {

@@ -8,6 +8,7 @@ import { useAuth } from '../auth'
 import { passwordChecks, passwordValid } from '../lib/password'
 import { createCredential, passkeysSupported } from '../lib/passkeys'
 import { renderSVG } from 'uqr'
+import { normalizeStatus } from '../lib/status'
 import { PhoneCards } from './PhoneSettings'
 import { Alert, Field, Icon, PasswordField, SettingCard, Shell, Skeleton, StrengthMeter } from '../components/ui'
 import { lazy, Suspense } from 'react'
@@ -51,8 +52,8 @@ export default function SettingsPage() {
 
 function Profile({ me }: { me: Me }) {
   return (
-    <SettingCard id="prof" icon="user" title="Profile" desc="How you appear to the marketplace team." badge={{ text: me.sellerStatus ?? 'No application', tone: 'muted' }}>
-      <dl><dt>Email</dt><dd>{me.email}</dd><dt>Business</dt><dd>{me.vendorName ?? '—'}</dd><dt>Application status</dt><dd>{me.sellerStatus ?? '—'}</dd></dl>
+    <SettingCard id="prof" icon="user" title="Profile" desc="How you appear to the marketplace team." badge={{ text: normalizeStatus(me.sellerStatus) ?? 'No application', tone: 'muted' }}>
+      <dl><dt>Email</dt><dd>{me.email}</dd><dt>Business</dt><dd>{me.vendorName ?? '—'}</dd><dt>Application status</dt><dd>{normalizeStatus(me.sellerStatus) ?? '—'}</dd></dl>
     </SettingCard>
   )
 }
