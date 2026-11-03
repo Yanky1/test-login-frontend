@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { placeEvents } from './layout'
-import { addDays, addMonths, dayStartUtc, dowOf, localDate, minutesOfDay, offsetAt, partsIn, startOfWeek, zonedToUtc } from './time'
+import { addDays, addMonths, dayStartUtc, dowOf, localDate, minutesOfDay, offsetAt, partsIn, spanOnDay, startOfWeek, zonedToUtc } from './time'
 import { validateIntervals } from './hours'
 
 const NY = 'America/New_York'
@@ -11,6 +11,20 @@ describe('time zones and DST', () => {
   })
   it('shifts a local time that does not exist (02:30 on 8 March 2026) forward by the gap', () => {
     expect(zonedToUtc(2026, 3, 8, 2, 30, NY).toISOString()).toBe('2026-03-08T07:30:00.000Z') // 03:30 EDT
+  })
+  it('resolves an ambiguous fall-back time (01:30 on 1 Nov 2026) to standard time, like the backend', () => {
+    expect(zonedToUtc(2026, 11, 1, 1, 30, NY).toISOString()).toBe('2026-11-01T06:30:00.000Z')
+    expect(zonedToUtc(2026, 11, 1, 0, 30, NY).toISOString()).toBe('2026-11-01T04:30:00.000Z')
+    expect(zonedToUtc(2026, 11, 1, 2, 30, NY).toISOString()).toBe('2026-11-01T07:30:00.000Z')
+  })
+  it('places a 10:00 booking at wall-clock minute 600 on DST days (grid rows are wall-clock)', () => {
+    for (const d of ['2026-03-07', '2026-03-08', '2026-11-01', '2026-11-02']) {
+      const [y, m, dd] = d.split('-').map(Number); const st = zonedToUtc(y, m, dd, 10, 0, NY); const en = new Date(st.getTime() + 3600000)
+      expect(spanOnDay(st, en, d, NY)).toEqual({ start: 600, end: 660 })
+    }
+    // an interval that crosses midnight is clamped to each day
+    expect(spanOnDay(zonedToUtc(2026, 11, 1, 23, 0, NY), zonedToUtc(2026, 11, 2, 1, 0, NY), '2026-11-01', NY)).toEqual({ start: 1380, end: 1440 })
+    expect(spanOnDay(zonedToUtc(2026, 11, 1, 23, 0, NY), zonedToUtc(2026, 11, 2, 1, 0, NY), '2026-11-02', NY)).toEqual({ start: 0, end: 60 })
   })
   it('spring-forward and fall-back days are 23 and 25 hours long', () => {
     expect((dayStartUtc('2026-03-09', NY).getTime() - dayStartUtc('2026-03-08', NY).getTime()) / 3600000).toBe(23)

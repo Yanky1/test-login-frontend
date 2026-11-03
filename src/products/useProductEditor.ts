@@ -34,6 +34,9 @@ export interface EditorApi {
   refreshReadiness: () => Promise<void>
   save: ReturnType<typeof useAutosave>
   conflict: boolean; resolveConflict: (keepMine: boolean) => Promise<void>
+  /** The row-version token the editor currently holds (read inside queued writes; state would be stale there). */
+  currentVersion: () => number
+  markConflict: () => void
   live: boolean
   patchDetail: (p: Partial<ProductDetail>) => void
   replaceDetail: (d: ProductDetail) => void
@@ -137,6 +140,7 @@ export function useProductEditor(initial: ProductDetail): EditorApi {
   return useMemo(() => ({
     detail, form, errors, set, options, variants, faqs, setVariantState, setFaqs, images: detail.images, setImages, attrConfig, changeCategory,
     issues: detail.issues, score: detail.qualityScore, canPublish: detail.canPublish, enqueue, refreshReadiness, save, conflict, resolveConflict, live,
+    currentVersion: () => versionRef.current, markConflict: () => setConflict(true),
     patchDetail: (p) => { if (p.version !== undefined) versionRef.current = p.version; setDetail((d) => ({ ...d, ...p })) }, replaceDetail,
   }), [detail, form, errors, set, options, variants, faqs, setVariantState, setFaqs, setImages, attrConfig, changeCategory, enqueue, refreshReadiness, save, conflict, resolveConflict, live, replaceDetail])
 }

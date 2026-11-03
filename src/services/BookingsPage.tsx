@@ -5,7 +5,7 @@ import { Alert, Button, Skeleton } from '../components/ui'
 import { useBrands } from '../pages/teams/BrandContext'
 import { servicesApi } from './api'
 import { BookingStatusChip, LOCATION_LABEL, useProviders } from './shared'
-import { durationLabel, fmtDateTime, money } from './time'
+import { fmtDateTime, money } from './time'
 import type { BookingCounts, BookingList, QuoteList } from './types'
 import './services.css'
 
@@ -85,7 +85,6 @@ export default function BookingsPage() {
         </div>
       ))}
       {total > 20 && <nav className="pager" aria-label="Pagination"><Button disabled={page <= 1} onClick={() => update({ page: String(page - 1) })}>Previous</Button><span>Page {page} of {pages}</span><Button disabled={page >= pages} onClick={() => update({ page: String(page + 1) })}>Next</Button></nav>}
-      {tab !== 'quotes' && list && list.items.length > 0 && <p className="hint">{durationLabel(60)} slots and prices are those booked; open a booking for the full details.</p>}
     </main>
   )
 }
