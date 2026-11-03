@@ -55,7 +55,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: 'Review your application' })).toBeVisible()
   await expectNoSeriousA11y(page)
   await page.reload()
-  await expect(page.getByText('Acme Bakery')).toBeVisible()
+  await expect(page.getByRole('main').getByText('Acme Bakery')).toBeVisible()
   await page.getByRole('button', { name: 'Submit application' }).click()
   await expect(page.getByText('You must accept the Seller Agreement to submit.')).toBeVisible()
   await page.getByLabel(/Seller Agreement/).check()
