@@ -33,3 +33,4 @@ Status legend: ✅ fixed · ⏳ deferred (reason given).
 | 19 | Email templates (backend `Templates.cs`) | ⏳ Backend repo could not be attached (permission denied for `add_repo`) |
 | 20 | Real-backend Playwright E2E re-run + axe in E2E | ⏳ Same reason. Axe runs in the mocked UI suite instead |
 | 21 | Before screenshots | ⏳ Not captured; only "after" are in `docs/screenshots/` |
+| 22 | Auth screens did not read as a marketplace seller portal (generic brand copy, no seller value, no cross-link between sign-in and sign-up) | ✅ Seller panel (storefront mock-up, listing / payouts / buyer benefits, security line), "New to Solvelt? Start selling" / "Already selling? Sign in" top-bar CTA, benefits strip above the signup wizard, larger primary CTA |

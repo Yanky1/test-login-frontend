@@ -1,5 +1,5 @@
 import { Children, forwardRef, useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { passwordChecks } from '../lib/password'
 
 export function Alert({ children, kind = 'error' }: { children?: ReactNode; kind?: 'error' | 'info' | 'success' }) {
@@ -64,6 +64,10 @@ const PATHS = {
   sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M2 12h2M20 12h2M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400',
   moon: 'M21 13A9 9 0 1111 3a7 7 0 0010 10z',
   lock: 'M6 11h12v10H6zM8 11V7a4 4 0 018 0v4',
+  store: 'M3 9l1.5-5h15L21 9M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0M5 12v8h14v-8M10 20v-5h4v5',
+  wallet: 'M3 7a2 2 0 012-2h13v4M3 7v11a2 2 0 002 2h15V9H5a2 2 0 01-2-2zM16 14.5h.01',
+  users: 'M9 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.100a4 4 0 010 7.800M22 21v-1a6 6 0 00-4-5.600',
+  star: 'M12 3l2.800 5.700 6.200.9-4.500 4.400 1 6.200L12 17.200 6.500 20.200l1-6.200L3 9.600l6.200-.9z',
   save: 'M5 3h11l3 3v15H5zM8 3v5h7V3M8 21v-7h8v7',
 } as const
 export type IconName = keyof typeof PATHS
@@ -103,25 +107,34 @@ export function Logo() {
 
 /** Page shell: brand panel (desktop, auth screens) + top bar with theme toggle. */
 export function Shell({ children, split }: { children: ReactNode; split?: boolean }) {
+  const { pathname } = useLocation()
+  const cross = !split ? null : pathname.startsWith('/signup') ? { q: 'Already selling?', to: '/login', t: 'Sign in' } : pathname === '/login' ? { q: 'New to Solvelt?', to: '/signup', t: 'Start selling' } : null
   return (
     <div className={split ? 'shell split' : 'shell'}>
       {split && (
         <aside className="shell-brand" aria-hidden="true">
           <span className="logo"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt</span></span>
           <div className="brand-copy">
-            <h2>Sell to the whole community.</h2>
-            <p>One portal for your storefront, kosher certification and payouts.</p>
+            <span className="brand-eyebrow">Solvelt for sellers</span>
+            <h2>Open your shop. Reach more buyers.</h2>
+            <p>Join the marketplace built for the community: list your products, get approved fast and get paid securely.</p>
+            <div className="shop-mock">
+              <div className="shop-bar"><Icon name="store" /> <b>Your storefront</b><span className="pill">Live</span></div>
+              <div className="shop-grid">
+                {['t1', 't2', 't3', 't4', 't5', 't6'].map((t) => <div key={t} className={`tile ${t}`}><i /><span /></div>)}
+              </div>
+            </div>
             <ul className="brand-points">
-              <li><Icon name="lock" /> Passkeys and two-step verification keep your account yours</li>
-              <li><Icon name="save" /> Your application saves as you go</li>
-              <li><Icon name="check" /> Most applications are reviewed within two business days</li>
+              <li><span className="bp-ic"><Icon name="store" /></span><span><b>List in minutes</b><br />Set up your storefront and add products as soon as you are approved.</span></li>
+              <li><span className="bp-ic"><Icon name="wallet" /></span><span><b>Secure payouts</b><br />Clear fees, protected payments and reliable payouts.</span></li>
+              <li><span className="bp-ic"><Icon name="users" /></span><span><b>A community of buyers</b><br />Get discovered by shoppers who already trust the marketplace.</span></li>
             </ul>
           </div>
-          <div className="brand-foot">© Solvelt · Secured sign-in</div>
+          <div className="brand-foot"><span><Icon name="lock" /> Secured sign-in with passkeys and 2-step verification</span><span>© Solvelt</span></div>
         </aside>
       )}
       <div className="shell-main">
-        <div className="topbar">{split ? <span className="logo-mini-spacer" /> : null}<Logo /><span className="spacer" /><ThemeToggle /></div>
+        <div className="topbar">{split ? <span className="logo-mini-spacer" /> : null}<Logo /><span className="spacer" />{cross && <span className="topbar-cross"><span className="topbar-q">{cross.q}</span> <Link className="btn topbar-cta" to={cross.to}>{cross.t}</Link></span>}<ThemeToggle /></div>
         <div className="shell-content">{children}</div>
       </div>
     </div>

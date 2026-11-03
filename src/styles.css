@@ -7,7 +7,7 @@
   --primary: #4338ca; --primary-hover: #3730a3; --primary-fg: #ffffff; --primary-soft: #e8e9fb;
   --accent: #0e7c6b;
   --err: #b42318; --err-soft: #fdecea; --ok: #067647; --ok-soft: #e3f6ec; --info-soft: #e8e9fb; --warn: #8a5a00;
-  --ring: #6366f1; --brand-from: #312e81; --brand-to: #0e7c6b; --brand-fg: #ffffff;
+  --ring: #6366f1; --brand-from: #1e1b4b; --brand-to: #0f766e; --brand-fg: #ffffff;
   /* type: fluid scale, system font stack (no webfont requests, no layout shift) */
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --fs-sm: clamp(.8125rem, .79rem + .1vw, .875rem); --fs-base: clamp(.9375rem, .91rem + .15vw, 1rem);
@@ -153,3 +153,28 @@ pre { background: var(--surface-2); padding: var(--s2); border-radius: var(--r-s
 
 .app-header ~ .shell .topbar { display: none; }
 .app-header a { text-decoration: none; font-weight: 600; } .app-header { flex-wrap: wrap; }
+
+/* ---- marketplace look: seller panel, storefront mock, top-bar cross link ---- */
+.brand-eyebrow { display: inline-block; font-size: var(--fs-sm); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: rgba(255,255,255,.16); padding: 4px 12px; border-radius: var(--r-pill); margin-bottom: var(--s2); }
+.shop-mock { margin: var(--s3) 0; background: rgba(255,255,255,.96); color: #14172b; border-radius: var(--r-md); padding: var(--s2); box-shadow: var(--shadow-3); max-width: 420px; transform: rotate(-1.5deg); }
+.shop-bar { display: flex; align-items: center; gap: var(--s1); margin-bottom: var(--s1); font-size: var(--fs-sm); } .shop-bar .pill { margin-left: auto; background: #e3f6ec; color: #067647; font-weight: 700; font-size: .75rem; padding: 2px 10px; border-radius: var(--r-pill); }
+.shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s1); }
+.tile { border-radius: var(--r-sm); background: #f0f2f9; padding: 6px; } .tile i { display: block; aspect-ratio: 1; border-radius: 6px; background: linear-gradient(135deg, var(--c1), var(--c2)); } .tile span { display: block; height: 6px; width: 60%; background: #c9cde0; border-radius: 3px; margin-top: 6px; }
+.t1 { --c1: #fbbf24; --c2: #f97316; } .t2 { --c1: #a5b4fc; --c2: #6366f1; } .t3 { --c1: #5eead4; --c2: #0d9488; } .t4 { --c1: #fda4af; --c2: #e11d48; } .t5 { --c1: #bef264; --c2: #65a30d; } .t6 { --c1: #fcd34d; --c2: #b45309; }
+.brand-points { gap: var(--s2); } .brand-points li { align-items: flex-start; line-height: 1.4; } .brand-points b { font-size: var(--fs-base); }
+.bp-ic { flex: none; width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.16); display: inline-flex; align-items: center; justify-content: center; }
+.brand-foot { display: flex; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.topbar-cross { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--fs-sm); } .topbar-q { color: var(--muted); }
+.topbar-cta { min-height: 40px; padding: 6px 16px; border-radius: var(--r-pill); font-size: var(--fs-sm); }
+@media (max-width: 559px) { .topbar-q { display: none; } .shop-mock { display: none; } }
+@media (min-width: 960px) { .shell.split .shell-brand { overflow: auto; } .shell.split .logo-mini-spacer + .logo { display: none; } .shell.split .topbar { padding: var(--s3) var(--s5) 0; } }
+.shell.split .card { box-shadow: var(--shadow-1); border-radius: var(--r-md); }
+.social .btn { justify-content: flex-start; padding-inline: var(--s2); } .social .btn .icon { margin-right: var(--s1); } .social .btn { position: relative; }
+.btn.primary.block { min-height: 48px; font-size: var(--fs-base); }
+
+.wizard-col { width: 100%; max-width: 760px; }
+.seller-strip { list-style: none; margin: 0 0 var(--s2); padding: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); justify-content: center; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
+.seller-strip li { display: inline-flex; align-items: center; gap: 6px; } .seller-strip .icon { color: var(--accent); }
+.wizard-col .card.wide { max-width: none; }
+.brand-eyebrow { margin-top: var(--s3); }
+@media (min-width: 960px) and (max-height: 960px) { .shop-grid .tile:nth-child(n+4) { display: none; } .shop-mock { margin: var(--s2) 0; } .shell.split .shell-brand { padding-block: var(--s4); } }

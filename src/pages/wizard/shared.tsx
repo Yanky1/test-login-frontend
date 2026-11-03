@@ -61,11 +61,19 @@ export function ProgressBar({ current }: { current: number }) {
 export function StepFrame({ index, children }: { index: number; children: ReactNode }) {
   return (
     <Shell>
+      <div className="wizard-col">
+        <ul className="seller-strip" aria-label="Why sell on Solvelt">
+          <li><Icon name="store" /> List in minutes</li>
+          <li><Icon name="wallet" /> Secure payouts</li>
+          <li><Icon name="users" /> Reach engaged buyers</li>
+          <li><Icon name="lock" /> Protected account</li>
+        </ul>
       <main className="card wide">
         <ProgressBar current={index} />
         {children}
         {index > 0 && index < 5 && <p className="saved"><Icon name="save" /> Your progress is saved. You can close this tab and pick up where you left off.</p>}
       </main>
+      </div>
     </Shell>
   )
 }
