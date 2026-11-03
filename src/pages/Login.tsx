@@ -117,7 +117,7 @@ export default function LoginPage() {
       {passkeysSupported() && <button className="btn block" type="button" onClick={() => void passkeyLogin(false)}>Sign in with a passkey</button>}
       <a className="btn block" href={googleUrl}>Continue with Google</a>
       {config.features.apple && <a className="btn block" href={appleUrl}>Continue with Apple</a>}
-      <p className="links"><Link to="/forgot-password" state={{ email: getValues('email') }}>Forgot password?</Link> · <Link to="/signup">Create a seller account</Link></p>
+      <p className="links"><Link to="/forgot-password" state={{ email: getValues('email') }}>Forgot password?</Link> · <Link to="/signup">Create a seller account</Link> · <Link to="/signup/verify">Verify your email</Link></p>
     </Card>
   )
 }

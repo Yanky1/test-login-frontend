@@ -22,5 +22,5 @@ export default function Home() {
     )
   }
   if (!app) return <div className="center"><Spinner /></div>
-  return (<Navigate to={user?.accountStatus === 'PendingEmailVerification' ? '/signup/verify' : stepPath(app)} replace />)
+  return <Navigate to={stepPath(app)} replace />
 }

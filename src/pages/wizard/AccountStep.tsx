@@ -3,7 +3,8 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { api, ApiError, type LoginResponse } from '../../api'
+import { api, ApiError } from '../../api'
+import { rememberPendingEmail } from './pending'
 import { useAuth } from '../../auth'
 import { suggestEmail } from '../../lib/emailTypo'
 import { passwordChecks, passwordValid } from '../../lib/password'
@@ -20,7 +21,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export default function AccountStep() {
-  const { status, user, applyLogin } = useAuth()
+  const { status, user } = useAuth()
   const nav = useNavigate()
   const { register, handleSubmit, watch, setValue, setError, trigger, getValues, formState: { errors, isSubmitting } } = useForm<Form>({
     resolver: zodResolver(schema), mode: 'onBlur', reValidateMode: 'onChange', defaultValues: { terms: false },
@@ -52,8 +53,9 @@ export default function AccountStep() {
   const onSubmit = async (v: Form) => {
     setMsg(null)
     try {
-      const r = await api<LoginResponse>('/auth/signup', { auth: false, body: { email: v.email, password: v.password, acceptTerms: v.terms } })
-      applyLogin(r, 'other')
+      // 202: no session yet and the answer is the same whether or not the address is already registered.
+      await api('/auth/signup', { auth: false, body: { email: v.email, password: v.password, acceptTerms: v.terms } })
+      rememberPendingEmail(v.email)
       nav('/signup/verify')
     } catch (e) { if (e instanceof ApiError) serverErrors(e) }
   }
@@ -72,8 +74,8 @@ export default function AccountStep() {
       const email = getValues('email')
       const opts = await api('/auth/signup/passkey/options', { auth: false, body: { email, acceptTerms: true } })
       const credential = await createCredential(opts)
-      const r = await api<LoginResponse>('/auth/signup/passkey/complete', { auth: false, body: { credential, email, acceptTerms: true } })
-      applyLogin(r, 'other')
+      await api('/auth/signup/passkey/complete', { auth: false, body: { credential, email, acceptTerms: true } })
+      rememberPendingEmail(email)
       nav('/signup/verify')
     } catch (e) {
       if (e instanceof ApiError) serverErrors(e)

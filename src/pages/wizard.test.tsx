@@ -9,7 +9,7 @@ import KosherStep from './wizard/KosherStep'
 import VerifyStep from './wizard/VerifyStep'
 import ReviewStep from './wizard/ReviewStep'
 import PendingStep from './wizard/PendingStep'
-import { API, server } from '../test/server'
+import { API, loginBody, server } from '../test/server'
 import { renderAt, signedIn } from '../test/utils'
 
 const fieldConfig = [
@@ -27,9 +27,9 @@ const application = (over: Record<string, unknown> = {}) => ({
 })
 const wizardRoutes = (
   <Routes>
+    <Route path="/signup/verify" element={<VerifyStep />} />
     <Route element={<RequireAuth />}>
       <Route path="/signup" element={<WizardLayout />}>
-        <Route path="verify" element={<VerifyStep />} />
         <Route path="kosher" element={<KosherStep />} />
         <Route path="review" element={<ReviewStep />} />
         <Route path="pending" element={<PendingStep />} />
@@ -158,23 +158,19 @@ describe('wizard navigation and guards', () => {
   })
 })
 
-describe('verify step', () => {
+describe('verify step (public: no session until the mailbox is proven)', () => {
   it('has a one-time-code input, a resend countdown and re-enables resend after it ends', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      backend(application({ draftStep: 2 }))
-      server.use(
-        http.get(`${API}/auth/verification-status`, () => HttpResponse.json({ emailConfirmed: false, email: 'seller@example.com', resendAfterSeconds: 3 })),
-        http.post(`${API}/auth/resend-code`, () => HttpResponse.json({ resendAfterSeconds: 60 })),
-      )
+      sessionStorage.setItem('pendingEmail', 'dana@example.com')
+      server.use(http.post(`${API}/auth/resend-code`, () => HttpResponse.json({ resendAfterSeconds: 60 }, { status: 202 })))
       renderAt(wizardRoutes, '/signup/verify')
       const code = await screen.findByLabelText('Verification code')
       expect(code).toHaveAttribute('autocomplete', 'one-time-code')
-      const resend = await screen.findByRole('button', { name: /Resend code in 3s/ })
+      expect(screen.getByLabelText('Email')).toHaveValue('dana@example.com')
+      const resend = await screen.findByRole('button', { name: /Resend code in \d+s/ })
       expect(resend).toBeDisabled()
-      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
-      expect(await screen.findByRole('button', { name: /Resend code in 2s/ })).toBeDisabled()
-      for (let i = 0; i < 3; i++) await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+      for (let i = 0; i < 60; i++) await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
       const enabled = await screen.findByRole('button', { name: 'Resend code' })
       expect(enabled).toBeEnabled()
       await act(async () => { enabled.click() })
@@ -184,17 +180,31 @@ describe('verify step', () => {
 
   it('rejects a non 6-digit code locally and shows server errors', async () => {
     const user = userEvent.setup()
-    backend(application({ draftStep: 2 }))
-    server.use(
-      http.get(`${API}/auth/verification-status`, () => HttpResponse.json({ emailConfirmed: false, resendAfterSeconds: 60 })),
-      http.post(`${API}/auth/verify-email`, () => HttpResponse.json({ title: "That code isn't right." }, { status: 400 })),
-    )
+    sessionStorage.setItem('pendingEmail', 'dana@example.com')
+    server.use(http.post(`${API}/auth/verify-email`, () => HttpResponse.json({ title: 'Bad Request', detail: "That code isn't right or has expired." }, { status: 400 })))
     renderAt(wizardRoutes, '/signup/verify')
     await user.type(await screen.findByLabelText('Verification code'), '123')
     await user.click(screen.getByRole('button', { name: 'Verify' }))
     expect(await screen.findByText('Enter the 6-digit code from your email.')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Verification code'), '456')
     await user.click(screen.getByRole('button', { name: 'Verify' }))
-    expect(await screen.findByText("That code isn't right.")).toBeInTheDocument()
+    expect(await screen.findByText("That code isn't right or has expired.")).toBeInTheDocument()
+  })
+
+  it('signs the user in after a correct code and continues to the business step', async () => {
+    const user = userEvent.setup()
+    sessionStorage.setItem('pendingEmail', 'seller@example.com')
+    let sent: Record<string, unknown> | null = null
+    server.use(http.post(`${API}/auth/verify-email`, async ({ request }) => { sent = (await request.json()) as Record<string, unknown>; return HttpResponse.json(loginBody()) }))
+    server.use(
+      http.get(`${API}/seller/application`, () => HttpResponse.json(application({ draftStep: 3 }))),
+      http.get(`${API}/seller/field-config`, () => HttpResponse.json(fieldConfig)),
+    )
+    renderAt(wizardRoutes, '/signup/verify')
+    await user.type(await screen.findByLabelText('Verification code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify' }))
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/signup/business'))
+    expect(sent).toEqual({ email: 'seller@example.com', code: '123456' })
+    expect(sessionStorage.getItem('pendingEmail')).toBeNull()
   })
 })

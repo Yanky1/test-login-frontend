@@ -21,6 +21,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
         <Route path="/signup" element={<AccountStep />} />
+        <Route path="/signup/verify" element={<VerifyStep />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -29,7 +30,6 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/settings/:tab?" element={<SettingsPage />} />
           <Route path="/signup" element={<WizardLayout />}>
-            <Route path="verify" element={<VerifyStep />} />
             <Route path="business" element={<BusinessStep />} />
             <Route path="kosher" element={<KosherStep />} />
             <Route path="review" element={<ReviewStep />} />

@@ -18,10 +18,11 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Create account' }).click()
   // Verify
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
+  await expect(page.getByLabel('Email')).toHaveValue(email) // public step: no session yet
   await expect(page.getByRole('button', { name: /Resend code in \d+s/ })).toBeDisabled()
   await page.getByLabel('Verification code').fill('000000')
   await page.getByRole('button', { name: 'Verify' }).click()
-  await expect(page.getByText("That code isn't right.")).toBeVisible()
+  await expect(page.getByText("That code isn't right or has expired.")).toBeVisible()
   await page.getByLabel('Verification code').fill(await mailCode(request, email))
   await page.getByRole('button', { name: 'Verify' }).click()
   // Business
@@ -157,4 +158,22 @@ test('forgot and reset password', async ({ page, request }) => {
   await uiLogin(page, s.email, newPw)
   await dismissPasskeyOffer(page)
   await expect(page).not.toHaveURL(/\/login/)
+})
+
+test('sign-up with an already registered email looks identical and notifies the owner', async ({ page, request }) => {
+  const s = await createSeller(request)
+  await page.goto('/signup')
+  await page.getByLabel('Email').fill(s.email)
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByLabel('Confirm password').fill(PASSWORD)
+  await page.getByLabel(/I agree to the/).check()
+  await page.getByRole('button', { name: 'Create account' }).click()
+  // same screen a brand-new address would get
+  await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
+  await expect(page.getByText(/If this address can be used/)).toBeVisible()
+  expect(await lastMail(request, s.email, 'signup-existing')).toContain('tried to create')
+  // and a code is useless for the existing, already verified account
+  await page.getByLabel('Verification code').fill('123456')
+  await page.getByRole('button', { name: 'Verify' }).click()
+  await expect(page.getByText("That code isn't right or has expired.")).toBeVisible()
 })

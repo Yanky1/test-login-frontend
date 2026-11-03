@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, onSessionEnded, refreshSession, tokenStore, type LoginResponse } from './api'
 import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
+import { crossTab } from './lib/crossTab'
 
 export interface User { email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[] }
 type Status = 'loading' | 'authed' | 'anon'
@@ -48,6 +49,14 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
 
   useEffect(() => onSessionEnded(() => { tokenStore.set(null); setUser(null); setStatus('anon') }), [])
 
+  // Another tab logged out (manually or by inactivity): follow it without calling the API again.
+  useEffect(() => crossTab().subscribe((m) => {
+    if (m.type !== 'logout') return
+    tokenStore.set(null)
+    setUser(null); setStatus('anon')
+    setLogoutReason(m.reason === 'idle' ? 'idle' : null)
+  }), [])
+
   const applyLogin = useCallback((r: LoginResponse, method: 'password' | 'other' = 'other') => {
     tokenStore.set(r.accessToken)
     setUser(toUser(r)); setStatus('authed')
@@ -65,6 +74,7 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
     setUser(null); setStatus('anon')
     setLogoutReason(reason === 'idle' ? 'idle' : null)
     try { sessionStorage.removeItem('offerPasskey') } catch { /* ignore */ }
+    crossTab().post({ type: 'logout', reason })
   }, [])
 
   const value = useMemo<AuthCtx>(() => ({

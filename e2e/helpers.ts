@@ -43,11 +43,11 @@ export async function lastMail(request: APIRequestContext, to: string, kind: str
 /** Creates a verified seller through the API (fast path for tests that are not about signup). */
 export async function createSeller(request: APIRequestContext, email = newEmail(), password = PASSWORD) {
   const res = await request.post('/api/v1/auth/signup', { data: { email, password, acceptTerms: true } })
-  expect(res.status()).toBe(201)
-  const login = await res.json()
+  expect(res.status()).toBe(202) // no session until the mailbox is proven
   const code = await mailCode(request, email)
-  const v = await request.post('/api/v1/auth/verify-email', { data: { code }, headers: { Authorization: `Bearer ${login.accessToken}` } })
+  const v = await request.post('/api/v1/auth/verify-email', { data: { email, code } })
   expect(v.ok()).toBeTruthy()
+  const login = await v.json()
   return { email, password, sellerId: login.sellerId as string }
 }
 

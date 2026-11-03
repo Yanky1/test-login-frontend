@@ -1,25 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../../api'
+import { api, ApiError, type LoginResponse } from '../../api'
 import { useAuth } from '../../auth'
 import { Alert, Field } from '../../components/ui'
-import { StepFrame, useWizard } from './shared'
+import { forgetPendingEmail, pendingEmail, rememberPendingEmail } from './pending'
+import { StepFrame } from './shared'
 
+/** Step 2 is public: the account has no session until the mailbox is proven (the response to sign-up never reveals if an address exists). */
 export default function VerifyStep() {
-  const { user, setAccessToken } = useAuth()
-  const { reload } = useWizard()
+  const { applyLogin, status } = useAuth()
   const nav = useNavigate()
+  const [email, setEmail] = useState(pendingEmail())
   const [code, setCode] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [wait, setWait] = useState(60)
   const [busy, setBusy] = useState(false)
+  const justVerified = useRef(false)
 
-  useEffect(() => {
-    api<{ emailConfirmed: boolean; resendAfterSeconds: number }>('/auth/verification-status')
-      .then((s) => { if (s.emailConfirmed) nav('/signup/business', { replace: true }); else setWait(s.resendAfterSeconds) })
-      .catch(() => undefined)
-  }, [nav])
+  // already signed in (e.g. opened the page by hand): nothing to verify
+  useEffect(() => { if (status === 'authed' && !justVerified.current) nav('/', { replace: true }) }, [status, nav])
   useEffect(() => {
     if (wait <= 0) return
     const t = setTimeout(() => setWait((w) => w - 1), 1000)
@@ -29,29 +29,37 @@ export default function VerifyStep() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr(null); setInfo(null)
+    if (!email.includes('@')) { setErr('Enter the email address you signed up with.'); return }
     if (!/^\d{6}$/.test(code)) { setErr('Enter the 6-digit code from your email.'); return }
     setBusy(true)
     try {
-      const r = await api<{ accessToken: string }>('/auth/verify-email', { body: { code } })
-      setAccessToken(r.accessToken, { accountStatus: 'Active' })
-      await reload()
+      const r = await api<LoginResponse>('/auth/verify-email', { auth: false, body: { email, code } })
+      forgetPendingEmail()
+      justVerified.current = true
+      applyLogin(r, 'other')
       nav('/signup/business')
     } catch (ex) {
-      setErr(ex instanceof ApiError ? ((ex.body?.detail ?? ex.body?.title) ?? 'That code did not work.') : 'Network error.')
+      setErr(ex instanceof ApiError ? (ex.body?.detail ?? ex.body?.title ?? 'That code did not work.') : 'Network error.')
     } finally { setBusy(false) }
   }
 
   const resend = async () => {
     setErr(null)
-    try { const r = await api<{ resendAfterSeconds: number }>('/auth/resend-code', { body: {} }); setWait(r.resendAfterSeconds); setInfo('We sent you a new code.') }
-    catch (ex) { if (ex instanceof ApiError && ex.status === 429) setWait(ex.body?.retryAfterSeconds ?? 60); else setErr('Could not resend the code.') }
+    if (!email.includes('@')) { setErr('Enter your email address first.'); return }
+    try {
+      rememberPendingEmail(email)
+      const r = await api<{ resendAfterSeconds: number }>('/auth/resend-code', { auth: false, body: { email } })
+      setWait(r.resendAfterSeconds ?? 60)
+      setInfo('If that address is waiting for verification, we sent a new code.')
+    } catch (ex) { setErr(ex instanceof ApiError && ex.status === 429 ? 'Please wait a moment before asking again.' : 'Could not resend the code.') }
   }
 
   return (
     <StepFrame index={1}>
       <h1 tabIndex={-1}>Verify your email</h1>
-      <p>We sent a 6-digit code to <strong>{user?.email}</strong>. It is valid for 10 minutes.</p>
+      <p>If this address can be used, we sent a 6-digit code to it. It is valid for 10 minutes.</p>
       <form onSubmit={submit} noValidate>
+        <Field label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Field label="Verification code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} pattern="[0-9]*" value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} error={undefined} />
         <Alert>{err}</Alert>

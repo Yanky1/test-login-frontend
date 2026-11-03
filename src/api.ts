@@ -59,7 +59,7 @@ let refreshing: Promise<LoginResponse | null> | null = null
 /** Single-flight refresh using the HttpOnly cookie (+ CSRF header). Returns null when the session is gone. */
 export function refreshSession(): Promise<LoginResponse | null> {
   if (!refreshing) {
-    refreshing = (async () => {
+    const run = async (): Promise<LoginResponse | null> => {
       try {
         const res = await fetch('/api/v1/auth/refresh', {
           method: 'POST',
@@ -73,10 +73,11 @@ export function refreshSession(): Promise<LoginResponse | null> {
         return body
       } catch {
         return null
-      } finally {
-        refreshing = null
       }
-    })()
+    }
+    // One refresh at a time across ALL tabs (they share the rotating refresh cookie); single-flight within the tab as before.
+    const locks = (navigator as Navigator & { locks?: LockManager }).locks
+    refreshing = (locks ? locks.request('solvelt-refresh', run) : run()).finally(() => { refreshing = null })
   }
   return refreshing
 }

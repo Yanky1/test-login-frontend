@@ -34,6 +34,7 @@ lockout (2 tries left → last try + captcha → locked), forgot/reset, passkey 
 | `features.apple` | show "Continue with Apple" (also needs the backend flag) |
 
 ## Security notes
+Sign-up gives no session until the emailed code is verified (step 2 is public). Activity, logout and token refresh are coordinated across tabs (BroadcastChannel + Web Locks), so an idle background tab cannot sign out an active one.
 Access token is kept in memory only. The refresh token is an HttpOnly cookie; the SPA sends the `X-CSRF-Token` double-submit header on refresh/logout.
 Redirect-after-login accepts same-origin relative paths only (`src/lib/safeNext.ts`).
 

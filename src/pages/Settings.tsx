@@ -84,21 +84,28 @@ function ChangeEmail({ me, reload }: { me: Me; reload: () => Promise<void> }) {
   const { setAccessToken } = useAuth()
   const [newEmail, setNewEmail] = useState('')
   const [pw, setPw] = useState('')
+  const [stepUp, setStepUp] = useState(false) // passwordless accounts confirm with a code sent to the CURRENT address
+  const [stepUpCode, setStepUpCode] = useState('')
+  const [totp, setTotp] = useState('')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const request = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg(null)
-    try { await api('/account/email/change', { body: { newEmail, currentPassword: me.hasPassword ? pw : undefined } }); setSent(true) }
-    catch (ex) { setMsg(ex instanceof ApiError ? (ex.fieldErrors().newEmail ?? (ex.body?.detail ?? ex.body?.title) ?? 'Could not start the change') : 'Network error') }
+    try {
+      const r = await api<{ stepUpRequired?: boolean }>('/account/email/change', {
+        body: { newEmail, currentPassword: me.hasPassword ? pw : undefined, stepUpCode: stepUp ? stepUpCode : undefined, totpCode: me.twoFactorEnabled && stepUp ? totp : undefined },
+      })
+      if (r?.stepUpRequired) { setStepUp(true); setMsg(null) } else { setSent(true); setStepUp(false) }
+    } catch (ex) { setMsg(ex instanceof ApiError ? (ex.fieldErrors().newEmail ?? ex.body?.detail ?? ex.body?.title ?? 'Could not start the change') : 'Network error') }
   }
   const confirm = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg(null)
     try {
       const r = await api<{ accessToken: string; email: string }>('/account/email/confirm', { body: { code } })
-      setAccessToken(r.accessToken, { email: r.email }); setOk(`Email changed to ${r.email}. We notified your previous address.`); setSent(false); setNewEmail(''); setCode(''); setPw(''); await reload()
-    } catch (ex) { setMsg(ex instanceof ApiError ? ((ex.body?.detail ?? ex.body?.title) ?? 'That code did not work') : 'Network error') }
+      setAccessToken(r.accessToken, { email: r.email }); setOk(`Email changed to ${r.email}. We notified your previous address.`); setSent(false); setStepUp(false); setNewEmail(''); setCode(''); setPw(''); setStepUpCode(''); await reload()
+    } catch (ex) { setMsg(ex instanceof ApiError ? (ex.body?.detail ?? ex.body?.title ?? 'That code did not work') : 'Network error') }
   }
   return (
     <section aria-labelledby="ce"><h2 id="ce">Change email</h2>
@@ -107,7 +114,14 @@ function ChangeEmail({ me, reload }: { me: Me; reload: () => Promise<void> }) {
         <form onSubmit={request} noValidate>
           <Field label="New email" type="email" autoComplete="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
           {me.hasPassword && <PasswordField label="Current password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />}
-          <button className="btn primary">Send verification code</button>
+          {stepUp && (
+            <>
+              <p role="status">We sent a confirmation code to <strong>{me.email}</strong>. Enter it to continue.</p>
+              <Field label="Confirmation code (from your current email)" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={stepUpCode} onChange={(e) => setStepUpCode(e.target.value.replace(/\D/g, ''))} />
+              {me.twoFactorEnabled && <Field label="Authentication code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))} />}
+            </>
+          )}
+          <button className="btn primary">{stepUp ? 'Continue' : 'Send verification code'}</button>
         </form>
       ) : (
         <form onSubmit={confirm} noValidate>

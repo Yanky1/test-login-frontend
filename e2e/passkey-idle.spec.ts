@@ -1,4 +1,4 @@
-import { test, expect, createSeller, uiLogin, PASSWORD, baseConfig, dismissPasskeyOffer } from './helpers'
+import { test, expect, createSeller, uiLogin, PASSWORD, baseConfig, dismissPasskeyOffer, mailCode } from './helpers'
 
 async function virtualAuthenticator(page: import('@playwright/test').Page) {
   const cdp = await page.context().newCDPSession(page)
@@ -49,7 +49,7 @@ test('passkey: conditional UI signs in automatically with a discoverable credent
   await expect(page.locator('.who')).toHaveText(s.email)
 })
 
-test('passkey: sign up with a passkey', async ({ page }) => {
+test('passkey: sign up with a passkey, verify, then change email with a step-up code', async ({ page, request }) => {
   await virtualAuthenticator(page)
   const email = `pk-${Date.now()}@example.com`
   await page.goto('/signup')
@@ -57,6 +57,44 @@ test('passkey: sign up with a passkey', async ({ page }) => {
   await page.getByLabel(/I agree to the/).check()
   await page.getByRole('button', { name: 'Sign up with a passkey' }).click()
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
+  await expect(page.getByLabel('Email')).toHaveValue(email)
+  await page.getByLabel('Verification code').fill(await mailCode(request, email))
+  await page.getByRole('button', { name: 'Verify' }).click()
+  await expect(page.getByRole('heading', { name: 'Business details' })).toBeVisible()
+  // passkey-only account (no password): changing the email needs a code from the CURRENT mailbox first
+  await page.goto('/settings/security')
+  const newEmail = `pk-new-${Date.now()}@example.com`
+  await page.getByLabel('New email').fill(newEmail)
+  await page.getByRole('button', { name: 'Send verification code' }).click()
+  await expect(page.getByText(/We sent a confirmation code to/)).toBeVisible()
+  await page.getByLabel(/Confirmation code/).fill('000000')
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page.getByText(/confirmation code isn't right/)).toBeVisible()
+  await page.getByLabel(/Confirmation code/).fill(await mailCode(request, email, 'stepup-code'))
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page.getByText(new RegExp(`We sent a code to ${newEmail}`))).toBeVisible()
+  await page.getByLabel('Verification code').fill(await mailCode(request, newEmail, 'change-email-code'))
+  await page.getByRole('button', { name: 'Confirm new email' }).click()
+  await expect(page.getByText(/Email changed to/)).toBeVisible()
+})
+
+test('passkey sign-up binds the email: tampering with it between options and complete is rejected', async ({ page }) => {
+  await virtualAuthenticator(page)
+  const email = `bind-${Date.now()}@example.com`
+  let status = 0
+  await page.route('**/api/v1/auth/signup/passkey/complete', async (route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    body.email = `victim-${Date.now()}@example.com` // attacker swaps in someone else's address
+    const res = await route.fetch({ postData: JSON.stringify(body) })
+    status = res.status()
+    await route.fulfill({ response: res })
+  })
+  await page.goto('/signup')
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel(/I agree to the/).check()
+  await page.getByRole('button', { name: 'Sign up with a passkey' }).click()
+  await expect.poll(() => status).toBe(400)
+  await expect(page.getByRole('heading', { name: 'Verify your email' })).toHaveCount(0)
 })
 
 test.describe('inactivity logout', () => {
@@ -97,5 +135,30 @@ test.describe('inactivity logout', () => {
     await page.getByRole('button', { name: 'Stay signed in' }).click({ timeout: 15_000 })
     await expect(page.getByRole('alertdialog')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible()
+  })
+})
+
+test.describe('multiple tabs', () => {
+  const idle = { ...baseConfig, idleTimeoutMinutes: 0.15, warningSeconds: 5 } // 9 s idle, 5 s warning
+  test.use({ config: idle })
+
+  test('activity in one tab keeps the idle tab signed in; with no activity both sign out together', async ({ page, context, request }) => {
+    const s = await createSeller(request)
+    await page.goto('/login?next=%2Fsettings%2Fprofile')
+    await uiLogin(page, s.email)
+    await dismissPasskeyOffer(page)
+    await expect(page).toHaveURL(/\/settings\/profile$/)
+    const other = await context.newPage()
+    await other.route('**/config.json', (route) => route.fulfill({ json: idle }))
+    await other.goto('/settings/profile')
+    await expect(other.getByRole('heading', { name: 'Account settings' })).toBeVisible() // session restored from the shared refresh cookie
+    // the user works in the first tab only for longer than the idle timeout: the second tab must not log anyone out
+    for (let i = 0; i < 14; i++) { await page.mouse.move(20 + i * 5, 120); await page.waitForTimeout(1000) }
+    await expect(other.getByRole('alertdialog')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Account settings' })).toBeVisible()
+    await expect(other.getByRole('heading', { name: 'Account settings' })).toBeVisible()
+    // now nobody does anything: one coordinated logout takes both tabs to the login page
+    await expect(page).toHaveURL(/\/login/, { timeout: 25_000 })
+    await expect(other).toHaveURL(/\/login/, { timeout: 10_000 })
   })
 })

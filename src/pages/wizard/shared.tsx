@@ -37,7 +37,7 @@ export const useWizard = () => {
 export function stepPath(app: Application): string {
   if (app.status !== 'Draft' && app.status !== 'NeedsInfo') return '/signup/pending'
   if (app.status === 'NeedsInfo') return '/signup/business'
-  const idx = Math.min(Math.max(app.draftStep, 2), 5)
+  const idx = Math.min(Math.max(app.draftStep, 3), 5)
   return `/signup/${STEPS[idx - 1].key}`
 }
 
@@ -81,7 +81,7 @@ export function WizardLayout() {
   if (!app) return <div className="center"><Spinner /></div>
   // Guard against skipping ahead of the saved draft
   const want = STEPS.findIndex((s) => loc.pathname.endsWith('/' + s.key)) + 1
-  const draftOk = app.status === 'Draft' ? want <= Math.max(app.draftStep, 2) : app.status === 'NeedsInfo' ? want >= 3 && want <= 5 : want === 6
+  const draftOk = app.status === 'Draft' ? want >= 3 && want <= Math.max(app.draftStep, 3) : app.status === 'NeedsInfo' ? want >= 3 && want <= 5 : want === 6
   if (!draftOk) return <Navigate to={stepPath(app)} replace />
   return <WizardCtx.Provider value={{ app, fields, setApp, reload }}><Outlet /></WizardCtx.Provider>
 }

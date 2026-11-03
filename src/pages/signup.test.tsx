@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { Route, Routes } from 'react-router-dom'
 import AccountStep from './wizard/AccountStep'
-import { API, loginBody, server } from '../test/server'
+import { API, server } from '../test/server'
 import { renderAt } from '../test/utils'
 import { tokenStore } from '../api'
 
@@ -53,10 +53,10 @@ describe('signup account step', () => {
     expect(pw).toHaveAttribute('type', 'password')
   })
 
-  it('requires the Terms checkbox, then creates the account and moves to Verify (token kept in memory only)', async () => {
+  it('requires the Terms checkbox, then signs up (202, no session) and moves to Verify', async () => {
     const user = userEvent.setup()
     let body: Record<string, unknown> | null = null
-    server.use(http.post(`${API}/auth/signup`, async ({ request }) => { body = (await request.json()) as Record<string, unknown>; return HttpResponse.json(loginBody({ accountStatus: 'PendingEmailVerification' }), { status: 201 }) }))
+    server.use(http.post(`${API}/auth/signup`, async ({ request }) => { body = (await request.json()) as Record<string, unknown>; return HttpResponse.json({ message: 'ok', resendAfterSeconds: 60 }, { status: 202 }) }))
     renderAt(ui, '/signup')
     await user.type(await screen.findByLabelText('Email'), 'dana@example.com')
     await user.type(screen.getByLabelText('Password'), 'Tr1cky-Horse-Battery!')
@@ -68,9 +68,9 @@ describe('signup account step', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }))
     expect(await screen.findByText('verify page')).toBeInTheDocument()
     expect(body).toMatchObject({ email: 'dana@example.com', acceptTerms: true })
-    expect(tokenStore.get()).toBe('tok-1')
+    expect(tokenStore.get()).toBeNull() // no session until the mailbox is verified
+    expect(sessionStorage.getItem('pendingEmail')).toBe('dana@example.com')
     expect(JSON.stringify({ ...localStorage })).not.toContain('tok-1')
-    expect(JSON.stringify({ ...sessionStorage })).not.toContain('tok-1')
   })
 
   it('shows server-side field errors (e.g. breached/common password)', async () => {
