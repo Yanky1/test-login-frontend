@@ -7,7 +7,8 @@ import { api, ApiError } from '../api'
 import { useAuth } from '../auth'
 import { passwordChecks, passwordValid } from '../lib/password'
 import { createCredential, passkeysSupported } from '../lib/passkeys'
-import { Alert, Field, PasswordField, Shell, Skeleton, StrengthMeter } from '../components/ui'
+import { renderSVG } from 'uqr'
+import { Alert, Field, Icon, PasswordField, SettingCard, Shell, Skeleton, StrengthMeter } from '../components/ui'
 
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
 
@@ -18,7 +19,10 @@ export default function SettingsPage() {
   useEffect(() => { void reload() }, [reload])
   return (
     <Shell><main className="card wide">
-      <h1 tabIndex={-1}>Account settings</h1>
+      <div className="acct-head">
+        <span className="avatar" aria-hidden="true">{(me?.vendorName ?? me?.email ?? '?').trim().charAt(0).toUpperCase()}</span>
+        <div><h1 tabIndex={-1}>Account settings</h1><p className="acct-sub">{me ? <>{me.vendorName ? <strong>{me.vendorName}</strong> : null}{me.vendorName ? ' · ' : ''}{me.email}</> : ' '}</p></div>
+      </div>
       <nav className="tabs" aria-label="Settings">
         <NavLink to="/settings/profile">Profile</NavLink>
         <NavLink to="/settings/security">Security</NavLink>
@@ -31,10 +35,9 @@ export default function SettingsPage() {
 
 function Profile({ me }: { me: Me }) {
   return (
-    <section aria-labelledby="prof">
-      <h2 id="prof">Profile</h2>
+    <SettingCard id="prof" icon="user" title="Profile" desc="How you appear to the marketplace team." badge={{ text: me.sellerStatus ?? 'No application', tone: 'muted' }}>
       <dl><dt>Email</dt><dd>{me.email}</dd><dt>Business</dt><dd>{me.vendorName ?? '—'}</dd><dt>Application status</dt><dd>{me.sellerStatus ?? '—'}</dd></dl>
-    </section>
+    </SettingCard>
   )
 }
 
@@ -68,7 +71,7 @@ function ChangePassword() {
     }
   }
   return (
-    <section aria-labelledby="cp"><h2 id="cp">Change password</h2>
+    <SettingCard id="cp" icon="lock" title="Change password" desc="Use a long, unique password. Changing it signs your other devices out.">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <PasswordField label="Current password" autoComplete="current-password" error={errors.currentPassword?.message} {...register('currentPassword')} />
         <PasswordField label="New password" autoComplete="new-password" error={errors.newPassword?.message} {...register('newPassword')}
@@ -76,7 +79,7 @@ function ChangePassword() {
         <Alert kind="success">{ok ? 'Password changed. Your other devices were signed out.' : undefined}</Alert>
         <button className="btn primary" disabled={isSubmitting}>Change password</button>
       </form>
-    </section>
+    </SettingCard>
   )
 }
 
@@ -108,7 +111,7 @@ function ChangeEmail({ me, reload }: { me: Me; reload: () => Promise<void> }) {
     } catch (ex) { setMsg(ex instanceof ApiError ? (ex.body?.detail ?? ex.body?.title ?? 'That code did not work') : 'Network error') }
   }
   return (
-    <section aria-labelledby="ce"><h2 id="ce">Change email</h2>
+    <SettingCard id="ce" icon="mail" title="Change email" desc="We confirm the new address with a code before switching.">
       <p>Current email: <strong>{me.email}</strong></p>
       {!sent ? (
         <form onSubmit={request} noValidate>
@@ -131,7 +134,7 @@ function ChangeEmail({ me, reload }: { me: Me; reload: () => Promise<void> }) {
         </form>
       )}
       <Alert>{msg}</Alert><Alert kind="success">{ok}</Alert>
-    </section>
+    </SettingCard>
   )
 }
 
@@ -160,8 +163,8 @@ function Passkeys({ reload }: { reload: () => Promise<void> }) {
     catch (e) { setMsg(e instanceof ApiError && e.status === 409 ? "You can't remove your last sign-in method." : 'Could not remove the passkey.') }
   }
   return (
-    <section aria-labelledby="pk"><h2 id="pk">Passkeys</h2>
-      {list.length === 0 ? <p>No passkeys yet.</p> : (
+    <SettingCard id="pk" icon="key" title="Passkeys" desc="Sign in with your fingerprint, face or device PIN. Faster and phishing-resistant." badge={{ text: list.length ? `${list.length} saved` : 'None yet', tone: list.length ? 'ok' : 'muted' }}>
+      {list.length === 0 ? <p className="empty">No passkeys yet. Add one to sign in without typing a password.</p> : (
         <ul className="list">{list.map((p) => (
           <li key={p.id}><span>{p.name} <small>added {new Date(p.createdAt).toLocaleDateString()}</small></span>
             <span><button className="btn link" onClick={() => void rename(p)}>Rename</button> <button className="btn link" onClick={() => void del(p)}>Delete</button></span></li>
@@ -169,7 +172,7 @@ function Passkeys({ reload }: { reload: () => Promise<void> }) {
       )}
       {passkeysSupported() && (<div className="row"><Field label="Passkey name" value={name} onChange={(e) => setName(e.target.value)} /><button className="btn" onClick={() => void add()}>Add a passkey</button></div>)}
       <Alert>{msg}</Alert>
-    </section>
+    </SettingCard>
   )
 }
 
@@ -180,11 +183,11 @@ function Logins({ me, reload }: { me: Me; reload: () => Promise<void> }) {
     catch (e) { setMsg(e instanceof ApiError && e.status === 409 ? "You can't remove your last sign-in method." : 'Could not unlink.') }
   }
   return (
-    <section aria-labelledby="lg"><h2 id="lg">Linked logins</h2>
-      {me.logins.length === 0 ? <p>No linked providers.</p> : <ul className="list">{me.logins.map((p) => <li key={p}><span>{p}</span><button className="btn link" onClick={() => void unlink(p)}>Unlink</button></li>)}</ul>}
+    <SettingCard id="lg" icon="users" title="Linked logins" desc="Sign-in providers connected to this account." badge={{ text: me.logins.length ? `${me.logins.length} linked` : 'None', tone: me.logins.length ? 'ok' : 'muted' }}>
+      {me.logins.length === 0 ? <p className="empty">No linked providers.</p> : <ul className="list">{me.logins.map((p) => <li key={p}><span>{p}</span><button className="btn link" onClick={() => void unlink(p)}>Unlink</button></li>)}</ul>}
       {!me.logins.includes('Google') && <a className="btn" href="/api/v1/auth/external/google/start?returnUrl=%2Fsettings%2Fsecurity">Link Google (same verified email)</a>}
       <Alert>{msg}</Alert>
-    </section>
+    </SettingCard>
   )
 }
 
@@ -206,13 +209,17 @@ function TwoFactor({ me, reload }: { me: Me; reload: () => Promise<void> }) {
     catch { setMsg('Password or code is not right.') }
   }
   return (
-    <section aria-labelledby="tf"><h2 id="tf">Two-factor authentication (authenticator app)</h2>
-      {recovery && (<div className="alert info"><p>Save these recovery codes somewhere safe. Each works once.</p><pre aria-label="Recovery codes">{recovery.join('\n')}</pre></div>)}
+    <SettingCard id="tf" icon="shield" title="Two-factor authentication (authenticator app)" desc="A second step at sign-in protects your payouts even if your password leaks." badge={{ text: me.twoFactorEnabled ? 'On' : 'Off', tone: me.twoFactorEnabled ? 'ok' : 'muted' }}>
+      {recovery && <RecoveryCodes codes={recovery} onDone={() => setRecovery(null)} />}
       {!me.twoFactorEnabled && !setup && <button className="btn" onClick={() => void start()}>Set up 2FA</button>}
       {setup && (
-        <form onSubmit={enable} noValidate>
-          <p>Add this key to your authenticator app, then enter the 6-digit code.</p>
-          <p><code>{setup.sharedKey}</code></p>
+        <form onSubmit={enable} noValidate className="twofa-setup">
+          <ol className="how">
+            <li>Scan this QR code with your authenticator app (1Password, Authy, Google Authenticator…).</li>
+            <li>Enter the 6-digit code the app shows.</li>
+          </ol>
+          <div className="qr" role="img" aria-label="QR code for your authenticator app" dangerouslySetInnerHTML={{ __html: renderSVG(setup.otpAuthUri, { border: 1 }) }} />
+          <p className="hint">Can’t scan it? Enter this key instead: <code>{setup.sharedKey}</code></p>
           <Field label="Authentication code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
           <button className="btn primary">Enable 2FA</button>
         </form>
@@ -226,7 +233,30 @@ function TwoFactor({ me, reload }: { me: Me; reload: () => Promise<void> }) {
         </form>
       )}
       <Alert>{msg}</Alert>
-    </section>
+    </SettingCard>
+  )
+}
+
+function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const text = codes.join('\n')
+  const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true) } catch { setCopied(false) } }
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([`Solvelt recovery codes\nEach code works once.\n\n${text}\n`], { type: 'text/plain' }))
+    const a = document.createElement('a'); a.href = url; a.download = 'solvelt-recovery-codes.txt'; a.click(); URL.revokeObjectURL(url)
+  }
+  return (
+    <div className="alert info recovery">
+      <p><strong>Save these recovery codes somewhere safe.</strong> Each works once, and they are the only way in if you lose your phone. We will not show them again.</p>
+      <pre aria-label="Recovery codes" className="codes">{text}</pre>
+      <div className="row">
+        <button type="button" className="btn" onClick={() => void copy()}><Icon name="copy" /> {copied ? 'Copied' : 'Copy codes'}</button>
+        <button type="button" className="btn" onClick={download}><Icon name="download" /> Download .txt</button>
+      </div>
+      <div className="field check"><label><input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} /> I have saved my recovery codes</label></div>
+      <button type="button" className="btn primary" disabled={!saved} onClick={onDone}>Done</button>
+    </div>
   )
 }
 
@@ -239,13 +269,13 @@ function Sessions() {
   useEffect(() => { void load() }, [load])
   const all = async () => { await api('/auth/logout-all', { body: {} }); await logout(); nav('/login', { replace: true }) }
   return (
-    <section aria-labelledby="ss"><h2 id="ss">Active sessions</h2>
+    <SettingCard id="ss" icon="laptop" title="Active sessions" desc="Devices currently signed in to your account.">
       <ul className="list">{list.map((s) => (
-        <li key={s.id}><span>{s.current ? 'This device' : (s.userAgent ?? 'Unknown device').slice(0, 60)} <small>last active {new Date(s.lastActivityAt).toLocaleString()}</small></span>
+        <li key={s.id}><span>{s.current ? <>This device <span className="chip ok">Current</span></> : (s.userAgent ?? 'Unknown device').slice(0, 60)} <small>last active {Number.isNaN(Date.parse(s.lastActivityAt)) ? 'recently' : new Date(s.lastActivityAt).toLocaleString()}</small></span>
           {!s.current && <button className="btn link" onClick={async () => { await api(`/account/sessions/${s.id}`, { method: 'DELETE' }); await load() }}>Sign out</button>}</li>
       ))}</ul>
       <div className="row"><button className="btn" onClick={async () => { await logout(); nav('/login', { replace: true }) }}>Sign out</button>
         <button className="btn danger" onClick={() => void all()}>Sign out of all devices</button></div>
-    </section>
+    </SettingCard>
   )
 }

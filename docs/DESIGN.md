@@ -12,11 +12,13 @@
 - Spacing: 8-pt grid `--s1…--s8` (plus a 4px half-step). Radius `--r-*`, shadow `--shadow-*`, motion `--t-*`/`--ease`.
 
 ## Components (`src/components/ui.tsx`)
-Button (primary/secondary/ghost/destructive, loading), Field (label, hint, error), PasswordField (show/hide) + StrengthMeter, OtpInput, Checkbox/Select (styled natively), Card, Shell (brand panel + top bar), Alert (aria-live), Modal (idle/passkey dialogs), Stepper (`ProgressBar`, tracker), Skeleton, Spinner, Icon set, ThemeToggle.
+Button (primary/secondary/ghost/destructive, loading), Field (label, hint, error), PasswordField (show/hide) + StrengthMeter, OtpInput, Checkbox/Select (styled natively), Card, Shell (brand panel + top bar), Alert (aria-live), Modal (idle/passkey dialogs), Stepper (`ProgressBar`, tracker), Skeleton, Spinner, Icon set, ThemeToggle, SettingCard (account page cards + status chips).
 
 ## Decisions
 - Class names (`btn`, `field`, `alert`…) were kept so existing behaviour and 76 unit tests stay valid; styling and structure were redesigned underneath.
 - OTP is one real `<input>` with a visual 6-cell overlay: paste, SMS autofill and screen readers work with no focus juggling.
-- No dependency was added besides `@axe-core/playwright` (dev). Icons are hand-inlined lucide-style paths rather than a package.
+- Marketplace look: seller panel (storefront mock-up + benefits) on desktop, "Start selling" / "Sign in" cross-link in the top bar, benefits strip above the wizard. Copy is placeholder, with no invented fees or numbers.
+- Dependencies added: `@axe-core/playwright` (dev) and `uqr` (~tiny, no deps) so the 2FA QR is drawn locally. Icons are hand-inlined lucide-style paths rather than a package.
 - Security behaviour untouched: token handling, CSRF, multi-tab coordination, 2FA prompts, step-up, redirect safety.
 - Tests: `npm test` (Vitest), `npm run test:ui` (mocked-API Playwright + axe, light/dark, 390/1440), `npm run e2e` (real backend).
+- Route-level code splitting: Settings and the authed wizard steps (business, kosher, review, pending) and Guest are `React.lazy` chunks behind one `Suspense` spinner.

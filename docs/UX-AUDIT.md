@@ -28,9 +28,10 @@ Status legend: ✅ fixed · ⏳ deferred (reason given).
 |---|---------|--------|
 | 15 | Field errors lacked an icon (colour-only cue) | ✅ ⚠ prefix |
 | 16 | Reduced-motion not respected | ✅ global `prefers-reduced-motion` rule |
-| 17 | Settings as sections/cards with QR + recovery-code UX redesign | ⏳ Restyled with tokens only; a structural redesign needs the real 2FA/passkey flows exercised against the backend (not attachable in this session) |
-| 18 | Review step edit links, email-first login, wizard business/kosher markup | ⏳ Restyled only; markup left unchanged to avoid breaking the 76 unit tests without a backend E2E run |
-| 19 | Email templates (backend `Templates.cs`) | ⏳ Backend repo could not be attached (permission denied for `add_repo`) |
-| 20 | Real-backend Playwright E2E re-run + axe in E2E | ⏳ Same reason. Axe runs in the mocked UI suite instead |
-| 21 | Before screenshots | ⏳ Not captured; only "after" are in `docs/screenshots/` |
+| 17 | Settings as cards with QR + recovery-code UX | ✅ `SettingCard` per area (icon, description, status chip), account header, QR code generated locally (`uqr`, secret never leaves the browser) with manual-key fallback, recovery codes with copy / download / "I have saved them" gate, device chip in sessions, empty states. Verified with the real-backend E2E |
+| 18 | Review step edit links, wizard markup | ✅ Review sections are summary cards with pill "Edit" links (accessible name unchanged, described by the section heading). Business/kosher steps keep their markup: they were already clear and passed axe. **Email-first login: not done by design.** Passkey autofill (`webauthn`) and password managers work best with one visible form; splitting it adds a step for every sign-in |
+| 19 | Email templates (backend `Templates.cs`) | ⏳ Out of scope by request (UI/UX only) |
+| 20 | Real-backend Playwright E2E re-run + axe in E2E | ✅ 12/12 pass on the redesigned UI; axe (serious/critical) now also asserted in the E2E on signup, verify, business, kosher, review, pending, login and settings |
+| 21 | Before screenshots | ✅ `docs/screenshots/before/` (pre-redesign commit `29fd0c8`, light, mobile + desktop) vs `docs/screenshots/` (after) |
 | 22 | Auth screens did not read as a marketplace seller portal (generic brand copy, no seller value, no cross-link between sign-in and sign-up) | ✅ Seller panel (storefront mock-up, listing / payouts / buyer benefits, security line), "New to Solvelt? Start selling" / "Already selling? Sign in" top-bar CTA, benefits strip above the signup wizard, larger primary CTA |
+| 23 | Pending screen was a plain paragraph | ✅ Calm hero icon, tracker, "What happens next" list |

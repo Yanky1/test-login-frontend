@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Icon } from '../../components/ui'
 import { StepFrame, useWizard } from './shared'
 
 const TRACK = ['Sent', 'Review', 'Approved', 'Live'] as const
@@ -12,11 +13,14 @@ export default function PendingStep() {
   const idx = trackerIndex(app.status)
   return (
     <StepFrame index={5}>
+      <div className="pending-head">
+      <span className="hero" aria-hidden="true"><Icon name={idx >= 3 ? 'check' : 'clock'} /></span>
       <h1 tabIndex={-1}>Your application is pending</h1>
       {app.status === 'NeedsInfo' && <p role="status" className="alert info">We need more information. {app.statusNote} <Link to="/signup/business">Update your application</Link></p>}
       {app.status === 'Rejected' && <p role="status" className="alert error">Unfortunately your application was not approved.</p>}
       {app.status === 'Suspended' && <p role="status" className="alert error">Your account is suspended.</p>}
       <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed. You can safely close this page.</p>
+      </div>
       <ol className="tracker" aria-label="Application status">
         {TRACK.map((t, i) => (
           <li key={t} className={i < idx ? 'done' : i === idx ? 'current' : ''} aria-current={i === idx ? 'step' : undefined}>
@@ -24,6 +28,14 @@ export default function PendingStep() {
           </li>
         ))}
       </ol>
+      <div className="next">
+        <h2>What happens next</h2>
+        <ul>
+          <li>Our team reviews your business details and kosher information.</li>
+          <li>We email you at your account address with the decision, or if we need anything else.</li>
+          <li>Once approved, your storefront goes live on the marketplace.</li>
+        </ul>
+      </div>
       <div className="row">
         <a className="btn primary" href={app.marketplaceUrl} target="_blank" rel="noreferrer">Visit marketplace</a>
         <Link className="btn" to="/guest">Guest mode</Link>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../api'
 import { visibleKeys } from '../../lib/kosher'
-import { Alert } from '../../components/ui'
+import { Alert, Icon } from '../../components/ui'
 import { StepFrame, useWizard, type Application } from './shared'
 
 export default function ReviewStep() {
@@ -29,8 +29,9 @@ export default function ReviewStep() {
   return (
     <StepFrame index={4}>
       <h1 tabIndex={-1}>Review your application</h1>
-      <section aria-labelledby="rv-biz">
-        <h2 id="rv-biz">Business <Link to="/signup/business">Edit</Link></h2>
+      <p className="rv-lead">Check everything below. You can change any section before you submit.</p>
+      <section aria-labelledby="rv-biz" className="rv-card">
+        <h2><span id="rv-biz">Business</span> <Link className="edit-link" to="/signup/business" aria-describedby="rv-biz"><Icon name="pencil" />Edit</Link></h2>
         <dl>
           <dt>Business name</dt><dd>{b.vendorName}</dd>
           <dt>Contact</dt><dd>{b.contactName} · {b.contactPhone}</dd>
@@ -38,8 +39,8 @@ export default function ReviewStep() {
           <dt>Text messages</dt><dd>{b.smsOptIn ? 'Opted in' : 'Not opted in'}</dd>
         </dl>
       </section>
-      <section aria-labelledby="rv-k">
-        <h2 id="rv-k">Food &amp; kosher <Link to="/signup/kosher">Edit</Link></h2>
+      <section aria-labelledby="rv-k" className="rv-card">
+        <h2><span id="rv-k">Food &amp; kosher</span> <Link className="edit-link" to="/signup/kosher" aria-describedby="rv-k"><Icon name="pencil" />Edit</Link></h2>
         <dl>
           {fields.filter((f) => vis.has(f.key)).map((f) => (
             <div key={f.key}><dt>{f.label}</dt><dd>{f.type === 'file' ? (app.kosher.certificate?.name ?? '—') : (app.kosher.answers[f.key] ?? '—')}</dd></div>

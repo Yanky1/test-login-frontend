@@ -1,23 +1,26 @@
+import { lazy, Suspense } from 'react'
 import { Route, Routes, Navigate } from 'react-router-dom'
+import { Spinner } from './components/ui'
 import { RedirectIfAuthed, RequireAuth } from './components/RequireAuth'
 import LoginPage from './pages/Login'
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/Recovery'
 import AuthCallback from './pages/AuthCallback'
-import GuestPage from './pages/Guest'
+const GuestPage = lazy(() => import('./pages/Guest'))
 import Home from './pages/Home'
-import SettingsPage from './pages/Settings'
+const SettingsPage = lazy(() => import('./pages/Settings'))
 import { WizardLayout } from './pages/wizard/shared'
 import AccountStep from './pages/wizard/AccountStep'
 import VerifyStep from './pages/wizard/VerifyStep'
-import BusinessStep from './pages/wizard/BusinessStep'
-import KosherStep from './pages/wizard/KosherStep'
-import ReviewStep from './pages/wizard/ReviewStep'
-import PendingStep from './pages/wizard/PendingStep'
+const BusinessStep = lazy(() => import('./pages/wizard/BusinessStep'))
+const KosherStep = lazy(() => import('./pages/wizard/KosherStep'))
+const ReviewStep = lazy(() => import('./pages/wizard/ReviewStep'))
+const PendingStep = lazy(() => import('./pages/wizard/PendingStep'))
 
 export default function App() {
   return (
     <>
       <a href="#page-title" className="skip">Skip to content</a>
+      <Suspense fallback={<div className="center"><Spinner /></div>}>
       <Routes>
         <Route path="/login" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
         <Route path="/signup" element={<AccountStep />} />
@@ -38,6 +41,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   )
 }

@@ -1,8 +1,9 @@
-import { test, expect, PASSWORD, newEmail, mailCode, lastMail, createSeller, setStatus, uiLogin, dismissPasskeyOffer } from './helpers'
+import { test, expect, PASSWORD, newEmail, mailCode, lastMail, createSeller, setStatus, uiLogin, dismissPasskeyOffer, expectNoSeriousA11y } from './helpers'
 
 test('signup wizard through the pending screen', async ({ page, request }) => {
   const email = newEmail()
   await page.goto('/signup')
+  await expectNoSeriousA11y(page)
   await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
   // Account
   await page.getByLabel('Email').fill(email.replace('@example.com', '@gmial.com'))
@@ -18,6 +19,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Create account' }).click()
   // Verify
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
+  await expectNoSeriousA11y(page)
   await expect(page.getByLabel('Email')).toHaveValue(email) // public step: no session yet
   await expect(page.getByRole('button', { name: /Resend code in \d+s/ })).toBeDisabled()
   await page.getByLabel('Verification code').fill('000000')
@@ -27,6 +29,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Verify' }).click()
   // Business
   await expect(page.getByRole('heading', { name: 'Business details' })).toBeVisible()
+  await expectNoSeriousA11y(page)
   await page.getByLabel('Business name').fill('Acme Bakery')
   await page.getByLabel('Contact name').fill('Dana Seller')
   await page.getByLabel('Phone').fill('+1 555 123 4567')
@@ -38,6 +41,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Continue' }).click()
   // Kosher: branching
   await expect(page.getByRole('heading', { name: 'Food & kosher' })).toBeVisible()
+  await expectNoSeriousA11y(page)
   await expect(page.getByText('Is your food kosher?')).toHaveCount(0)
   await page.getByRole('group', { name: 'Do you sell food?' }).getByLabel('Yes').check()
   await page.getByRole('group', { name: 'Is your food kosher?' }).getByLabel('Yes').check()
@@ -49,6 +53,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Continue' }).click()
   // Review (draft survives a reload)
   await expect(page.getByRole('heading', { name: 'Review your application' })).toBeVisible()
+  await expectNoSeriousA11y(page)
   await page.reload()
   await expect(page.getByText('Acme Bakery')).toBeVisible()
   await page.getByRole('button', { name: 'Submit application' }).click()
@@ -57,6 +62,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Submit application' }).click()
   // Pending
   await expect(page.getByRole('heading', { name: 'Your application is pending' })).toBeVisible()
+  await expectNoSeriousA11y(page)
   await expect(page.getByText(/Management will reach out/)).toBeVisible()
   await expect(page.getByRole('list', { name: 'Application status' }).getByRole('listitem')).toHaveCount(4)
   await expect(page.getByRole('link', { name: 'Visit marketplace' })).toBeVisible()
@@ -79,10 +85,12 @@ test('admin approves via API; login, redirect-back and logout', async ({ page, r
   // anonymous visit to a protected page -> login -> back to that page
   await page.goto('/settings/security')
   await expect(page).toHaveURL(/\/login\?next=%2Fsettings%2Fsecurity/)
+  await expectNoSeriousA11y(page)
   await uiLogin(page, s.email)
   await dismissPasskeyOffer(page)
   await expect(page).toHaveURL(/\/settings\/security$/)
   await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible()
+  await expectNoSeriousA11y(page)
   // pending screen shows the Approved stage
   await page.goto('/')
   await expect(page.getByRole('list', { name: 'Application status' }).getByText('Approved').locator('..')).toHaveAttribute('aria-current', 'step')

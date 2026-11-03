@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test'
 
 export const PASSWORD = 'Tr1cky-Horse-Battery!'
@@ -73,4 +74,11 @@ export async function uiLogin(page: Page, email: string, password = PASSWORD) {
 export async function dismissPasskeyOffer(page: Page) {
   const notNow = page.getByRole('button', { name: 'Not now' })
   try { await notNow.click({ timeout: 3_000 }) } catch { /* not offered */ }
+}
+
+/** Fails on any serious or critical WCAG 2.2 AA violation on the current screen. */
+export async function expectNoSeriousA11y(page: Page) {
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
+  const bad = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
+  expect(bad.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([])
 }

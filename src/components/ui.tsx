@@ -68,6 +68,11 @@ const PATHS = {
   wallet: 'M3 7a2 2 0 012-2h13v4M3 7v11a2 2 0 002 2h15V9H5a2 2 0 01-2-2zM16 14.5h.01',
   users: 'M9 11a4 4 0 100-8 4 4 0 000 8zM2 21v-1a6 6 0 0112 0v1M16 3.100a4 4 0 010 7.800M22 21v-1a6 6 0 00-4-5.600',
   star: 'M12 3l2.800 5.700 6.200.9-4.500 4.400 1 6.200L12 17.200 6.500 20.200l1-6.200L3 9.600l6.200-.9z',
+  laptop: 'M4 5h16v11H4zM2 19h20',
+  copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  download: 'M12 4v11M7 11l5 5 5-5M5 20h14',
+  pencil: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
+  user: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21v-1a8 8 0 0116 0v1',
   save: 'M5 3h11l3 3v15H5zM8 3v5h7V3M8 21v-7h8v7',
 } as const
 export type IconName = keyof typeof PATHS
@@ -188,5 +193,19 @@ export function Card({ title, children, wide, lead }: { title: string; children:
         {children}
       </main>
     </Shell>
+  )
+}
+
+/** A titled settings card: icon, heading (the accessible name), description and an optional status chip. */
+export function SettingCard({ id, icon, title, desc, badge, children }: { id: string; icon: IconName; title: string; desc?: string; badge?: { text: string; tone?: 'ok' | 'muted' }; children: ReactNode }) {
+  return (
+    <section aria-labelledby={id} className="set-card">
+      <header className="set-head">
+        <span className="set-ic"><Icon name={icon} /></span>
+        <div className="set-title"><h2 id={id}>{title}</h2>{desc && <p className="set-desc">{desc}</p>}</div>
+        {badge && <span className={`chip ${badge.tone ?? 'muted'}`}>{badge.text}</span>}
+      </header>
+      <div className="set-body">{children}</div>
+    </section>
   )
 }
