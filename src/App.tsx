@@ -19,6 +19,7 @@ const OrdersListPage = lazy(() => import('./orders/OrdersList'))
 const OrderDetailPage = lazy(() => import('./orders/OrderDetail'))
 const MessagesPage = lazy(() => import('./orders/Messages'))
 const SimulatorPage = import.meta.env.DEV ? lazy(() => import('./orders/Simulator')) : null
+const PaymentsPage = lazy(() => import('./payments/Payments'))
 const CalendarPage = lazy(() => import('./services/CalendarPage'))
 const BookingsPage = lazy(() => import('./services/BookingsPage'))
 const BookingDetailPage = lazy(() => import('./services/BookingDetailPage'))
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/products/import" element={<CsvPage />} />
             <Route path="/products/:id" element={<ProductEditorPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/bookings/quotes/:id" element={<QuotePage />} />

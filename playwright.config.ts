@@ -54,6 +54,8 @@ export default defineConfig({
         RateLimit__AssistantPerMinute: '100000',
         Assistant__Enabled: 'true',
         Assistant__Provider: 'Fake',
+        RateLimit__PaymentsPerMinute: '100000',
+        Payments__NewSellerReservePercent: '0',
         Phone__Enabled: 'true',
         Phone__Provider: 'Sink',
         Phone__SigningKey: 'e2e-phone-signing-key',

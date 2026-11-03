@@ -31,6 +31,7 @@ export default function SellerLayout() {
     { to: '/messages', label: 'Messages', icon: 'msg', badge: messages?.unread, badgeLabel: 'unread' },
     { to: '/products', label: 'Products', icon: 'box', end: true }, { to: '/products/import', label: 'Bulk upload', icon: 'upload' },
     { to: '/questions', label: 'Questions', icon: 'msg' },
+    { to: '/payments', label: 'Payments', icon: 'wallet', show: admin },
   ]
   const scheduling: Item[] = [
     { to: '/calendar', label: 'Calendar', icon: 'calendar' }, { to: '/bookings', label: 'Bookings', icon: 'inbox', badge: badge, badgeLabel: 'need your attention' }, { to: '/settings/availability', label: 'Availability', icon: 'clock' },
@@ -58,7 +59,7 @@ export default function SellerLayout() {
         <button ref={btn} type="button" className="btn" aria-expanded={open} aria-controls="seller-nav" onClick={() => setOpen((o) => !o)}><PIcon name={open ? 'x' : 'menu'} /> Menu</button>
       </div>
       <nav id="seller-nav" className={`sidenav${open ? ' open' : ''}`} aria-label="Seller">
-        <ul>{items.map(link)}</ul>
+        <ul>{items.filter((i) => i.show !== false).map(link)}</ul>
         <p className="sidenav-h">Schedule</p>
         <ul>{scheduling.map(link)}</ul>
         <p className="sidenav-h">Account</p>
