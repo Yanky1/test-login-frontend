@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
  * Safe Markdown preview: renders to React elements (never innerHTML), so raw HTML in the text is shown as text.
  * Same subset as the server renderer: headings (#), **bold**, *italic*, `code`, - / 1. lists, [text](http(s)/mailto link).
  */
-function inline(text: string, keyBase: string): ReactNode[] {
+function inline(text: string, keyBase: string, links = true): ReactNode[] {
   const out: ReactNode[] = []
   const re = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|((?<![*\w])\*[^*\n]+\*(?!\*))|(\[[^\]\n]+\]\([^)\s]+\))/g
   let last = 0; let m: RegExpExecArray | null; let i = 0
@@ -18,7 +18,7 @@ function inline(text: string, keyBase: string): ReactNode[] {
       const [, label, url] = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(t)!
       let ok = false
       try { ok = ['http:', 'https:', 'mailto:'].includes(new URL(url).protocol) } catch { /* not a URL */ }
-      out.push(ok ? <a key={k} href={url} rel="noopener nofollow ugc" target="_blank">{label}</a> : label)
+      out.push(ok && links ? <a key={k} href={url} rel="noopener nofollow ugc" target="_blank">{label}</a> : label)
     }
     last = m.index + t.length
   }
@@ -26,18 +26,19 @@ function inline(text: string, keyBase: string): ReactNode[] {
   return out
 }
 
-export function Markdown({ source }: { source: string | null | undefined }) {
+/** `links={false}` renders every [label](url) as its label only (used for assistant text: nothing the model writes may become a link). */
+export function Markdown({ source, links = true }: { source: string | null | undefined; links?: boolean }) {
   if (!source?.trim()) return null
   const blocks: ReactNode[] = []
   const st: { list: { tag: 'ul' | 'ol'; items: string[] } | null } = { list: null }
   let para: string[] = []
   let n = 0
-  const flushPara = () => { if (para.length) { blocks.push(<p key={n++}>{inline(para.join(' '), `p${n}`)}</p>); para = [] } }
+  const flushPara = () => { if (para.length) { blocks.push(<p key={n++}>{inline(para.join(' '), `p${n}`, links)}</p>); para = [] } }
   const flushList = () => {
     const L = st.list
     if (!L) return
     const Tag = L.tag
-    blocks.push(<Tag key={n++}>{L.items.map((it, i) => <li key={i}>{inline(it, `l${n}-${i}`)}</li>)}</Tag>)
+    blocks.push(<Tag key={n++}>{L.items.map((it, i) => <li key={i}>{inline(it, `l${n}-${i}`, links)}</li>)}</Tag>)
     st.list = null
   }
   for (const raw of source.replace(/\r\n?/g, '\n').split('\n')) {
@@ -47,7 +48,7 @@ export function Markdown({ source }: { source: string | null | undefined }) {
     if (h) {
       flushPara(); flushList()
       const Tag = (`h${Math.min(h[1].length + 2, 6)}`) as 'h3' | 'h4' | 'h5'
-      blocks.push(<Tag key={n++}>{inline(h[2], `h${n}`)}</Tag>); continue
+      blocks.push(<Tag key={n++}>{inline(h[2], `h${n}`, links)}</Tag>); continue
     }
     const ul = /^\s*[-*]\s+(.+)$/.exec(line); const ol = /^\s*\d+[.)]\s+(.+)$/.exec(line)
     if (ul || ol) {
