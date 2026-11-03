@@ -64,7 +64,7 @@ test('signup wizard through the pending screen', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: 'Your application is pending' })).toBeVisible()
   await expectNoSeriousA11y(page)
   await expect(page.getByText(/Management will reach out/)).toBeVisible()
-  await expect(page.getByRole('list', { name: 'Application status' }).getByRole('listitem')).toHaveCount(4)
+  await expect(page.getByRole('list', { name: 'Application status' }).getByRole('listitem')).toHaveCount(3)
   await expect(page.getByRole('link', { name: 'Visit marketplace' })).toBeVisible()
   await page.getByRole('link', { name: 'Guest mode' }).click()
   await expect(page.getByRole('heading', { name: 'Guest mode' })).toBeVisible()
