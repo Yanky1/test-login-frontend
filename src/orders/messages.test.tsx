@@ -147,8 +147,8 @@ describe('sidebar badges and notification settings', () => {
       http.get(`${API}/seller/messages/counts`, () => HttpResponse.json({ unread: 2, needsReply: 2, overdue: 0, all: 3 })))
     signedIn()
     renderAt(<Routes><Route element={<SellerLayout />}><Route path="/orders" element={<h1>Orders page</h1>} /></Route></Routes>, '/orders')
-    expect(await screen.findByRole('link', { name: 'Orders, 5 need action' })).toHaveAttribute('href', '/orders')
-    expect(screen.getByRole('link', { name: 'Messages, 2 unread' })).toHaveAttribute('href', '/messages')
+    expect(await screen.findByRole('link', { name: 'Orders 5 need action' })).toHaveAttribute('href', '/orders')
+    expect(screen.getByRole('link', { name: 'Messages 2 unread' })).toHaveAttribute('href', '/messages')
     expect(screen.getByRole('link', { name: /^Orders/ })).toHaveAttribute('aria-current', 'page')
   })
 

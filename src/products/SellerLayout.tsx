@@ -39,7 +39,7 @@ export default function SellerLayout() {
     document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k)
   }, [open])
   const link = (i: Item) => (
-    <li key={i.to}><NavLink to={i.to} end={i.end} aria-label={i.badge ? `${i.label}, ${i.badge} ${i.badgeLabel}` : undefined}><PIcon name={i.icon} />{i.label}{!!i.badge && <span className="nav-badge" aria-hidden="true">{i.badge > 99 ? '99+' : i.badge}</span>}</NavLink></li>
+    <li key={i.to}><NavLink to={i.to} end={i.end} aria-label={i.badge ? `${i.label} ${i.badge} ${i.badgeLabel}` : undefined}><PIcon name={i.icon} />{i.label}{!!i.badge && <span className="nav-badge" aria-hidden="true">{i.badge > 99 ? '99+' : i.badge}</span>}</NavLink></li>
   )
   return (
     <div className="seller-shell">
