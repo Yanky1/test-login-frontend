@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import './services.css'
 import { Button } from '../components/ui'
 import { AreaField, PIcon, SelectField, TextField, Toggle } from '../products/ui'
@@ -154,7 +155,7 @@ export function ServiceProviders({ serviceId, readOnly, onChanged }: { serviceId
     catch (x) { setList(list); setErr((x as { message2?: string }).message2 ?? 'Could not save the team.') }
   }
   if (!list) return err ? <p role="alert" className="field-error">{err}</p> : <p>Loading your team…</p>
-  if (list.length === 0) return <p>Nobody is set up as a service provider yet. An Owner or Admin can turn it on under <a href="/availability">Availability</a>.</p>
+  if (list.length === 0) return <p>Nobody is set up as a service provider yet. An Owner or Admin can turn it on under <Link to="/settings/availability">Availability</Link>.</p>
   return (
     <fieldset className="plain" disabled={readOnly}>
       <legend>Who can perform this service?</legend>
