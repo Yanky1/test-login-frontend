@@ -15,5 +15,5 @@ export function AuthImage({ src, alt, className }: { src: string | null | undefi
     p.then((u) => { if (alive) setUrl(u) }).catch(() => undefined)
     return () => { alive = false }
   }, [src])
-  return url ? <img className={className} src={url} alt={alt} /> : <span className={`${className ?? ''} img-ph`} role="img" aria-label={alt} />
+  return url ? <img className={className} src={url} alt={alt} /> : <span className={`${className ?? ''} img-ph`} {...(alt ? { role: 'img', 'aria-label': alt } : { 'aria-hidden': true })} />
 }

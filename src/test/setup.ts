@@ -8,3 +8,4 @@ import { resetPublicConfigCache } from '../lib/publicConfig'
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' } as Parameters<typeof server.listen>[0] & { onUnhandledRequest: string }))
 afterEach(() => { cleanup(); server.resetHandlers(); tokenStore.set(null); resetPublicConfigCache(); document.cookie = 'sl_csrf=; Max-Age=0'; sessionStorage.clear() })
 afterAll(() => server.close())
+if (!URL.createObjectURL) { URL.createObjectURL = () => 'blob:test'; URL.revokeObjectURL = () => undefined }

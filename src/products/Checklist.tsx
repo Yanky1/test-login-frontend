@@ -9,7 +9,7 @@ export function focusIssue(i: Issue) {
   const id = i.key.startsWith('attr:') ? `f-attr-${i.key.slice(5)}` : FIELD_OF[i.key]
   const el = (id && document.getElementById(id)) || document.getElementById(`sec-${SECTION_OF[i.section] ?? i.section}`)
   if (!el) return
-  el.scrollIntoView?.({ block: 'center', behavior: matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  el.scrollIntoView?.({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   ;(el as HTMLElement).focus?.({ preventScroll: true })
 }
 

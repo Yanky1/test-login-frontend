@@ -62,7 +62,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
 
   const go = (s: SectionId) => {
     const el = document.getElementById(`sec-${s}`); if (!el) return
-    el.scrollIntoView?.({ block: 'start', behavior: matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    el.scrollIntoView?.({ block: 'start', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
     el.focus({ preventScroll: true })
   }
 
