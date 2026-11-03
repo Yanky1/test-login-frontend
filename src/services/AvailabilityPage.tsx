@@ -13,6 +13,14 @@ import type { BlockDto, ProviderRow } from './types'
 import './services.css'
 
 type Week = Record<number, IntervalInput[]>
+/** A sensible new interval: 9-17 for an empty day, otherwise the hour after the last one closes. */
+export function nextInterval(list: IntervalInput[]): IntervalInput {
+  if (!list.length) return { start: '09:00', end: '17:00' }
+  const last = list[list.length - 1].end
+  const m = last === '24:00' ? 1380 : Math.min(1380, Number(last.slice(0, 2)) * 60 + Number(last.slice(3)))
+  const e = Math.min(1439, m + 60); const f = (x: number) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`
+  return { start: f(m), end: f(e) }
+}
 type Overrides = { date: string; intervals: IntervalInput[] }[]
 const zones = (() => { try { return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [] } catch { return [] } })()
 
@@ -124,7 +132,7 @@ export function Hours({ id }: { id: string }) {
                   </div>
                 ))}
                 <div className="row tight">
-                  <Button type="button" onClick={() => setDay(d, [...list, list.length ? { start: list[list.length - 1].end === '24:00' ? '23:00' : list[list.length - 1].end, end: '17:00' } : { start: '09:00', end: '17:00' }])}><PIcon name="plus" /> Add hours<span className="sr-only"> for {n}</span></Button>
+                  <Button type="button" onClick={() => setDay(d, [...list, nextInterval(list)])}><PIcon name="plus" /> Add hours<span className="sr-only"> for {n}</span></Button>
                   {d === 1 && list.length > 0 && <Button type="button" variant="ghost" onClick={() => { for (const x of [2, 3, 4, 5]) setDay(x, list.map((i) => ({ ...i }))) }}>Copy Monday to Tue–Fri</Button>}
                 </div>
                 {errors[`d${d}`] && <div className="field-error" role="alert">{errors[`d${d}`]}</div>}

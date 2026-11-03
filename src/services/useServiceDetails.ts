@@ -13,6 +13,12 @@ export const DEFAULT_SERVICE: ServiceDetails = {
   cancelFreeHours: 24, cancelFeePercent: 0, maxReschedules: 2, noShowFeePercent: 100, assignmentRule: 'buyerchoice', readyProviders: 0,
 }
 
+/** The server sends `null` for empty lists/areas of a brand-new service: make every list a real array. */
+export function normalise(s: ServiceDetails | null | undefined): ServiceDetails {
+  const b = s ?? DEFAULT_SERVICE
+  return { ...b, serviceArea: { postalCodes: b.serviceArea?.postalCodes ?? [], radius: b.serviceArea?.radius ?? null }, intake: b.intake ?? [], addOns: b.addOns ?? [] }
+}
+
 /** Request body of PUT /seller/services/{id}/details from the local form (server enum names are case-insensitive). */
 export const toWrite = (s: ServiceDetails, version: number) => ({
   version, pricingModel: s.pricingModel, price: s.price, minMinutes: s.minMinutes, maxMinutes: s.maxMinutes, incrementMinutes: s.incrementMinutes, defaultDurationMinutes: s.defaultDurationMinutes,
@@ -27,7 +33,7 @@ export const toWrite = (s: ServiceDetails, version: number) => ({
  * It saves through the editor's serial queue and keeps the listing version in step so the main autosave never sees a stale token.
  */
 export function useServiceDetails(ed: EditorApi) {
-  const [form, setForm] = useState<ServiceDetails>(ed.detail.service ?? DEFAULT_SERVICE)
+  const [form, setForm] = useState<ServiceDetails>(() => normalise(ed.detail.service))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const formRef = useRef(form); formRef.current = form
   const doSave = useCallback(() => ed.enqueue(async () => {
