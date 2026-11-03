@@ -98,6 +98,21 @@ describe('service editor sections', () => {
     const last = puts.at(-1)!
     expect(last).toMatchObject({ version: 4, atCustomer: true, pricingModel: 'hourly', price: 60 }); expect((last.serviceArea as ServiceArea).postalCodes).toEqual(['11201'])
   })
+  it('sends the editor token and shows the conflict dialog on a 409, without re-fetching the listing to retry (optimistic concurrency stays effective)', async () => {
+    let gets = 0; let puts = 0
+    mockCatalog(svcDetail({ version: 4 })); mockSchedule()
+    server.use(
+      http.get(`${API}/seller/products/s1`, () => { gets++; return HttpResponse.json(svcDetail({ version: 9 })) }),
+      http.put(`${API}/seller/services/:id/details`, () => { puts++; return HttpResponse.json({ code: 'version_conflict' }, { status: 409 }) }),
+    )
+    mount(<ProductEditorPage />, '/products/:id', '/products/s1')
+    await screen.findByRole('heading', { name: 'Where it happens' })
+    const getsAfterLoad = gets
+    await userEvent.click(screen.getByRole('switch', { name: 'Online' }))
+    expect(await screen.findByText(/changed somewhere else/, undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(puts).toBe(1); expect(gets).toBe(getsAfterLoad)
+    expect(screen.getByRole('button', { name: 'Keep my version' })).toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Load the latest' })).toBeInTheDocument()
+  })
   it('hides hourly-only fields for fixed prices and the rate for quote services', async () => {
     mockCatalog(svcDetail({ service: service({ pricingModel: 'quote', price: null }) })); mockSchedule()
     mount(<ProductEditorPage />, '/products/:id', '/products/s1')
