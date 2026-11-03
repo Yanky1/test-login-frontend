@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const brandsTab = !!user?.activeAccountId
   const [me, setMe] = useState<Me | null>(null)
   const reload = useCallback(async () => setMe(await api<Me>('/account/me')), [])
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => { reload().catch(() => undefined) }, [reload]) // a failure is surfaced by the global handlers (401 / lost account)
   return (
     <Shell><main className="card wide">
       <div className="acct-head">
