@@ -2,7 +2,7 @@ import { Link, Navigate, Outlet, useLocation, useNavigate, useSearchParams } fro
 import { safeNext } from '../lib/safeNext'
 import { useAuth } from '../auth'
 import { IdleGuard } from './IdleGuard'
-import { Spinner } from './ui'
+import { Spinner, ThemeToggle } from './ui'
 import { PasskeyOffer } from '../pages/PasskeyOffer'
 
 /** Route guard: anonymous visitors go to /login?next=<original path>. Mounts the inactivity guard for signed-in users. */
@@ -23,6 +23,7 @@ function AppHeader() {
       <span className="spacer" />
       <span className="who">{user?.email}</span>
       <Link to="/settings/security">Settings</Link>
+      <ThemeToggle />
       <button className="btn link" onClick={async () => { await logout(); nav('/login', { replace: true }) }}>Log out</button>
     </header>
   )

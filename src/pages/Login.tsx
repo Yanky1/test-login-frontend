@@ -7,7 +7,7 @@ import { api, ApiError, type Hint, type LoginResponse } from '../api'
 import { useAuth } from '../auth'
 import { safeNext } from '../lib/safeNext'
 import { conditionalUiAvailable, getCredential, passkeysSupported } from '../lib/passkeys'
-import { Alert, Card, Field, PasswordField } from '../components/ui'
+import { Alert, Card, Field, Icon, PasswordField } from '../components/ui'
 import { Turnstile } from '../components/Turnstile'
 import { usePublicConfig } from '../lib/publicConfig'
 
@@ -16,6 +16,21 @@ const schema = z.object({
   password: z.string().min(1, 'Enter your password'),
 })
 type Form = z.infer<typeof schema>
+
+/** Live mm:ss countdown + reset CTA while the account is temporarily locked. */
+function Lockout({ until }: { until: string }) {
+  const [left, setLeft] = useState(() => Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 1000)))
+  useEffect(() => {
+    const t = setInterval(() => setLeft(Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 1000))), 1000)
+    return () => clearInterval(t)
+  }, [until])
+  if (left <= 0) return <p className="saved">The lock has ended. You can try signing in again.</p>
+  return (
+    <div className="alert info lockout">
+      <Icon name="clock" /> Too many attempts. You can try again in <strong>{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</strong>, or <Link to="/forgot-password">reset your password now</Link>.
+    </div>
+  )
+}
 
 const errorText: Record<string, string> = {
   external_failed: 'Sign-in with that provider failed. Please try again.',
@@ -97,9 +112,15 @@ export default function LoginPage() {
   const appleUrl = googleUrl.replace('google', 'apple')
 
   return (
-    <Card title="Sign in">
+    <Card title="Sign in" lead="Welcome back. Use a passkey or your email to continue.">
       {idle && <Alert kind="info">You were signed out because you were inactive. Sign in to continue.</Alert>}
       {providerError && <Alert>{errorText[providerError] ?? 'Sign-in failed'}</Alert>}
+      <div className="social">
+        {passkeysSupported() && <button className="btn block" type="button" onClick={() => void passkeyLogin(false)}><Icon name="key" /> Sign in with a passkey</button>}
+        <a className="btn block" href={googleUrl}><Icon name="google" /> Continue with Google</a>
+        {config.features.apple && <a className="btn block" href={appleUrl}><Icon name="apple" /> Continue with Apple</a>}
+      </div>
+      <div className="divider">or continue with email</div>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <Field label="Email" type="email" autoComplete="username webauthn" inputMode="email" error={errors.email?.message} {...register('email')} />
         <PasswordField label="Password" autoComplete="current-password" error={errors.password?.message} {...register('password')} />
@@ -111,13 +132,10 @@ export default function LoginPage() {
         <div ref={errRef} tabIndex={-1}>
           <Alert>{msg}{hint?.message && msg !== hint.message ? ` — ${hint.message}` : ''}</Alert>
         </div>
-        <button className="btn primary block" type="submit" disabled={isSubmitting || (needCaptcha && !captcha)}>Sign in</button>
+        {hint?.lockedUntil && <Lockout until={hint.lockedUntil} />}
+        <button className="btn primary block" type="submit" disabled={isSubmitting || (needCaptcha && !captcha)} aria-busy={isSubmitting || undefined}>Sign in</button>
       </form>
-      <div className="divider">or</div>
-      {passkeysSupported() && <button className="btn block" type="button" onClick={() => void passkeyLogin(false)}>Sign in with a passkey</button>}
-      <a className="btn block" href={googleUrl}>Continue with Google</a>
-      {config.features.apple && <a className="btn block" href={appleUrl}>Continue with Apple</a>}
-      <p className="links"><Link to="/forgot-password" state={{ email: getValues('email') }}>Forgot password?</Link> · <Link to="/signup">Create a seller account</Link> · <Link to="/signup/verify">Verify your email</Link></p>
+      <p className="links"><Link to="/forgot-password" state={{ email: getValues('email') }}>Forgot password?</Link><Link to="/signup">Create a seller account</Link><Link to="/signup/verify">Verify your email</Link></p>
     </Card>
   )
 }

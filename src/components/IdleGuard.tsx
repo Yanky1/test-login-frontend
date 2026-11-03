@@ -80,7 +80,8 @@ export function IdleGuard() {
     <div className="modal-backdrop">
       <div role="alertdialog" aria-modal="true" aria-labelledby="idle-title" aria-describedby="idle-desc" className="modal">
         <h2 id="idle-title">Are you still there?</h2>
-        <p id="idle-desc" aria-live="polite" role="timer">You will be logged out in {fmt(remaining)}</p>
+        <p id="idle-desc" aria-live="polite" role="timer" className="count">You will be logged out in {fmt(remaining)}</p>
+        <p className="hint">This keeps your account safe when you step away. Anything you entered is saved.</p>
         <div className="row">
           <button className="btn primary" autoFocus onClick={stay}>Stay signed in</button>
           <button className="btn" onClick={() => void signOut()}>Log out</button>

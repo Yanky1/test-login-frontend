@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { api, ApiError } from '../api'
-import { Alert, Card, Field, PasswordField } from '../components/ui'
+import { Alert, Card, Field, PasswordField, StrengthMeter } from '../components/ui'
 import { passwordChecks, passwordValid } from '../lib/password'
 
 export function ForgotPasswordPage() {
@@ -67,7 +67,7 @@ export function ResetPasswordPage() {
     <Card title="Choose a new password">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <PasswordField label="New password" autoComplete="new-password" error={errors.newPassword?.message} {...register('newPassword')}
-          hint={<ul className="checks">{passwordChecks(pw).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul>} />
+          hint={<><StrengthMeter value={pw} /><ul className="checks">{passwordChecks(pw).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul></>} />
         <PasswordField label="Confirm new password" autoComplete="new-password" error={errors.confirm?.message} {...register('confirm')} />
         <Alert>{err}</Alert>
         <button className="btn primary block" disabled={isSubmitting}>Reset password</button>

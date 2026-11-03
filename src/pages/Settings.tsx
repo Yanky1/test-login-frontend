@@ -7,7 +7,7 @@ import { api, ApiError } from '../api'
 import { useAuth } from '../auth'
 import { passwordChecks, passwordValid } from '../lib/password'
 import { createCredential, passkeysSupported } from '../lib/passkeys'
-import { Alert, Field, PasswordField } from '../components/ui'
+import { Alert, Field, PasswordField, Shell, Skeleton, StrengthMeter } from '../components/ui'
 
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
 
@@ -17,15 +17,15 @@ export default function SettingsPage() {
   const reload = useCallback(async () => setMe(await api<Me>('/account/me')), [])
   useEffect(() => { void reload() }, [reload])
   return (
-    <main className="card wide">
+    <Shell><main className="card wide">
       <h1 tabIndex={-1}>Account settings</h1>
       <nav className="tabs" aria-label="Settings">
         <NavLink to="/settings/profile">Profile</NavLink>
         <NavLink to="/settings/security">Security</NavLink>
         <Link to="/">Back to application</Link>
       </nav>
-      {!me ? <p>Loading…</p> : tab === 'security' ? <Security me={me} reload={reload} /> : <Profile me={me} />}
-    </main>
+      {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} /> : <Profile me={me} />}
+    </main></Shell>
   )
 }
 
@@ -72,7 +72,7 @@ function ChangePassword() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <PasswordField label="Current password" autoComplete="current-password" error={errors.currentPassword?.message} {...register('currentPassword')} />
         <PasswordField label="New password" autoComplete="new-password" error={errors.newPassword?.message} {...register('newPassword')}
-          hint={<ul className="checks">{passwordChecks(pw).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul>} />
+          hint={<><StrengthMeter value={pw} /><ul className="checks">{passwordChecks(pw).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul></>} />
         <Alert kind="success">{ok ? 'Password changed. Your other devices were signed out.' : undefined}</Alert>
         <button className="btn primary" disabled={isSubmitting}>Change password</button>
       </form>

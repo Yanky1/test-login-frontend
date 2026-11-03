@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError, type LoginResponse } from '../../api'
 import { useAuth } from '../../auth'
-import { Alert, Field } from '../../components/ui'
+import { Alert, Field, OtpInput } from '../../components/ui'
 import { forgetPendingEmail, pendingEmail, rememberPendingEmail } from './pending'
 import { StepFrame } from './shared'
 
@@ -60,11 +60,10 @@ export default function VerifyStep() {
       <p>If this address can be used, we sent a 6-digit code to it. It is valid for 10 minutes.</p>
       <form onSubmit={submit} noValidate>
         <Field label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Field label="Verification code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} pattern="[0-9]*" value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} error={undefined} />
+        <OtpInput label="Verification code" value={code} onChange={setCode} />
         <Alert>{err}</Alert>
         <Alert kind="info">{info}</Alert>
-        <button className="btn primary" disabled={busy}>Verify</button>{' '}
+        <button className="btn primary" disabled={busy} aria-busy={busy || undefined}>Verify</button>{' '}
         <button type="button" className="btn" disabled={wait > 0} onClick={() => void resend()}>
           {wait > 0 ? `Resend code in ${wait}s` : 'Resend code'}
         </button>

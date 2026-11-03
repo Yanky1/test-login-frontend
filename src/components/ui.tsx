@@ -1,9 +1,11 @@
-import { forwardRef, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Children, forwardRef, useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { passwordChecks } from '../lib/password'
 
 export function Alert({ children, kind = 'error' }: { children?: ReactNode; kind?: 'error' | 'info' | 'success' }) {
   // always rendered so screen readers announce changes (aria-live)
   return (
-    <div role={kind === 'error' ? 'alert' : 'status'} aria-live={kind === 'error' ? 'assertive' : 'polite'} className={children ? `alert ${kind}` : 'sr-only'}>
+    <div role={kind === 'error' ? 'alert' : 'status'} aria-live={kind === 'error' ? 'assertive' : 'polite'} className={Children.toArray(children).some((c) => c !== '') ? `alert ${kind}` : 'sr-only'}>
       {children}
     </div>
   )
@@ -50,11 +52,128 @@ export const PasswordField = forwardRef<HTMLInputElement, FieldProps>(function P
 
 export function Spinner() { return <span className="spinner" role="status" aria-label="Loading" /> }
 
-export function Card({ title, children, wide }: { title: string; children: ReactNode; wide?: boolean }) {
+/* ---- icons (inline SVG, lucide-style paths; decorative unless labelled) ---- */
+const PATHS = {
+  shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3zM9 12l2 2 4-4',
+  key: 'M15 7a4 4 0 11-3.9 4.9L4 19v2h3v-2h2v-2h2l1.9-1.9A4 4 0 0115 7zM16 9h.01',
+  google: 'M21 12.2c0-.6-.1-1.2-.2-1.7H12v3.3h5a4.3 4.3 0 01-1.9 2.8v2.3h3A9 9 0 0021 12.2zM12 21c2.5 0 4.6-.8 6.1-2.2l-3-2.3c-.8.6-1.8.9-3.1.9a5.4 5.4 0 01-5.1-3.7H3.8v2.4A9 9 0 0012 21zM6.9 13.7a5.4 5.4 0 010-3.4V7.9H3.8a9 9 0 000 8.2l3.1-2.4zM12 6.6c1.4 0 2.6.5 3.6 1.4l2.7-2.7A9 9 0 003.8 7.9l3.1 2.4C7.6 8.1 9.6 6.6 12 6.6z',
+  apple: 'M16 3c0 1.4-1 3-2.5 3.4C13.300 4.900 14.500 3.300 16 3zM12 7c1-.6 2.600-.8 4 .2-1.800 1-2 3.800.2 5-.6 1.500-1.300 3-2.600 4.200-1 .9-1.700.6-2.600.3-1-.4-1.800-.3-2.800.1-1 .3-1.600-.1-2.500-1.100C5.200 13.700 4.700 9.500 7 7.500c1-.9 3-1.200 5-.5z',
+  mail: 'M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm0 1l8 6 8-6',
+  check: 'M5 12l5 5L20 7',
+  clock: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2',
+  sun: 'M12 8a4 4 0 100 8 4 4 0 000-8zM12 2v2M12 20v2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M2 12h2M20 12h2M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400',
+  moon: 'M21 13A9 9 0 1111 3a7 7 0 0010 10z',
+  lock: 'M6 11h12v10H6zM8 11V7a4 4 0 018 0v4',
+  save: 'M5 3h11l3 3v15H5zM8 3v5h7V3M8 21v-7h8v7',
+} as const
+export type IconName = keyof typeof PATHS
+export function Icon({ name, label }: { name: IconName; label?: string }) {
   return (
-    <main className={wide ? 'card wide' : 'card'}>
-      <h1 tabIndex={-1} id="page-title">{title}</h1>
-      {children}
-    </main>
+    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} focusable="false">
+      <path d={PATHS[name]} />
+    </svg>
+  )
+}
+
+/* ---- theme (system by default, manual override persisted) ---- */
+const systemDark = () => typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
+export function ThemeToggle() {
+  const [dark, setDark] = useState(() => {
+    const t = document.documentElement.dataset.theme
+    return t ? t === 'dark' : systemDark()
+  })
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+  }, [dark])
+  const flip = () => {
+    const next = !dark
+    setDark(next)
+    try { localStorage.setItem('solvelt-theme', next ? 'dark' : 'light') } catch { /* private mode */ }
+  }
+  return (
+    <button type="button" className="btn link theme-toggle" onClick={flip} aria-pressed={dark} aria-label="Dark mode">
+      <Icon name={dark ? 'moon' : 'sun'} />
+    </button>
+  )
+}
+
+export function Logo() {
+  return <Link to="/" className="logo" aria-label="Solvelt home"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt</span></Link>
+}
+
+/** Page shell: brand panel (desktop, auth screens) + top bar with theme toggle. */
+export function Shell({ children, split }: { children: ReactNode; split?: boolean }) {
+  return (
+    <div className={split ? 'shell split' : 'shell'}>
+      {split && (
+        <aside className="shell-brand" aria-hidden="true">
+          <span className="logo"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt</span></span>
+          <div className="brand-copy">
+            <h2>Sell to the whole community.</h2>
+            <p>One portal for your storefront, kosher certification and payouts.</p>
+            <ul className="brand-points">
+              <li><Icon name="lock" /> Passkeys and two-step verification keep your account yours</li>
+              <li><Icon name="save" /> Your application saves as you go</li>
+              <li><Icon name="check" /> Most applications are reviewed within two business days</li>
+            </ul>
+          </div>
+          <div className="brand-foot">© Solvelt · Secured sign-in</div>
+        </aside>
+      )}
+      <div className="shell-main">
+        <div className="topbar">{split ? <span className="logo-mini-spacer" /> : null}<Logo /><span className="spacer" /><ThemeToggle /></div>
+        <div className="shell-content">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+export function Button({ variant = 'secondary', loading, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'destructive'; loading?: boolean }) {
+  const cls = { primary: 'btn primary', secondary: 'btn', ghost: 'btn link', destructive: 'btn danger' }[variant]
+  return <button {...rest} className={`${cls} ${rest.className ?? ''}`.trim()} aria-busy={loading || undefined} disabled={rest.disabled || loading}>{children}</button>
+}
+
+export function Skeleton({ lines = 3 }: { lines?: number }) {
+  return <div aria-hidden="true">{Array.from({ length: lines }, (_, i) => <div key={i} className="skeleton" style={{ width: `${90 - i * 15}%` }} />)}</div>
+}
+
+/** Visual strength meter + the checklist (the checklist stays the accessible source of truth). */
+export function StrengthMeter({ value }: { value: string }) {
+  const done = passwordChecks(value).filter((c) => c.ok).length
+  const total = passwordChecks('').length
+  const level = !value ? 0 : Math.max(1, Math.round((done / total) * 4))
+  return <div className="meter" data-level={level} aria-hidden="true"><i /><i /><i /><i /></div>
+}
+
+/** Six-cell one-time-code input: ONE real input (paste, autofill and SMS-fill just work) with a visual cell overlay. */
+export const OtpInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { label: string; value: string; onChange: (v: string) => void; error?: string }>(
+  function OtpInput({ label, value, onChange, error, id, ...rest }, ref) {
+    const auto = useId(); const fid = id ?? auto
+    return (
+      <div className="field">
+        <label htmlFor={fid}>{label}</label>
+        <div className="otp">
+          <input ref={ref} id={fid} autoComplete="one-time-code" inputMode="numeric" maxLength={6} pattern="[0-9]*" value={value}
+            aria-invalid={error ? true : undefined} aria-describedby={error ? `${fid}-err` : undefined}
+            onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))} {...rest} />
+          <div className="otp-cells" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => <span key={i} className={i === Math.min(value.length, 5) ? 'on' : ''}>{value[i] ?? ''}</span>)}
+          </div>
+        </div>
+        <div id={`${fid}-err`} className="field-error" aria-live="polite">{error}</div>
+      </div>
+    )
+  },
+)
+
+export function Card({ title, children, wide, lead }: { title: string; children: ReactNode; wide?: boolean; lead?: string }) {
+  return (
+    <Shell split={!wide}>
+      <main className={wide ? 'card wide' : 'card'}>
+        <h1 tabIndex={-1} id="page-title">{title}</h1>
+        {lead && <p className="card-lead">{lead}</p>}
+        {children}
+      </main>
+    </Shell>
   )
 }

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { api, ApiError } from '../../api'
 import type { FieldConfig } from '../../lib/kosher'
-import { Spinner } from '../../components/ui'
+import { Icon, Shell, Spinner } from '../../components/ui'
 
 export const STEPS = [
   { key: 'account', label: 'Account' },
@@ -44,7 +44,7 @@ export function stepPath(app: Application): string {
 export function ProgressBar({ current }: { current: number }) {
   return (
     <nav aria-label="Progress">
-      <div role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={current + 1} aria-valuetext={`Step ${current + 1} of ${STEPS.length}: ${STEPS[current].label}`} className="progress">
+      <div role="progressbar" aria-label="Sign-up progress" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={current + 1} aria-valuetext={`Step ${current + 1} of ${STEPS.length}: ${STEPS[current].label}`} className="progress">
         <div className="progress-fill" style={{ width: `${((current + 1) / STEPS.length) * 100}%` }} />
       </div>
       <ol className="steps">
@@ -59,7 +59,15 @@ export function ProgressBar({ current }: { current: number }) {
 }
 
 export function StepFrame({ index, children }: { index: number; children: ReactNode }) {
-  return (<main className="card wide"><ProgressBar current={index} />{children}</main>)
+  return (
+    <Shell>
+      <main className="card wide">
+        <ProgressBar current={index} />
+        {children}
+        {index > 0 && index < 5 && <p className="saved"><Icon name="save" /> Your progress is saved. You can close this tab and pick up where you left off.</p>}
+      </main>
+    </Shell>
+  )
 }
 
 /** Loads the server-side draft + branching config for the authenticated wizard steps. */
@@ -80,7 +88,7 @@ export function WizardLayout() {
   }, [])
   useEffect(() => { void reload() }, [reload])
 
-  if (error === 403 || error === 404) return <main className="card"><p>This account has no seller application.</p></main>
+  if (error === 403 || error === 404) return <Shell split><main className="card"><p>This account has no seller application.</p></main></Shell>
   if (!app) return <div className="center"><Spinner /></div>
   // Guard against skipping ahead of the saved draft
   const want = STEPS.findIndex((s) => loc.pathname.endsWith('/' + s.key)) + 1

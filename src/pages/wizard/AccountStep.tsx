@@ -9,7 +9,7 @@ import { useAuth } from '../../auth'
 import { suggestEmail } from '../../lib/emailTypo'
 import { passwordChecks, passwordValid } from '../../lib/password'
 import { createCredential, passkeysSupported } from '../../lib/passkeys'
-import { Alert, Field, PasswordField } from '../../components/ui'
+import { Alert, Field, Icon, PasswordField, StrengthMeter } from '../../components/ui'
 import { StepFrame } from './shared'
 
 const schema = z.object({
@@ -96,18 +96,18 @@ export default function AccountStep() {
           </div>
         )}
         <PasswordField label="Password" autoComplete="new-password" error={errors.password?.message} {...register('password')}
-          hint={<ul className="checks">{passwordChecks(pw).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul>} />
+          hint={<><StrengthMeter value={pw} /><ul className="checks">{passwordChecks(pw).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul></>} />
         <PasswordField label="Confirm password" autoComplete="new-password" error={errors.confirm?.message} {...register('confirm')} />
         <div className="field check">
           <label><input type="checkbox" aria-invalid={errors.terms ? true : undefined} {...register('terms')} /> I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a></label>
           <div className="field-error" aria-live="polite">{errors.terms?.message}</div>
         </div>
         <Alert>{msg}</Alert>
-        <button className="btn primary block" disabled={isSubmitting}>Create account</button>
+        <button className="btn primary block" disabled={isSubmitting} aria-busy={isSubmitting || undefined}>Create account</button>
       </form>
       <div className="divider">or sign up with</div>
-      {passkeysSupported() && <button type="button" className="btn block" onClick={() => void passkey()}>Sign up with a passkey</button>}
-      <button type="button" className="btn block" onClick={() => void google()}>Sign up with Google</button>
+      {passkeysSupported() && <button type="button" className="btn block" onClick={() => void passkey()}><Icon name="key" /> Sign up with a passkey</button>}
+      <button type="button" className="btn block" onClick={() => void google()}><Icon name="google" /> Sign up with Google</button>
       <p className="links">Already have an account? <Link to="/login">Sign in</Link></p>
     </StepFrame>
   )

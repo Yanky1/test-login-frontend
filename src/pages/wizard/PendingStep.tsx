@@ -16,7 +16,7 @@ export default function PendingStep() {
       {app.status === 'NeedsInfo' && <p role="status" className="alert info">We need more information. {app.statusNote} <Link to="/signup/business">Update your application</Link></p>}
       {app.status === 'Rejected' && <p role="status" className="alert error">Unfortunately your application was not approved.</p>}
       {app.status === 'Suspended' && <p role="status" className="alert error">Your account is suspended.</p>}
-      <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed.</p>
+      <p>Thanks{app.business.vendorName ? `, ${app.business.vendorName}` : ''}! Management will reach out to you by email once your application has been reviewed. You can safely close this page.</p>
       <ol className="tracker" aria-label="Application status">
         {TRACK.map((t, i) => (
           <li key={t} className={i < idx ? 'done' : i === idx ? 'current' : ''} aria-current={i === idx ? 'step' : undefined}>
