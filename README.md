@@ -33,6 +33,9 @@ Sidebar area for the catalog: `/products` (list, inline edit, bulk actions), `/p
 ## Seller assistant
 A chat assistant in the header ("Assistant"): a drawer on desktop, full screen on a phone. It streams answers (SSE), shows what it is looking up, links to the listings/orders it mentions, and **prepares changes as "Do this?" cards that only happen when you press Confirm** (Viewers see no action buttons and an explanation). Code: `src/assistant/**`; backend and safety model: `docs/ASSISTANT.md` in the backend repository; UI decisions: `docs/DESIGN.md` ("Seller assistant"). Tests: `src/assistant/assistant.test.tsx` (Vitest + MSW) and `e2e/assistant.spec.ts` (real backend with the scripted fake model, axe; needs `Orders__InboundSecret` etc. from `playwright.config.ts`). Screenshots: `docs/screenshots/assistant-*.png`.
 
+## Services, calendars and bookings
+Calendar (day/week/month/list), Availability, Bookings and Quote requests live in `src/services/`; services are created from the products catalog (type picker). See `docs/DESIGN.md` (workstream F) and the backend `docs/SERVICES.md`. Screenshots: `docs/screenshots/`.
+
 ## Configuration (`public/config.json`, loaded at runtime – edit without rebuilding)
 | key | meaning |
 |---|---|
