@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { passwordChecks, passwordValid } from '../lib/password'
 import { Alert, Card, Field, PasswordField, Spinner, StrengthMeter } from '../components/ui'
@@ -16,20 +16,24 @@ const redeem = (token: string) => {
 }
 
 /** Landing page of the links we text: `/l/<token>`. Password reset → the normal reset page; phone sign-up → finish with email + password. */
+interface SignupState { signup?: { token: string; phoneEnding: string } }
+
 export default function PhoneLinkPage() {
   const { token = '' } = useParams()
   const nav = useNavigate()
-  const [r, setR] = useState<Redeemed | null>(null)
+  const held = (useLocation().state as SignupState | null)?.signup // the token lives in router state after redeem, never in the URL or history
   const [bad, setBad] = useState(false)
   useEffect(() => {
+    if (held) return
+    if (!token) { setBad(true); return }
     let live = true
     redeem(token).then((x) => {
       if (!live) return
       if (x.purpose === 'reset') nav(`/reset-password?email=${encodeURIComponent(x.email)}&token=${encodeURIComponent(x.token)}`, { replace: true })
-      else setR(x)
+      else nav('/l', { replace: true, state: { signup: { token, phoneEnding: x.phoneEnding } } satisfies SignupState }) // drop the token from the address bar and history
     }).catch(() => { if (live) setBad(true) })
     return () => { live = false }
-  }, [token, nav])
+  }, [token, held, nav])
 
   if (bad) return (
     <Card title="This link can't be used">
@@ -37,8 +41,8 @@ export default function PhoneLinkPage() {
       <p><Link to="/forgot-password">Reset your password</Link> · <Link to="/signup">Start sign-up again</Link> · <Link to="/login">Sign in</Link></p>
     </Card>
   )
-  if (!r) return <div className="center" role="status" aria-label="Checking your link"><Spinner /></div>
-  return <FinishSignup token={token} phoneEnding={r.purpose === 'signup' ? r.phoneEnding : ''} />
+  if (!held) return <div className="center" role="status" aria-label="Checking your link"><Spinner /></div>
+  return <FinishSignup token={held.token} phoneEnding={held.phoneEnding} />
 }
 
 function FinishSignup({ token, phoneEnding }: { token: string; phoneEnding: string }) {
@@ -60,7 +64,7 @@ function FinishSignup({ token, phoneEnding }: { token: string; phoneEnding: stri
     try {
       await api('/channels/links/complete-signup', { auth: false, body: { token, email, password: pw, acceptTerms: terms } })
       rememberPendingEmail(email)
-      nav('/signup/verify')
+      nav('/signup/verify', { replace: true })
     } catch (ex) {
       if (ex instanceof ApiError) {
         const fe = ex.fieldErrors()

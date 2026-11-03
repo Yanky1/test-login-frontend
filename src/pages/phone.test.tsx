@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import SettingsPage from './Settings'
 import PhoneLinkPage from './PhoneLink'
 import { RequireAuth } from '../components/RequireAuth'
@@ -77,7 +77,7 @@ describe('Settings → Security: phone number card', () => {
     await user.type(screen.getByLabelText('Mobile number'), '4155550123')
     await user.click(screen.getByRole('button', { name: 'Text me a code' }))
     expect(await screen.findByText(/We emailed a confirmation code/)).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Phone confirmation code'), '654321')
+    await user.type(screen.getByLabelText('Email confirmation code'), '654321')
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByLabelText('Verification code')).toBeInTheDocument()
     expect(bodies[0].stepUpCode).toBeUndefined()
@@ -160,7 +160,7 @@ describe('Settings → Security: phone PIN card', () => {
     await user.type(await screen.findByLabelText('New PIN'), '739204'); await user.type(screen.getByLabelText('Confirm PIN'), '739204')
     await user.click(screen.getByRole('button', { name: 'Change PIN' }))
     expect(await screen.findByText(/texted a confirmation code/)).toBeInTheDocument()
-    await user.type(screen.getByLabelText('PIN confirmation code'), '111222')
+    await user.type(screen.getByLabelText('Texted confirmation code'), '111222')
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText(/Phone PIN saved/)).toBeInTheDocument()
     expect(bodies[1]).toMatchObject({ pin: '739204', stepUpCode: '111222' })
@@ -168,7 +168,7 @@ describe('Settings → Security: phone PIN card', () => {
 })
 
 describe('/l/<token> texted links', () => {
-  const ui = (<Routes><Route path="/l/:token" element={<PhoneLinkPage />} /><Route path="/reset-password" element={<div>reset page</div>} /><Route path="/signup/verify" element={<div>verify page</div>} /></Routes>)
+  const ui = (<Routes><Route path="/l/:token" element={<PhoneLinkPage />} /><Route path="/l" element={<PhoneLinkPage />} /><Route path="/reset-password" element={<div>reset page</div>} /><Route path="/signup/verify" element={<div>verify page</div>} /></Routes>)
 
   it('a reset link goes to the reset page with the email and token, redeeming once', async () => {
     let calls = 0
@@ -195,6 +195,9 @@ describe('/l/<token> texted links', () => {
     )
     renderAt(ui, '/l/signup1')
     expect(await screen.findByText(/number ending 0123 is already verified/)).toBeInTheDocument()
+    // the secret token is gone from the address (and from history: the entry was replaced) while the form is open
+    expect(screen.getByTestId('loc').textContent).toBe('/l')
+    expect(screen.getByTestId('loc').textContent).not.toContain('signup1')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
     expect(await screen.findByText('Enter a valid email address.')).toBeInTheDocument()
     expect(screen.getByText('You must accept the Terms.')).toBeInTheDocument()
@@ -204,7 +207,38 @@ describe('/l/<token> texted links', () => {
     await user.click(screen.getByLabelText(/I accept the Terms/))
     await user.click(screen.getByRole('button', { name: 'Create account' }))
     await waitFor(() => expect(screen.getByText('verify page')).toBeInTheDocument())
+    expect(screen.getByTestId('loc').textContent).toBe('/signup/verify')
     expect(bodies[0]).toEqual({ token: 'signup1', email: 'new@example.com', password: 'Tr1cky-Horse-Battery!', acceptTerms: true })
     expect(sessionStorage.length).toBeGreaterThan(0) // the pending email is remembered for the verify step
+  })
+
+  it('replaces history entries: going back from the verify page does not return to the token URL', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.post(`${API}/channels/links/redeem`, () => HttpResponse.json({ purpose: 'signup', phoneEnding: '0123' })),
+      http.post(`${API}/channels/links/complete-signup`, () => HttpResponse.json({ message: 'ok' }, { status: 202 })),
+    )
+    const seen: string[] = []
+    const Probe = () => { const l = useLocation(); seen.push(l.pathname); return null }
+    renderAt(<><Probe />{ui}</>, '/l/signup9')
+    await screen.findByText(/already verified/)
+    await user.type(screen.getByLabelText('Email'), 'a@example.com'); await user.type(screen.getByLabelText('Password'), 'Tr1cky-Horse-Battery!')
+    await user.click(screen.getByLabelText(/I accept the Terms/)); await user.click(screen.getByRole('button', { name: 'Create account' }))
+    await screen.findByText('verify page')
+    expect(seen.at(-1)).toBe('/signup/verify')
+    expect(seen.filter((x) => x.includes('signup9')).length).toBeGreaterThan(0) // the token URL was only ever the entry point
+    expect(screen.getByTestId('loc').textContent).not.toContain('signup9')
+  })
+
+  it('opening /l directly (no token, no state) explains instead of showing a form', async () => {
+    renderAt(ui, '/l')
+    expect(await screen.findByText(/invalid, has expired or was already used/)).toBeInTheDocument()
+  })
+
+  it('PIN fields never invite the password manager', async () => {
+    signedIn(); mockAccount({ phone: { hasNumber: true, numberEnding: '0123', hasPin: true } })
+    renderAt(settings, '/settings/security')
+    expect(await screen.findByLabelText('New PIN')).toHaveAttribute('autocomplete', 'off')
+    expect(screen.getByLabelText('Confirm PIN')).toHaveAttribute('autocomplete', 'off')
   })
 })

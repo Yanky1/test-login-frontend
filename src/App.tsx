@@ -32,6 +32,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/l/:token" element={<PhoneLinkPage />} />
+        <Route path="/l" element={<PhoneLinkPage />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Home />} />

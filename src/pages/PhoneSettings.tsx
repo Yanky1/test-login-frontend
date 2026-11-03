@@ -8,6 +8,7 @@ interface StepUp { stepUpRequired?: boolean; message?: string }
 interface Me { hasPassword: boolean }
 
 const digits = (s: string) => s.replace(/\D/g, '')
+const codeLabel = (msg: string) => /email/i.test(msg) ? 'Email confirmation code' : 'Texted confirmation code'
 const errText = (e: unknown, fallback: string) => e instanceof ApiError ? (e.body?.detail ?? e.body?.title ?? fallback) : 'Network error. Please try again.'
 
 /** The two phone cards of Settings → Security: the verified mobile number and the 6-digit phone PIN. */
@@ -66,7 +67,7 @@ function PhoneNumberCard({ me, st, reload }: { me: Me; st: PhoneState | null; re
       {stepUp && (
         <>
           <p role="status">{stepUp}</p>
-          <Field label="Phone confirmation code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={stepUpCode} onChange={(e) => setStepUpCode(digits(e.target.value))} />
+          <Field label={codeLabel(stepUp)} autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={stepUpCode} onChange={(e) => setStepUpCode(digits(e.target.value))} />
         </>
       )}
     </>
@@ -140,11 +141,11 @@ function PhonePinCard({ me, st, reload }: { me: Me; st: PhoneState | null; reloa
       badge={st ? { text: st.hasPin ? 'Set' : 'Not set', tone: st.hasPin ? 'ok' : 'muted' } : undefined}>
       {st && !st.hasNumber ? <p className="empty">Add and verify a mobile number first.</p> : (
         <form onSubmit={submit} noValidate>
-          <Field label={st?.hasPin ? 'New PIN' : 'PIN'} type="password" autoComplete="new-password" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(digits(e.target.value))}
+          <Field label={st?.hasPin ? 'New PIN' : 'PIN'} type="password" autoComplete="off" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(digits(e.target.value))}
             hint={<ul className="checks">{pinChecks(pin).map((c) => <li key={c.label} className={c.ok ? 'ok' : ''}>{c.ok ? '✓' : '○'} {c.label}</li>)}</ul>} />
-          <Field label="Confirm PIN" type="password" autoComplete="new-password" inputMode="numeric" maxLength={6} value={again} onChange={(e) => setAgain(digits(e.target.value))} />
+          <Field label="Confirm PIN" type="password" autoComplete="off" inputMode="numeric" maxLength={6} value={again} onChange={(e) => setAgain(digits(e.target.value))} />
           {me.hasPassword && <PasswordField label="Password to confirm PIN change" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />}
-          {stepUp && (<><p role="status">{stepUp}</p><Field label="PIN confirmation code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={stepUpCode} onChange={(e) => setStepUpCode(digits(e.target.value))} /></>)}
+          {stepUp && (<><p role="status">{stepUp}</p><Field label={codeLabel(stepUp)} autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={stepUpCode} onChange={(e) => setStepUpCode(digits(e.target.value))} /></>)}
           <button className="btn primary">{stepUp ? 'Continue' : st?.hasPin ? 'Change PIN' : 'Set PIN'}</button>
         </form>
       )}
