@@ -66,6 +66,13 @@ describe('service area editor', () => {
 })
 
 describe('service editor sections', () => {
+  it('copes with the nulls the server sends for a brand-new service (empty area, no questions)', async () => {
+    const fresh = service({ atCustomer: true, serviceArea: { postalCodes: null, radius: null } as unknown as ServiceArea, intake: null as never, addOns: null as never })
+    mockCatalog(detail({ id: 's1', type: 'Service', service: fresh, attributeConfig: [] })); mockSchedule()
+    mount(<ProductEditorPage />, '/products/:id', '/products/s1')
+    expect(await screen.findByLabelText('Postal codes')).toBeInTheDocument()
+    const sec = within(screen.getByRole('region', { name: 'Booking' })); expect(sec.getByRole('button', { name: 'Add a question' })).toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Add an add-on' })).toBeInTheDocument()
+  })
   const svcDetail = (o = {}) => detail({ id: 's1', type: 'Service', service: service(), attributeConfig: [], issues: [{ key: 'providers', section: 'providers', severity: 'required', message: 'Choose at least one team member.' }], ...o })
   it('shows the service sections instead of price, stock, variations and shipping', async () => {
     mockCatalog(svcDetail()); mockSchedule()
@@ -173,7 +180,7 @@ describe('calendar', () => {
   it('renders the week grid with positioned bookings and a text label for each', async () => {
     mockSchedule()
     mount(<CalendarPage />, '/calendar', at('week'))
-    const btn = await screen.findByRole('button', { name: /10:00 AM–12:00 PM Home cleaning for Jane Buyer, Confirmed/ })
+    const btn = await screen.findByRole('button', { name: /Confirmed\s*10:00 AM Home cleaning\s*until 12:00 PM, for Jane Buyer/ })
     expect(btn).toHaveTextContent('Confirmed')
     expect(screen.getByRole('region', { name: 'Schedule grid' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Switch to the list view' })).toBeInTheDocument()
@@ -190,7 +197,7 @@ describe('calendar', () => {
   it('month grid is a keyboard-operable grid with roving tabindex', async () => {
     mockSchedule()
     mount(<CalendarPage />, '/calendar', at('month'))
-    const cell = await screen.findByRole('button', { name: /Wednesday, January 9, 2030, today|Wednesday, January 9, 2030: 1 booking/ })
+    const cell = await screen.findByRole('button', { name: /^9 1 booking, Wednesday, January 9, 2030/ })
     cell.focus(); expect(cell).toHaveFocus(); expect(cell).toHaveAttribute('tabindex', '0')
     await userEvent.keyboard('{ArrowRight}')
     const next = screen.getByRole('button', { name: /Thursday, January 10, 2030/ }); expect(next).toHaveFocus(); expect(next).toHaveAttribute('tabindex', '0'); expect(cell).toHaveAttribute('tabindex', '-1')
@@ -203,7 +210,7 @@ describe('calendar', () => {
     const picked: string[] = []
     const days = rangeOf('month', '2030-01-09').days
     render(<MonthGrid anchor="2030-01-09" today="2030-01-09" days={days} byDay={new Map([['2030-01-09', [calendar().bookings[0]]]])} onPick={(d) => picked.push(d)} onMonth={() => undefined} />)
-    const cell = screen.getByRole('button', { name: /January 9, 2030, today: 1 booking/ }); cell.focus()
+    const cell = screen.getByRole('button', { name: /^9 1 booking, Wednesday, January 9, 2030, today/ }); cell.focus()
     await userEvent.keyboard('{Enter}'); expect(picked).toEqual(['2030-01-09'])
   })
   it('steps by the right unit', () => {

@@ -14,7 +14,7 @@ import { durationLabel } from '../services/time'
 import TodayCard from '../services/TodayCard'
 import './products.css'
 
-const servicePrice = (i: ListItem) => (i.priceModel === 'quote' ? 'Quote required' : i.priceModel === 'hourly' ? `${money(i.price) || 'No rate'}/h` : money(i.price) || 'No price')
+const servicePrice = (i: ListItem) => (i.priceModel?.toLowerCase() === 'quote' ? 'Quote required' : i.priceModel?.toLowerCase() === 'hourly' ? `${money(i.price) || 'No rate'}/h` : money(i.price) || 'No price')
 
 const TABS = [
   { id: '', label: 'All', key: 'all' }, { id: 'Draft', label: 'Drafts', key: 'draft' }, { id: 'Active', label: 'Active', key: 'active' }, { id: 'Inactive', label: 'Inactive', key: 'inactive' },
