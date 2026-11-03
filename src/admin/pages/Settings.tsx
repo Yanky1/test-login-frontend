@@ -95,9 +95,9 @@ function FieldEditor() {
               <div className="field adm-check"><label><input type="checkbox" checked={r.required} onChange={(e) => edit(i, { required: e.target.checked })} /> Required</label></div>
             </div>
             <div className="adm-rowactions">
-              <Button disabled={i === 0} onClick={() => move(i, -1)}>Move up<span className="sr-only"> field {i + 1}</span></Button>
-              <Button disabled={i === rows.length - 1} onClick={() => move(i, 1)}>Move down<span className="sr-only"> field {i + 1}</span></Button>
-              {r.key !== 'kosher_certificate' && <Button variant="destructive" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>Remove<span className="sr-only"> field {i + 1}</span></Button>}
+              <Button disabled={i === 0} onClick={() => move(i, -1)}>Move up{' '}<span className="sr-only">field {i + 1}</span></Button>
+              <Button disabled={i === rows.length - 1} onClick={() => move(i, 1)}>Move down{' '}<span className="sr-only">field {i + 1}</span></Button>
+              {r.key !== 'kosher_certificate' && <Button variant="destructive" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>Remove{' '}<span className="sr-only">field {i + 1}</span></Button>}
             </div>
           </li>
         ))}
