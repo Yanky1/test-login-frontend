@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { api, ApiError } from '../../api'
 import type { FieldConfig } from '../../lib/kosher'
@@ -69,11 +69,14 @@ export function WizardLayout() {
   const [error, setError] = useState<number | null>(null)
   const loc = useLocation()
 
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const reload = useCallback(async () => {
     try {
       const [a, f] = await Promise.all([api<Application>('/seller/application'), api<FieldConfig[]>('/seller/field-config')])
+      if (!alive.current) return // unmounted while the request was in flight
       setApp(a); setFields(f)
-    } catch (e) { setError(e instanceof ApiError ? e.status : 0) }
+    } catch (e) { if (alive.current) setError(e instanceof ApiError ? e.status : 0) }
   }, [])
   useEffect(() => { void reload() }, [reload])
 

@@ -11,7 +11,9 @@ export default function Home() {
   const [app, setApp] = useState<Application | null>(null)
   const [noSeller, setNoSeller] = useState(false)
   useEffect(() => {
-    api<Application>('/seller/application').then(setApp).catch((e) => { if (e instanceof ApiError && (e.status === 403 || e.status === 404)) setNoSeller(true) })
+    let alive = true
+    api<Application>('/seller/application').then((a) => { if (alive) setApp(a) }).catch((e) => { if (alive && e instanceof ApiError && (e.status === 403 || e.status === 404)) setNoSeller(true) })
+    return () => { alive = false }
   }, [])
   if (noSeller) {
     return (
