@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { api, onAccountLost, onSessionEnded, refreshSession, tokenStore, type AccountItem, type LoginResponse, type Role } from './api'
 import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
+import { canLeave, LeaveRefused } from './lib/unsaved'
 
 export interface User {
   email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
@@ -98,6 +99,7 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   }, [])
 
   const switchAccount = useCallback(async (sellerId: string) => {
+    if (!(await canLeave())) throw new LeaveRefused() // unsaved edits on the page: the user decides first
     const r = await api<{ accessToken: string; body: AccountsInfo }>('/session/account', { body: { sellerId } })
     tokenStore.set(r.accessToken)
     setUser((u) => (u ? withInfo(u, r.body) : u))
@@ -106,6 +108,7 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   useEffect(() => onAccountLost(() => { void refreshAccounts() }), [refreshAccounts])
 
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
+    if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
     tokenStore.set(null)
     setUser(null); setStatus('anon')

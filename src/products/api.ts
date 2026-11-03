@@ -1,4 +1,4 @@
-import { api, tokenStore } from '../api'
+import { api, refreshSession, tokenStore } from '../api'
 import type { Brand, Category, CsvValidation, Faq, ImageDto, ListResult, OptionDto, ProductDetail, ProductForm, Question, QuestionList, VariantDto, AttrConfig, Issue } from './types'
 
 const P = '/seller/products'
@@ -41,8 +41,9 @@ export const productsApi = {
 }
 
 /** Fetches a protected file (CSV, image) with the bearer token and returns a blob. Images can't use <img src> directly because the API needs the Authorization header. */
-export async function fetchBlob(path: string): Promise<Blob> {
+export async function fetchBlob(path: string, retried = false): Promise<Blob> {
   const res = await fetch(path.startsWith('/api/') ? path : '/api/v1' + path, { headers: { Authorization: `Bearer ${tokenStore.get() ?? ''}` }, credentials: 'same-origin' })
+  if (res.status === 401 && !retried && (await refreshSession())) return fetchBlob(path, true) // expired token: refresh once, like api() and uploadImage()
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.blob()
 }

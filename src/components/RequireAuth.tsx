@@ -1,6 +1,7 @@
 import { Link, Navigate, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { safeNext } from '../lib/safeNext'
 import { useAuth } from '../auth'
+import { tokenStore } from '../api'
 import { IdleGuard } from './IdleGuard'
 import { AppHeaderContext, Spinner, ThemeToggle } from './ui'
 import { PasskeyOffer } from '../pages/PasskeyOffer'
@@ -40,7 +41,7 @@ function AppHeader() {
       <span className="who">{user?.email}</span>
       <Link to="/settings/security">Settings</Link>
       <ThemeToggle />
-      <button className="btn link" onClick={async () => { await logout(); nav('/login', { replace: true }) }}>Log out</button>
+      <button className="btn link" onClick={async () => { await logout(); if (!tokenStore.get()) nav('/login', { replace: true }) }}>Log out</button>
     </header>
   )
 }

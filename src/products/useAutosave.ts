@@ -15,6 +15,7 @@ export function useAutosave(save: () => Promise<void>, delay = 1200, manual = fa
   const again = useRef(false)
   const dirty = useRef(false)
   const saveRef = useRef(save)
+  const manualRef = useRef(manual); manualRef.current = manual
   saveRef.current = save
 
   const run = useCallback((): Promise<void> => {
@@ -44,7 +45,9 @@ export function useAutosave(save: () => Promise<void>, delay = 1200, manual = fa
     if (dirty.current) await run()
   }, [run])
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  // leaving the page (unmount) with edits pending: send them now instead of dropping them with the timer.
+  // Never for manual-save mode (live listings): those change only when the seller presses Save.
+  useEffect(() => () => { clearTimeout(timer.current); if (!manualRef.current && dirty.current && !running.current) void run() }, [run])
   /** True while there is anything not yet safely on the server. */
   const unsaved = status === 'dirty' || status === 'saving' || status === 'error'
   return { status, error, touch, flush, unsaved, retry: run }

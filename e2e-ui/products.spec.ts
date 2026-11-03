@@ -74,7 +74,7 @@ for (const [vp, size] of Object.entries(viewports)) {
         await page.goto(s.path)
         await expect(page.getByRole('heading', { name: s.heading }).first()).toBeVisible()
         await s.act?.(page)
-        if (s.name !== 'product-preview') expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
         const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
         const bad = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
         expect(bad.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([])
@@ -84,9 +84,13 @@ for (const [vp, size] of Object.entries(viewports)) {
   }
 }
 
-test('320px wide: the catalog and the editor do not scroll sideways', async ({ page }) => {
+test('320px wide: the catalog, the editor and the buyer preview do not scroll sideways', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 })
   await mock(page)
+  await page.goto('/products/p1'); await page.getByRole('button', { name: 'Preview as buyer' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Preview as buyer' }); await expect(dlg).toBeVisible()
+  expect(await dlg.evaluate((el) => el.scrollWidth <= el.clientWidth), 'preview dialog').toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'preview page').toBe(true)
   for (const path of ['/products', '/products/p1', '/questions', '/products/import']) {
     await page.goto(path); await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)

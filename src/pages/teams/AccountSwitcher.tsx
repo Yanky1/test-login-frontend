@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth'
 import { Icon } from '../../components/ui'
+import { LeaveRefused } from '../../lib/unsaved'
 import { RoleBadge } from './parts'
 
 /** Header control: current account + role; switch to another; create a new seller account. */
@@ -22,7 +23,7 @@ export function AccountSwitcher() {
   const current = user.accounts.find((a) => a.sellerId === user.activeAccountId)
   const go = async (id: string) => {
     setErr(null)
-    try { await switchAccount(id); setOpen(false); nav('/', { replace: true }) } catch { setErr('Could not switch accounts. Try again.') }
+    try { await switchAccount(id); setOpen(false); nav('/', { replace: true }) } catch (e) { if (!(e instanceof LeaveRefused)) setErr('Could not switch accounts. Try again.') }
   }
   return (
     <div className="switcher" ref={root}>

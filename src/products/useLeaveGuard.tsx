@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui'
+import { setUnsavedHandler } from '../lib/unsaved'
 import { Dialog } from './ui'
 
 /**
- * Unsaved-changes guard. While `active`, (1) the browser asks before closing/reloading the tab and (2) clicks on in-app links
- * (header, sidebar, breadcrumbs - including ones we don't own) open a "Save and leave / Leave anyway / Stay" dialog instead of navigating.
- * BrowserRouter has no navigation blocker API, so links are intercepted at the document level.
+ * Unsaved-changes guard. While `active`:
+ *  1. the browser asks before closing/reloading the tab;
+ *  2. clicks on in-app links (header, sidebar, breadcrumbs - also ones we don't own) open a "Save and leave / Leave anyway / Stay" dialog
+ *     (BrowserRouter has no blocker API, so links are intercepted at the document level);
+ *  3. non-link exits (switching account, manual log-out) ask through the app-wide registry in lib/unsaved.ts, same dialog.
  */
 export function useLeaveGuard(active: boolean, flush: () => Promise<void>) {
   const navigate = useNavigate()
-  const [target, setTarget] = useState<string | null>(null)
+  const [ask, setAsk] = useState<{ target: string | null; resolve: (leave: boolean) => void } | null>(null)
   const [busy, setBusy] = useState(false)
+  const flushRef = useRef(flush); flushRef.current = flush
+  const askRef = useRef(ask); askRef.current = ask
 
   useEffect(() => {
     if (!active) return
@@ -25,23 +30,25 @@ export function useLeaveGuard(active: boolean, flush: () => Promise<void>) {
       const to = url.pathname + url.search + url.hash
       if (to === location.pathname + location.search + location.hash) return
       e.preventDefault(); e.stopPropagation()
-      setTarget(to)
+      setAsk({ target: to, resolve: (leave) => { if (leave) navigate(to) } })
     }
     window.addEventListener('beforeunload', before)
     document.addEventListener('click', click, true)
-    return () => { window.removeEventListener('beforeunload', before); document.removeEventListener('click', click, true) }
-  }, [active])
+    const off = setUnsavedHandler(() => new Promise<boolean>((resolve) => { askRef.current?.resolve(false); setAsk({ target: null, resolve }) }))
+    return () => { window.removeEventListener('beforeunload', before); document.removeEventListener('click', click, true); off() }
+  }, [active, navigate])
 
-  const dialog = target ? (
-    <Dialog title="You have unsaved changes" onClose={() => setTarget(null)}>
+  const close = (leave: boolean) => { const a = askRef.current; setAsk(null); a?.resolve(leave) }
+  const dialog = ask ? (
+    <Dialog title="You have unsaved changes" onClose={() => close(false)}>
       <p>Your latest edits haven't been saved yet. Save them before leaving?</p>
       <div className="dialog-actions">
         <Button variant="primary" loading={busy} onClick={async () => {
           setBusy(true)
-          try { await flush(); const t = target; setTarget(null); navigate(t) } catch { setTarget(null) } finally { setBusy(false) }
+          try { await flushRef.current(); close(true) } catch { close(false) } finally { setBusy(false) }
         }}>Save and leave</Button>
-        <Button variant="destructive" onClick={() => { const t = target; setTarget(null); navigate(t) }}>Leave without saving</Button>
-        <Button variant="ghost" onClick={() => setTarget(null)}>Stay on this page</Button>
+        <Button variant="destructive" onClick={() => close(true)}>Leave without saving</Button>
+        <Button variant="ghost" onClick={() => close(false)}>Stay on this page</Button>
       </div>
     </Dialog>
   ) : null

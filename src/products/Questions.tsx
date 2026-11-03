@@ -4,6 +4,7 @@ import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { productsApi } from './api'
 import { ProductsFrame } from './ProductsFrame'
+import { useBrands } from '../pages/teams/BrandContext'
 import { useCanWrite } from './usePermissions'
 import { AreaField, PIcon, SelectField } from './ui'
 import type { ListItem, Question, QuestionList } from './types'
@@ -39,6 +40,7 @@ function QuestionCard({ q, onChange, onError, readOnly }: { readOnly?: boolean; 
 
 export default function QuestionsPage() {
   const canWrite = useCanWrite()
+  const { selected } = useBrands(); const brandId = selected === 'all' ? '' : selected
   const [sp, setSp] = useSearchParams()
   const state = sp.get('state') ?? 'unanswered'; const productId = sp.get('product') ?? ''
   const [data, setData] = useState<QuestionList | null>(null)
@@ -47,10 +49,10 @@ export default function QuestionsPage() {
   const [error, setError] = useState('')
   const load = useCallback(async () => {
     setLoading(true); setError('')
-    try { setData(await productsApi.questions({ state, productId, pageSize: 50 })) } catch (e) { setError(e instanceof ApiError ? e.message2 : 'Could not load questions.') } finally { setLoading(false) }
-  }, [state, productId])
+    try { setData(await productsApi.questions({ state, productId, brandId, pageSize: 50 })) } catch (e) { setError(e instanceof ApiError ? e.message2 : 'Could not load questions.') } finally { setLoading(false) }
+  }, [state, productId, brandId])
   useEffect(() => { void load() }, [load])
-  useEffect(() => { productsApi.list({ pageSize: 100, sort: 'title', dir: 'asc' }).then((r) => setProducts(r.items)).catch(() => undefined) }, [])
+  useEffect(() => { productsApi.list({ pageSize: 100, sort: 'title', dir: 'asc', brandId }).then((r) => setProducts(r.items)).catch(() => undefined) }, [])
   const set = (o: Record<string, string>) => { const n = new URLSearchParams(sp); for (const [k, v] of Object.entries(o)) { if (v) n.set(k, v); else n.delete(k) }; setSp(n, { replace: true }) }
   const TABS = [['unanswered', 'Unanswered', data?.counts.unanswered], ['answered', 'Answered', data?.counts.answered], ['hidden', 'Hidden', data?.counts.hidden], ['all', 'All', undefined]] as const
   return (

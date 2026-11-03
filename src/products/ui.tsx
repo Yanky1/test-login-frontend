@@ -53,13 +53,14 @@ export function Toggle({ label, checked, onChange, hint, id }: { label: string; 
 export function Dialog({ title, children, onClose, wide }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const tid = useId()
+  const closeRef = useRef(onClose); closeRef.current = onClose
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     const el = ref.current!
     const focusables = () => Array.from(el.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter((x) => !x.hasAttribute('disabled'))
     ;(focusables()[0] ?? el).focus()
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose() }
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current() }
       if (e.key === 'Tab') {
         const f = focusables(); if (!f.length) return
         const first = f[0]; const last = f[f.length - 1]
@@ -69,7 +70,7 @@ export function Dialog({ title, children, onClose, wide }: { title: string; chil
     }
     el.addEventListener('keydown', key)
     return () => { el.removeEventListener('keydown', key); prev?.focus?.() }
-  }, [onClose])
+  }, [])
   return (
     <div className="modal-backdrop">
       <div ref={ref} className={`modal pdialog${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={tid} tabIndex={-1}>

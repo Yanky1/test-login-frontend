@@ -6,6 +6,11 @@ import { tokenStore } from '../api'
 import { resetPublicConfigCache } from '../lib/publicConfig'
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' } as Parameters<typeof server.listen>[0] & { onUnhandledRequest: string }))
-afterEach(() => { cleanup(); server.resetHandlers(); tokenStore.set(null); resetPublicConfigCache(); document.cookie = 'sl_csrf=; Max-Age=0'; sessionStorage.clear() })
+afterEach(async () => {
+  cleanup()
+  // unmounting an editor with pending edits sends them (useAutosave): let that request finish against THIS test's handlers
+  await new Promise((r) => setTimeout(r, 40))
+  server.resetHandlers(); tokenStore.set(null); resetPublicConfigCache(); document.cookie = 'sl_csrf=; Max-Age=0'; sessionStorage.clear()
+})
 afterAll(() => server.close())
 if (!URL.createObjectURL) { URL.createObjectURL = () => 'blob:test'; URL.revokeObjectURL = () => undefined }

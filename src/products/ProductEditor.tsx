@@ -150,7 +150,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
             ))}
           </fieldset>
           {!readOnly && <footer className="danger-zone">
-            <Button onClick={() => void run('dup', async () => { const d = await productsApi.duplicate(detail.id); await save.flush(); nav(`/products/${d.id}`) })} loading={busy === 'dup'}><PIcon name="copy" /> Duplicate</Button>
+            <Button onClick={() => void run('dup', async () => { await save.flush(); const d = await productsApi.duplicate(detail.id); nav(`/products/${d.id}`) })} loading={busy === 'dup'}><PIcon name="copy" /> Duplicate</Button>
             {detail.status !== 'Archived' && <Button onClick={() => void setStatus('archived', 'Archived. You can restore it from the Archived tab.')}>Archive</Button>}
             {detail.status !== 'Active' && <Button variant="destructive" onClick={() => void run('del', async () => { if (!window.confirm('Delete this product permanently?')) return; await productsApi.remove(detail.id); nav('/products') })}>Delete</Button>}
           </footer>}

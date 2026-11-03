@@ -136,13 +136,13 @@ export default function ProductsListPage() {
               <table className="ptable" aria-busy={loading || undefined}>
                 <caption className="sr-only">Your products</caption>
                 <thead><tr>
-                  <th scope="col"><input type="checkbox" aria-label="Select all on this page" checked={all} onChange={() => setSel(all ? new Set() : new Set(items.map((i) => i.id)))} /></th>
+                  <th scope="col">{canWrite && <input type="checkbox" aria-label="Select all on this page" checked={all} onChange={() => setSel(all ? new Set() : new Set(items.map((i) => i.id)))} />}{!canWrite && <span className="sr-only">Selection</span>}</th>
                   <th scope="col">Product</th><th scope="col">Price</th><th scope="col">Stock</th><th scope="col">Status</th><th scope="col">Quality</th><th scope="col"><span className="sr-only">Actions</span></th>
                 </tr></thead>
                 <tbody>
                   {items.map((i) => (
                     <tr key={i.id}>
-                      <td><input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} /></td>
+                      <td>{canWrite && <input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} />}</td>
                       <td><div className="pcell"><AuthImage src={i.thumbnailUrl} alt="" className="pthumb" /><div><Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link><div className="sub">{i.sku ? `SKU ${i.sku}` : 'No SKU'}{i.brandName && brands.length > 1 && !brandId ? ` · ${i.brandName}` : ''}{i.hasVariants ? ` · ${i.variantCount} variations` : ''}</div></div></div></td>
                       <td><QuickEdit readOnly={!canWrite} item={i} field="price" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.onSale && <div className="sub ok-text">Sale {money(i.currentPrice)}</div>}</td>
                       <td><QuickEdit readOnly={!canWrite} item={i} field="quantity" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.lowStock && <div className="sub warn-text">Low stock</div>}</td>
@@ -157,7 +157,7 @@ export default function ProductsListPage() {
             <ul className="pcards mob" aria-label="Products">
               {items.map((i) => (
                 <li key={i.id} className="pcard-item">
-                  <label className="selbox"><input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} /></label>
+                  {canWrite && <label className="selbox"><input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} /></label>}
                   <AuthImage src={i.thumbnailUrl} alt="" className="pthumb" />
                   <div className="pc-body">
                     <Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link>

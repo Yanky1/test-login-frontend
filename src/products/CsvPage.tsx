@@ -4,6 +4,7 @@ import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { fetchBlob, productsApi, saveBlob } from './api'
 import { ProductsFrame } from './ProductsFrame'
+import { useBrands } from '../pages/teams/BrandContext'
 import { useCanWrite } from './usePermissions'
 import { PIcon } from './ui'
 import type { CsvValidation } from './types'
@@ -11,6 +12,7 @@ import './products.css'
 
 export default function CsvPage() {
   const canWrite = useCanWrite()
+  const { selected } = useBrands()
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<CsvValidation | null>(null)
   const [done, setDone] = useState<{ imported: number; skipped: number } | null>(null)
@@ -43,7 +45,7 @@ export default function CsvPage() {
         <section className="pcard" aria-labelledby="csv-1"><h2 id="csv-1">1. Get the template</h2>
           <p>Download the CSV template with an example row. Photos can't be imported - add them in the product editor afterwards.</p>
           <div className="actions"><Button onClick={download('/seller/products/csv/template', 'solvelt-products-template.csv')}><PIcon name="download" /> Download template</Button>
-            <Button variant="ghost" onClick={download('/seller/products/csv/export', 'solvelt-products.csv')}>Export my catalog</Button></div>
+            <Button variant="ghost" onClick={download(`/seller/products/csv/export${selected === 'all' ? '' : `?brandId=${selected}`}`, 'solvelt-products.csv')}>Export my catalog</Button></div>
         </section>
         {!canWrite ? <Alert kind="info">You have view-only access, so you can download the template and export the catalog but not import.</Alert> : <section className="pcard" aria-labelledby="csv-2"><h2 id="csv-2">2. Upload and check</h2>
           <div className={`dropzone${over ? ' over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); void pick(e.dataTransfer.files[0]) }}>

@@ -24,7 +24,11 @@ export default function SellerLayout() {
     { to: '/settings/security', label: 'Account & security', icon: 'check' },
     { to: '/settings/team', label: 'Team', icon: 'plus', show: admin && user?.role != null }, { to: '/settings/brands', label: 'Brands', icon: 'star', show: admin && user?.role != null },
   ]
-  useEffect(() => { setOpen(false) }, [loc.pathname])
+  const wasOpen = useRef(false); wasOpen.current = open
+  useEffect(() => {
+    if (wasOpen.current) requestAnimationFrame(() => document.getElementById('page-title')?.focus())  // a drawer link was used: land on the new page's heading
+    setOpen(false)
+  }, [loc.pathname])
   useEffect(() => {
     if (!open) return
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus() } }
