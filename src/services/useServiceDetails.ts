@@ -1,7 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../api'
 import { useAutosave } from '../products/useAutosave'
-import { productsApi } from '../products/api'
 import type { EditorApi } from '../products/useProductEditor'
 import { servicesApi } from './api'
 import type { ServiceDetails } from './types'
@@ -36,22 +35,34 @@ export function useServiceDetails(ed: EditorApi) {
   const [form, setForm] = useState<ServiceDetails>(() => normalise(ed.detail.service))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const formRef = useRef(form); formRef.current = form
+  const conflictAt = useRef<unknown>(undefined)
   const doSave = useCallback(() => ed.enqueue(async () => {
     try {
       await ed.save.flush().catch(() => undefined)
-      const fresh = await productsApi.get(ed.detail.id)            // the current version token (the main form may have saved just before)
-      const d = await servicesApi.saveDetails(ed.detail.id, toWrite(formRef.current, fresh.version))
+      // the editor's own token: a change made elsewhere since we loaded the listing must reach the server's check (409), not be overwritten
+      const d = await servicesApi.saveDetails(ed.detail.id, toWrite(formRef.current, ed.currentVersion()))
       ed.patchDetail({ version: d.version, issues: d.issues, canPublish: d.canPublish, qualityScore: d.qualityScore, status: d.status, service: d.service, updatedAt: d.updatedAt })
       setErrors({})
     } catch (e) {
       if (e instanceof ApiError) {
-        if (e.status === 400) setErrors(e.fieldErrors())
+        if (e.status === 409 && e.body?.code === 'version_conflict') { conflictAt.current = ed.detail.service; ed.markConflict() }
+        else if (e.status === 400) setErrors(e.fieldErrors())
         else if (e.status === 422 && Array.isArray(e.body?.extra)) ed.patchDetail({ issues: e.body.extra, canPublish: false })
       }
       throw e
     }
   }), [ed])
   const save = useAutosave(doSave, 1500, ed.live)
+  // The editor's conflict dialog is shared: "Load the latest" replaces the listing (take its service form too), "Keep my version" re-sends ours.
+  const wasConflict = useRef(false)
+  useEffect(() => {
+    if (ed.conflict) { wasConflict.current = true; return }
+    if (!wasConflict.current) return
+    wasConflict.current = false
+    if (conflictAt.current === undefined) return
+    if (ed.detail.service !== conflictAt.current) setForm(normalise(ed.detail.service)); else save.touch()
+    conflictAt.current = undefined
+  }, [ed.conflict, ed.detail.service, save])
   const set = useCallback((patch: Partial<ServiceDetails>) => {
     setForm((f) => ({ ...f, ...patch }))
     setErrors((e) => { const n = { ...e }; for (const k of Object.keys(patch)) delete n[k]; return n })
