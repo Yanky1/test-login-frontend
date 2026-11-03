@@ -24,6 +24,9 @@ E2E needs the backend repo next to this one (`../Yanky1-test-login-backend`) or 
 `PW_CHROMIUM_PATH=/path/to/chrome` to use an existing binary. The suite covers signup wizard → pending, admin approval via API, login/logout/redirect-back,
 lockout (2 tries left → last try + captcha → locked), forgot/reset, passkey register + sign-in (CDP virtual authenticator, incl. conditional UI), passkey signup, inactivity logout.
 
+## Seller orders and messages
+Sidebar entries **Orders** and **Messages** (with badges): `/orders` (tabs, search, filters, bulk accept / packing slips / CSV tracking upload / export, at-a-glance tiles), `/orders/:id` (ship in full or part, tracking, cancel, refund, returns, notes, buyer messages), `/messages` (one inbox for order and pre-sale questions, saved replies, attachments, assignment, internal notes), Settings → Notifications, and `/dev/simulator` (dev server only: creates test orders and simulates buyer events). Live updates use one fetch-based event stream with a 30 s polling fallback. Backend contract: `docs/ORDERS.md` in the backend repo; design notes: `docs/DESIGN.md`. E2E needs the backend checkout (`BACKEND_DIR`, default `../Yanky1-test-login-backend`) and runs it in the Testing environment, where the simulator and the dev sink exist.
+
 ## Seller products
 Sidebar area for the catalog: `/products` (list, inline edit, bulk actions), `/products/new` and `/products/:id` (one-page editor with autosave, buyer preview and a publish checklist), `/questions` and `/products/import` (CSV). Design notes in `docs/DESIGN.md`; API in the backend's `docs/PRODUCTS.md`. The real-backend E2E (`npm run e2e`) needs the backend `main` (it uses the Testing-only `/api/dev/questions`).
 
