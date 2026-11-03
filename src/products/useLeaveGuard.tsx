@@ -11,11 +11,12 @@ import { Dialog } from './ui'
  *     (BrowserRouter has no blocker API, so links are intercepted at the document level);
  *  3. non-link exits (switching account, manual log-out) ask through the app-wide registry in lib/unsaved.ts, same dialog.
  */
-export function useLeaveGuard(active: boolean, flush: () => Promise<void>) {
+export function useLeaveGuard(active: boolean, flush: () => Promise<void>, discard: () => void) {
   const navigate = useNavigate()
   const [ask, setAsk] = useState<{ target: string | null; resolve: (leave: boolean) => void } | null>(null)
   const [busy, setBusy] = useState(false)
   const flushRef = useRef(flush); flushRef.current = flush
+  const discardRef = useRef(discard); discardRef.current = discard
   const askRef = useRef(ask); askRef.current = ask
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function useLeaveGuard(active: boolean, flush: () => Promise<void>) {
           setBusy(true)
           try { await flushRef.current(); close(true) } catch { close(false) } finally { setBusy(false) }
         }}>Save and leave</Button>
-        <Button variant="destructive" onClick={() => close(true)}>Leave without saving</Button>
+        <Button variant="destructive" onClick={() => { discardRef.current(); close(true) }}>Leave without saving</Button>
         <Button variant="ghost" onClick={() => close(false)}>Stay on this page</Button>
       </div>
     </Dialog>

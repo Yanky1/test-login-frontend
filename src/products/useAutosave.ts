@@ -48,7 +48,9 @@ export function useAutosave(save: () => Promise<void>, delay = 1200, manual = fa
   // leaving the page (unmount) with edits pending: send them now instead of dropping them with the timer.
   // Never for manual-save mode (live listings): those change only when the seller presses Save.
   useEffect(() => () => { clearTimeout(timer.current); if (!manualRef.current && dirty.current && !running.current) void run() }, [run])
+  /** The seller chose to discard: forget pending edits so neither the timer nor the unmount flush saves them. */
+  const discard = useCallback(() => { clearTimeout(timer.current); dirty.current = false; again.current = false; setStatus('idle') }, [])
   /** True while there is anything not yet safely on the server. */
   const unsaved = status === 'dirty' || status === 'saving' || status === 'error'
-  return { status, error, touch, flush, unsaved, retry: run }
+  return { status, error, touch, flush, unsaved, retry: run, discard }
 }

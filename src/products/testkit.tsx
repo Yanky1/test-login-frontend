@@ -35,7 +35,7 @@ export function detail(over: Partial<ProductDetail> = {}): ProductDetail {
 
 /** Mounts a component at a route with the usual catalog endpoints mocked. Returns the list of PUT/PATCH/POST bodies seen. */
 export function mockCatalog(d: ProductDetail = detail()) {
-  const calls: { method: string; url: string; body: unknown }[] = []
+  const calls: { method: string; url: string; body: unknown; auth?: string | null }[] = []
   let current = d
   server.use(
     http.get(`${API}/categories`, () => HttpResponse.json(CATS)),
@@ -44,7 +44,7 @@ export function mockCatalog(d: ProductDetail = detail()) {
     http.get(`${API}/seller/products/:id`, () => HttpResponse.json(current)),
     http.put(`${API}/seller/products/:id`, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>
-      calls.push({ method: 'PUT', url: new URL(request.url).pathname, body })
+      calls.push({ method: 'PUT', url: new URL(request.url).pathname, body, auth: request.headers.get('authorization') })
       current = { ...current, ...(body as Partial<ProductDetail>), version: current.version + 1 }
       return HttpResponse.json(current)
     }),

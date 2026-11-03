@@ -52,7 +52,7 @@ export default function QuestionsPage() {
     try { setData(await productsApi.questions({ state, productId, brandId, pageSize: 50 })) } catch (e) { setError(e instanceof ApiError ? e.message2 : 'Could not load questions.') } finally { setLoading(false) }
   }, [state, productId, brandId])
   useEffect(() => { void load() }, [load])
-  useEffect(() => { productsApi.list({ pageSize: 100, sort: 'title', dir: 'asc', brandId }).then((r) => setProducts(r.items)).catch(() => undefined) }, [])
+  useEffect(() => { productsApi.list({ pageSize: 100, sort: 'title', dir: 'asc', brandId }).then((r) => setProducts(r.items)).catch(() => undefined) }, [brandId])
   const set = (o: Record<string, string>) => { const n = new URLSearchParams(sp); for (const [k, v] of Object.entries(o)) { if (v) n.set(k, v); else n.delete(k) }; setSp(n, { replace: true }) }
   const TABS = [['unanswered', 'Unanswered', data?.counts.unanswered], ['answered', 'Answered', data?.counts.answered], ['hidden', 'Hidden', data?.counts.hidden], ['all', 'All', undefined]] as const
   return (

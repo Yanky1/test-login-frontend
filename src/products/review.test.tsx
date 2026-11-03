@@ -90,16 +90,16 @@ describe('B2 dialogs keep focus while the editor re-renders', () => {
 })
 
 describe('B3 duplicate saves pending edits first', () => {
-  it('PUT happens before POST /duplicate', async () => {
-    const order: string[] = []
+  it('one shared call log: PUT happens before POST /duplicate (swapping them would fail this)', async () => {
     const m = mockCatalog(detail())
-    server.use(http.post(`${API}/seller/products/p1/duplicate`, () => { order.push('POST duplicate'); return HttpResponse.json(detail({ id: 'copy' }), { status: 201 }) }))
+    server.use(http.post(`${API}/seller/products/p1/duplicate`, () => { m.calls.push({ method: 'POST', url: '/duplicate', body: null }); return HttpResponse.json(detail({ id: 'copy' }), { status: 201 }) }))
     mount(<ProductEditorPage />, '/products/:id', '/products/p1')
     await screen.findByRole('heading', { name: 'Sourdough loaf', level: 1 })
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Pending edit' } })
     await userEvent.click(screen.getByRole('button', { name: /Duplicate/ }))
-    await waitFor(() => expect(order).toContain('POST duplicate'))
-    expect([...m.calls.map((c) => c.method), ...order]).toEqual(['PUT', 'POST duplicate'])
+    await waitFor(() => expect(m.calls.some((c) => c.url === '/duplicate')).toBe(true))
+    expect(m.calls.map((c) => c.method)).toEqual(['PUT', 'POST'])
+    expect((m.calls[0].body as { title: string }).title).toBe('Pending edit')
   })
 })
 

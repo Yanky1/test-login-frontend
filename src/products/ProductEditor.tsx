@@ -50,7 +50,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
   const [msg, setMsg] = useState<{ kind: 'error' | 'success' | 'info'; text: string } | null>(null)
   const [current, setCurrent] = useState<SectionId>('basics')
   const refs = useRef<Record<string, HTMLElement | null>>({})
-  const guard = useLeaveGuard(save.unsaved, save.flush)
+  const guard = useLeaveGuard(save.unsaved, save.flush, save.discard)
   const readOnly = !useCanWrite()
 
   useEffect(() => { document.title = `${form.title || 'New product'} - Solvelt` }, [form.title])
