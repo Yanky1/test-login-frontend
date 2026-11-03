@@ -37,12 +37,11 @@ function Brand() {
 }
 
 function Layout() {
-  const { me, can, logout } = useAdmin()
+  const { me, can, logout, signedOut } = useAdmin()
   const loc = useLocation()
-  if (!me) return <Navigate to="/admin/login" replace state={{ from: loc.pathname + loc.search }} />
+  if (!me) return <Navigate to="/admin/login" replace state={signedOut ? undefined : { from: loc.pathname + loc.search }} />
   return (
     <div className="adm">
-      <a href="#page-title" className="skip">Skip to content</a>
       <header className="adm-top">
         <Brand />
         <span className="adm-spacer" />

@@ -11,6 +11,8 @@ interface Ctx {
   /** Runs `fn`; when the server asks for a recent step-up it opens the dialog and retries once. */
   run: <T>(fn: () => Promise<T>) => Promise<T>
   endedReason: string | null
+  /** True after an explicit sign-out: the next sign-in starts at the dashboard instead of returning to the page left. */
+  signedOut: boolean
 }
 
 const AdminCtx = createContext<Ctx | null>(null)
@@ -19,6 +21,7 @@ export const useAdmin = () => { const c = useContext(AdminCtx); if (!c) throw ne
 export function AdminProvider({ children, idleMinutes = 12 }: { children: ReactNode; idleMinutes?: number }) {
   const [me, setMe] = useState<Me | null>(null)
   const [endedReason, setEndedReason] = useState<string | null>(null)
+  const [signedOut, setSignedOut] = useState(false)
   const [asking, setAsking] = useState<{ resolve: () => void; reject: (e: unknown) => void } | null>(null)
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -27,7 +30,7 @@ export function AdminProvider({ children, idleMinutes = 12 }: { children: ReactN
 
   const logout = useCallback(async () => {
     try { await adminApi('/auth/logout', { method: 'POST' }) } catch { /* already gone */ }
-    clear(null)
+    clear(null); setSignedOut(true)
   }, [clear])
 
   // client-side inactivity: the server enforces its own idle limit too (15 minutes by default)
@@ -46,7 +49,7 @@ export function AdminProvider({ children, idleMinutes = 12 }: { children: ReactN
   const login: Ctx['login'] = useCallback(async (email, password, code) => {
     const r = await adminApi<LoginResult>('/auth/login', { auth: false, body: { email, password, totpCode: code?.totp, recoveryCode: code?.recovery } })
     adminToken.set(r.accessToken)
-    setEndedReason(null)
+    setEndedReason(null); setSignedOut(false)
     setMe(await adminApi<Me>('/auth/me'))
   }, [])
 
@@ -65,9 +68,9 @@ export function AdminProvider({ children, idleMinutes = 12 }: { children: ReactN
   }, [])
 
   const value = useMemo<Ctx>(() => ({
-    me, login, logout, stepUp, run, endedReason,
+    me, login, logout, stepUp, run, endedReason, signedOut,
     can: (p) => !!me?.permissions.includes(p),
-  }), [me, login, logout, stepUp, run, endedReason])
+  }), [me, login, logout, stepUp, run, endedReason, signedOut])
 
   return (
     <AdminCtx.Provider value={value}>

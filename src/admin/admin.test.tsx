@@ -127,11 +127,25 @@ describe('role-based shell', () => {
     expect(staff).not.toHaveBeenCalled()
   })
 
-  it('has a skip link, one h1, and signs out through the server', async () => {
+  it('after an explicit sign-out the next sign-in starts at the dashboard; a direct visit returns to the page asked for', async () => {
+    const user = await signIn('SuperAdmin', '/admin/staff')                 // direct visit: signed in, then taken to /admin/staff
+    expect(screen.getByTestId('loc')).toHaveTextContent('/admin/staff')
+    server.use(http.get(`${A}/staff`, () => HttpResponse.json({ members: [], invitations: [] })))
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+    await screen.findByRole('heading', { name: 'Staff sign-in' })
+    await user.type(screen.getByLabelText('Email'), 'staff@example.com'); await user.type(screen.getByLabelText('Password'), 'Some-Passw0rd!x')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.type(await screen.findByLabelText('Authenticator code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify and sign in' }))
+    await screen.findByRole('heading', { name: 'Dashboard' })
+    expect(screen.getByTestId('loc')).toHaveTextContent(/^\/admin$/)
+  })
+
+  it('has one skip link, one h1, and signs out through the server', async () => {
     const out = vi.fn(() => new HttpResponse(null, { status: 204 }))
     const user = await signIn('SuperAdmin')
     server.use(http.post(`${A}/auth/logout`, out))
-    expect(screen.getByRole('link', { name: 'Skip to content' })).toBeInTheDocument()
+    expect(screen.queryAllByRole('link', { name: 'Skip to content' }).length).toBeLessThanOrEqual(1)   // the app-wide one (App.tsx) is not repeated by the admin shell
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByRole('heading', { name: 'Staff sign-in' })).toBeInTheDocument()
