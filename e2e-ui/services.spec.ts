@@ -114,6 +114,7 @@ test('320px wide: calendar, availability, bookings and the booking detail do not
   await page.setViewportSize({ width: 320, height: 700 }); await mock(page)
   for (const path of ['/calendar?view=agenda&date=2030-01-07', '/calendar?view=month&date=2030-01-09', '/settings/availability', '/bookings', '/bookings/bk1', '/bookings/quotes/q1', '/products/s1']) {
     await page.goto(path); await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+    await page.waitForLoadState('networkidle'); await expect(page.locator('.skeleton, [aria-busy="true"]')).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
   }
 })
