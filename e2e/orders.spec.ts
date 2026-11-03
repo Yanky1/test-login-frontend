@@ -196,7 +196,7 @@ test('messages: a buyer message arrives, the seller replies with a saved reply a
   expect(tpl.status()).toBe(201)
   await buyerEvent(request, s.token, o.id, 'message', { text: 'Where is my order?' })
   await signIn(page, s.email, '/orders')
-  await expect(page.getByRole('link', { name: /^Messages, 1 unread/ })).toBeVisible()           // sidebar badge
+  await expect(page.getByRole('link', { name: /^Messages 1 unread/ })).toBeVisible()           // sidebar badge
   await page.getByRole('link', { name: /^Messages/ }).click()
   await expect(page.getByRole('heading', { name: 'Messages', level: 1 })).toBeVisible()
   await expectNoSeriousA11y(page)
