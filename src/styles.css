@@ -249,3 +249,4 @@ fieldset.field { border: 0; padding: 0; margin: 0 0 var(--s2); } fieldset.field 
 .brand-logo-ph { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary); background: var(--primary-soft); }
 .logo-pick { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
 .invite-summary { background: var(--surface-2); border-radius: var(--r-md); padding: var(--s2); margin-bottom: var(--s2); } .invite-summary p { margin: 0 0 var(--s1); }
+@media (min-width: 721px) { .tbl td[data-label='Status'], .tbl td[data-label='Last active'] { white-space: nowrap; } }

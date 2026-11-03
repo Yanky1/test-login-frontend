@@ -42,3 +42,9 @@ Redirect-after-login accepts same-origin relative paths only (`src/lib/safeNext.
 `npm run build` → static files in `dist/`. Serve them from the same site as the API (reverse proxy `/api` to the backend), with a CSP such as
 `default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self'; frame-ancestors 'none'`,
 and ship `config.json` with production timings and `no-store` caching.
+
+## Teams, roles and brands
+One login can belong to several seller accounts (Owner / Admin / Manager / Viewer) and each account can have several brands.
+After sign-in you choose an account (or are taken straight in when there is only one); switch accounts and filter by brand from the top bar.
+Settings → **Team** (invite by email, change role/brand access, remove, transfer ownership) and Settings → **Brands**; invitation links open `/invite/<token>`.
+Design notes: `docs/DESIGN.md`; backend model, permission matrix and API: `docs/TEAMS.md` in the backend repository. Screenshots: `docs/screenshots/` (`choose-account`, `no-accounts`, `team`, `team-invite-modal`, `brands`, `brand-edit-modal`, `account-switcher`, `invite-new-user`, `invite-expired`, desktop and mobile).

@@ -45,18 +45,18 @@ export default function TeamPage({ hasPassword, twoFactorEnabled }: Props) {
       <SettingCard id="team-members" icon="users" title="Team members" desc="People who can work in this seller account, with their role and brand access.">
         {manage && <div className="row"><button type="button" className="btn primary" onClick={() => setDlg({ type: 'invite' })}>Invite a team member</button></div>}
         {!members ? <Skeleton lines={3} /> : (
-          <table className="tbl">
+          <table className="tbl" role="table">
             <caption className="sr-only">Team members</caption>
-            <thead><tr><th scope="col">Member</th><th scope="col">Role</th><th scope="col">Brand access</th><th scope="col">Status</th><th scope="col">Last active</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>
+            <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Member</th><th scope="col" role="columnheader">Role</th><th scope="col" role="columnheader">Brand access</th><th scope="col" role="columnheader">Status</th><th scope="col" role="columnheader">Last active</th><th scope="col" role="columnheader"><span className="sr-only">Actions</span></th></tr></thead>
+            <tbody role="rowgroup">
               {members.map((m) => (
-                <tr key={m.id}>
-                  <td data-label="Member"><strong>{m.email}</strong>{m.isMe && <span className="muted"> (you)</span>}</td>
-                  <td data-label="Role"><RoleBadge role={m.role} /></td>
-                  <td data-label="Brand access">{brandAccess(m)}</td>
-                  <td data-label="Status">{m.status}</td>
-                  <td data-label="Last active">{fmtDate(m.lastActiveAt)}</td>
-                  <td data-label="Actions" className="tbl-actions">
+                <tr key={m.id} role="row">
+                  <td role="cell" data-label="Member"><strong>{m.email}</strong>{m.isMe && <span className="muted"> (you)</span>}</td>
+                  <td role="cell" data-label="Role"><RoleBadge role={m.role} /></td>
+                  <td role="cell" data-label="Brand access">{brandAccess(m)}</td>
+                  <td role="cell" data-label="Status">{m.status}</td>
+                  <td role="cell" data-label="Last active">{fmtDate(m.lastActiveAt)}</td>
+                  <td role="cell" data-label="Actions" className="tbl-actions">
                     {canTouch(m) && <>
                       <button type="button" className="btn link" onClick={() => setDlg({ type: 'edit', m })}>Change{' '}<span className="sr-only">role or access for {m.email}</span></button>
                       <button type="button" className="btn link danger-link" onClick={() => setDlg({ type: 'remove', m })}>Remove{' '}<span className="sr-only">{m.email}</span></button>
