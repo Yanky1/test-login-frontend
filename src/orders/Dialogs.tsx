@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { AreaField, Dialog, PIcon, SelectField, TextField, Toggle } from '../products/ui'
@@ -61,7 +62,8 @@ export function HoldDialog({ order, onClose, onDone, reload }: Common) {
 
 // ---- ship ------------------------------------------------------------------------------------------------------------------
 export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { now?: Date }) {
-  const open = order.lines.filter((l) => l.unshippedQty > 0)
+  // the items this dialog opened with: after a label is bought the page reloads the order (everything shipped), but the dialog must keep showing the label it just bought
+  const [open] = useState(() => order.lines.filter((l) => l.unshippedQty > 0))
   const [qty, setQty] = useState<Record<string, string>>(() => Object.fromEntries(open.map((l) => [l.id, String(l.unshippedQty)])))
   const [carrier, setCarrier] = useState(order.reasons.carriers[0] ?? 'UPS')
   const [tracking, setTracking] = useState(''); const [service, setService] = useState('')
@@ -70,6 +72,9 @@ export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { n
   const [touched, setTouched] = useState(false)
   const { busy, errorNode, run } = useRun(onDone, reload)
   const [tab, setTab] = useState<'label' | 'manual'>(order.actions.buyLabel ? 'label' : 'manual')
+  const [noSetup, setNoSetup] = useState(false)
+  const fellBack = useRef(false)   // only the first time: later clicks on "Buy label" explain what is missing instead of bouncing back
+  const toManual = useCallback(() => { if (fellBack.current) return; fellBack.current = true; setNoSetup(true); setTab('manual') }, [])
   const chosen = open.map((l) => ({ l, n: Number(qty[l.id] ?? 0) })).filter((x) => x.n > 0)
   const qtyErr = (l: (typeof open)[number]) => { const n = Number(qty[l.id]); return !Number.isInteger(n) || n < 0 || n > l.unshippedQty ? `Between 0 and ${l.unshippedQty}` : '' }
   const trackErr = !tracking.trim() ? 'Enter the tracking number.' : !trackingValid(carrier, tracking) ? `That doesn't look like a ${carrier} tracking number.` : ''
@@ -104,9 +109,10 @@ export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { n
         <div {...tabPanelProps('shiptab', tab)}>
           {tab === 'label' ? (
             lineErr ? <p className="sub">Choose the items for this parcel first.</p>
-              : <BuyLabel order={order} lines={chosen.map((x) => ({ lineId: x.l.id, quantity: x.n }))} partial={partial} reload={reload} onManual={() => setTab('manual')} onFinished={(n) => onDone(n)} />
+              : <BuyLabel order={order} lines={chosen.map((x) => ({ lineId: x.l.id, quantity: x.n }))} partial={partial} reload={reload} onManual={() => setTab('manual')} onNoSetup={toManual} onFinished={(n) => onDone(n)} />
           ) : (
             <>
+              {noSetup && <Alert kind="info">You can buy shipping labels here too. Add a ship-from address in <Link to="/settings/shipping">Settings → Shipping</Link> first, then choose “Buy label”.</Alert>}
               <div className="pgrid2">
                 <SelectField label="Carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)}>{order.reasons.carriers.map((c) => <option key={c}>{c}</option>)}</SelectField>
                 <TextField label="Tracking number" value={tracking} autoComplete="off" onChange={(e) => setTracking(e.target.value)} error={tracking || touched ? trackErr : ''} hint="Letters and numbers only. We check the format for your carrier." />

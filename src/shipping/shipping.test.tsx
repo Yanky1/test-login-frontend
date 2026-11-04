@@ -164,6 +164,19 @@ describe('Buy label in the ship dialog', () => {
     expect(within(dlg).getByLabelText(/Print the packing slip together/)).toBeInTheDocument()
   })
 
+  it('keeps showing the bought label (and Print) when the page reloads the order as fully shipped', async () => {
+    const m = mockOrder(accepted())
+    mockShipping({ buy: () => { m.set(order({ status: 'Shipped', actions: { ...ACTIONS }, lines: accepted().lines.map((l) => ({ ...l, shippedQty: l.quantity, unshippedQty: 0 })) })); return undefined } })
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Ship order' }))
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(await within(dlg).findByRole('button', { name: 'Get shipping rates' }))
+    await userEvent.click(await within(dlg).findByRole('button', { name: /Buy label/ }))
+    expect(await within(dlg).findByText(/Label bought for/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Shipped', { exact: true })).toBeInTheDocument())      // the page behind has reloaded
+    expect(within(screen.getByRole('dialog')).getByText(/Label bought for/)).toBeInTheDocument(); expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Print label' })).toBeInTheDocument()
+  })
+
   it('says none is recommended when nothing arrives in time', async () => {
     mockShipping({ q: quote({ rates: quote().rates.map((r) => ({ ...r, recommended: false, meetsDeliverBy: false })) }) })
     const dlg = await open()
@@ -203,12 +216,14 @@ describe('Buy label in the ship dialog', () => {
     await waitFor(() => expect(calls.rates).toHaveLength(1)); expect(calls.rates[0].customs).toEqual({ contentsType: 'gift', nonDeliveryOption: 'return', hsCode: '6912.00' })
   })
 
-  it('without a ship-from address it points to settings and keeps the manual way open', async () => {
+  it('without a ship-from address the dialog opens the manual form and points to settings', async () => {
     mockShipping({ cfg: cfg({ addresses: [] }) })
     const dlg = await open()
-    expect(await within(dlg).findByRole('link', { name: /Settings → Shipping/ })).toHaveAttribute('href', '/settings/shipping')
-    await userEvent.click(within(dlg).getByRole('button', { name: 'enter a tracking number yourself' }))
-    expect(within(dlg).getByLabelText('Tracking number')).toBeInTheDocument()
+    expect(await within(dlg).findByLabelText('Tracking number')).toBeInTheDocument()                                          // the established manual flow is right there
+    expect(within(dlg).getByRole('link', { name: /Settings → Shipping/ })).toHaveAttribute('href', '/settings/shipping')
+    expect(within(dlg).getByRole('button', { name: 'Mark as shipped' })).toBeInTheDocument()
+    await userEvent.click(within(dlg).getByRole('tab', { name: 'Buy label' }))                                                // going back to the label tab explains what is missing
+    expect(await within(dlg).findByRole('button', { name: 'enter a tracking number yourself' })).toBeInTheDocument()
   })
 
   it('asks for the weight when the products have none', async () => {
