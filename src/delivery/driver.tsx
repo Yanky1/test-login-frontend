@@ -75,7 +75,7 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
     if (open) document.getElementById('page-title')?.focus()
     else if (prevOpen.current) document.querySelector<HTMLElement>(`[data-stop="${prevOpen.current}"]`)?.focus()
     prevOpen.current = open
-  }, [open, me])
+  }, [open])      // only when the view changes: `me` is replaced every 30 s and after each sync, and that must not steal focus from the form being filled in
 
   const startRoute = async (r: DriverRoute) => {
     setBusy(true)
@@ -238,7 +238,9 @@ export async function shrinkImage(file: Blob, max = 1600): Promise<Blob> {
       const bmp = await createImageBitmap(file)
       const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
       const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
-      c.getContext('2d')?.drawImage(bmp, 0, 0, c.width, c.height)
+      const ctx = c.getContext('2d')
+      if (!ctx) throw new Error('no_canvas')      // never queue a blank JPEG: fall back to the byte-level strip, else reject
+      ctx.drawImage(bmp, 0, 0, c.width, c.height)
       const out = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/jpeg', 0.82))
       if (out) return out
     }

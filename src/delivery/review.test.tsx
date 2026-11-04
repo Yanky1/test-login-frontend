@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -5,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { api, ApiError, onSessionEnded } from '../api'
+import { useAuth } from '../auth'
 import { RequireAuth } from '../components/RequireAuth'
 import { setCrossTabForTests, type CrossTab, type TabMessage } from '../lib/crossTab'
 import { canLeave } from '../lib/unsaved'
@@ -15,9 +17,9 @@ import { server } from '../test/server'
 import { renderAt, signedIn } from '../test/utils'
 import { newId, type DriverMe, type StopDto } from './api'
 import DispatchBoard from './DispatchBoard'
-import DriverApp, { stripJpegMetadata } from './driver'
+import DriverApp, { shrinkImage, stripJpegMetadata } from './driver'
 import { classify, DriverQueue, MemoryBlobs, type Sender } from './queue'
-import { cacheDriverUser, clearDriverStorage, driverStorageName, hasPendingDriverWork, readCachedDriverRoutes, cacheDriverRoutes } from './storage'
+import { cacheDriverUser, clearDriverStorage, endDriverSession, driverStorageName, hasPendingDriverWork, readCachedDriverRoutes, cacheDriverRoutes } from './storage'
 
 const A = '11111111-1111-1111-1111-111111111111'
 const B = '22222222-2222-2222-2222-222222222222'
@@ -100,6 +102,26 @@ describe('queue failure handling', () => {
     expect(q.failures()).toHaveLength(0); expect(q.pending()).toBe(0)
   })
 
+  it('a conflict that never clears is moved to the failures after a few tries, so it cannot block the stops behind it', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-04T10:00:00Z'))
+    const sent: string[] = []
+    const s: Sender = { start: async () => undefined, upload: async () => ({ id: 'x' }), event: async (stop) => { sent.push(stop); if (stop === 's1') throw err(409, 'version_conflict'); return { applied: true } } }
+    const blobs = new MemoryBlobs(); const q = new DriverQueue(mem(), blobs, s)
+    const p = await q.enqueueProof('s1', 'photo', new Blob(['p']))
+    q.enqueueEvent('s1', { type: 'delivered', placement: 'left_at_door' }, [p]); q.enqueueEvent('s2', { type: 'out_for_delivery' })
+    let tries = 0
+    while (q.failures().length === 0 && tries < 50) { await q.flush(); tries++; if (q.failures().length === 0) { expect(sent).not.toContain('s2'); vi.advanceTimersByTime(6 * 60_000) } }   // blocked while it is retried
+    expect(tries).toBeLessThanOrEqual(10)                                                             // ...but only for a handful of tries
+    expect(q.failures()).toHaveLength(1); expect(q.failures()[0].code).toBe('version_conflict')
+    expect(sent).toContain('s2'); expect(q.pending()).toBe(0); expect(blobs.size).toBe(0)             // the stop behind it went out, and its photo was settled
+  })
+
+  it('tells the driver about a skipped update even when the answer is a replay', async () => {
+    const s: Sender = { start: async () => undefined, upload: async () => ({ id: 'x' }), event: async () => ({ applied: false, replayed: true, result: 'ignored_stale' }) }
+    const q = new DriverQueue(mem(), new MemoryBlobs(), s); q.enqueueEvent('s1', { type: 'out_for_delivery' }); await q.flush()
+    expect(q.notices().map((n) => n.message)).toEqual([expect.stringContaining('newer update')])
+  })
+
   it('keeps a photo until its event has settled, and removes it after a final refusal too', async () => {
     const { s } = sender((op) => (op === 'event' ? err(409, 'stop_finished') : null))
     const blobs = new MemoryBlobs(); const q = new DriverQueue(mem(), blobs, s)
@@ -162,7 +184,13 @@ describe('device storage', () => {
   const seed = () => { localStorage.setItem('solvelt.driver.queue.sam|A', '[{"id":"1"}]'); localStorage.setItem('solvelt.driver.route.sam|A', '{}') }
   const wiped = () => expect(localStorage.getItem('solvelt.driver.queue.sam|A')).toBeNull()
 
-  it('is wiped (queue, cached route and the photo database) when the session ends', async () => {
+  const kept = () => {
+    expect(localStorage.getItem('solvelt.driver.queue.sam|A')).toBe('[{"id":"1"}]')                // the unsent delivery is still there...
+    expect(localStorage.getItem('solvelt.driver.route.sam|A')).toBeNull()                         // ...but the cached addresses and the cached profile are gone
+    expect(localStorage.getItem('solvelt.driver.cachedUser')).toBeNull()
+  }
+
+  it('keeps unsent deliveries (and the photo database) when the session ends, through the real api() with a refresh that answers 401', async () => {
     const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del }); seed()
     signedIn(login('Driver'))
     server.use(http.get(`${API}/driver/me`, () => HttpResponse.json({ error: 'Session expired' }, { status: 401 })))
@@ -170,8 +198,49 @@ describe('device storage', () => {
     const call = await screen.findByRole('button', { name: 'call api' })
     server.use(http.post(`${API}/auth/refresh`, () => HttpResponse.json({ error: 'gone' }, { status: 401 })))      // the refresh cookie is no longer valid: the session is really over
     await userEvent.click(call)
-    await waitFor(() => wiped())
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    kept(); expect(del).not.toHaveBeenCalled()
+  })
+
+  it('wipes everything when the session ends and nothing is waiting', async () => {
+    const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del })
+    localStorage.setItem('solvelt.driver.queue.sam|A', '[]'); localStorage.setItem('solvelt.driver.route.sam|A', '{}')
+    signedIn(login('Driver'))
+    server.use(http.get(`${API}/driver/me`, () => HttpResponse.json({ error: 'Session expired' }, { status: 401 })))
+    renderAt(shell, '/driver')
+    const call = await screen.findByRole('button', { name: 'call api' })
+    server.use(http.post(`${API}/auth/refresh`, () => HttpResponse.json({ error: 'gone' }, { status: 401 })))
+    await userEvent.click(call)
+    await waitFor(() => expect(localStorage.getItem('solvelt.driver.queue.sam|A')).toBeNull())
     expect(localStorage.getItem('solvelt.driver.route.sam|A')).toBeNull(); expect(del).toHaveBeenCalledWith('solvelt-driver')
+  })
+
+  it('keeps unsent deliveries when the app logs the driver out for inactivity (no confirmation was asked)', async () => {
+    const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del }); seed()
+    signedIn(login('Driver'))
+    renderAt(shell, '/driver')
+    await userEvent.click(await screen.findByRole('button', { name: 'idle log out' }))
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    kept(); expect(del).not.toHaveBeenCalled()
+  })
+
+  it('keeps unsent deliveries when another tab logs out for inactivity', async () => {
+    const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del }); seed()
+    const bus = fakeBus(); setCrossTabForTests(bus.bus)
+    signedIn(login('Driver'))
+    renderAt(shell, '/driver')
+    await screen.findByRole('button', { name: 'call api' })
+    act(() => bus.emit({ type: 'logout', reason: 'idle' }))
+    await screen.findByText('login page')
+    kept(); expect(del).not.toHaveBeenCalled()
+    setCrossTabForTests(null)
+  })
+
+  it('endDriverSession keeps the queue when something is waiting and wipes when nothing is', () => {
+    localStorage.setItem('solvelt.driver.queue.x', '[{"id":"1"}]'); localStorage.setItem('solvelt.driver.route.x', '{}'); localStorage.setItem('solvelt.driver.cachedUser', '{}')
+    expect(endDriverSession()).toBe('kept'); expect(localStorage.getItem('solvelt.driver.queue.x')).not.toBeNull(); expect(localStorage.getItem('solvelt.driver.route.x')).toBeNull()
+    localStorage.setItem('solvelt.driver.queue.x', '[]')
+    expect(endDriverSession()).toBe('wiped'); expect(localStorage.getItem('solvelt.driver.queue.x')).toBeNull()
   })
 
   it('is wiped on a manual log-out', async () => {
@@ -212,7 +281,10 @@ describe('device storage', () => {
   })
 })
 
-function SessionProbe() { return <button onClick={() => void api('/driver/me').catch(() => undefined)}>call api</button> }
+function SessionProbe() {
+  const { logout } = useAuth()
+  return <><button onClick={() => void api('/driver/me').catch(() => undefined)}>call api</button><button onClick={() => void logout('idle')}>idle log out</button></>
+}
 
 // ---- 4: offline reload ----------------------------------------------------------------------------------------------------------------------
 describe('offline', () => {
@@ -283,6 +355,25 @@ describe('focus', () => {
   })
 })
 
+describe('focus while the form is being filled in', () => {
+  it('stays on the field the driver is using when the route reloads in the background', async () => {
+    let loads = 0
+    server.use(http.get(`${API}/driver/me`, () => { loads++; return HttpResponse.json(me([stop()])) }))
+    const q = new DriverQueue(mem(), new MemoryBlobs(), NOOP, 'x')
+    mountAs('Driver', <DriverApp queueOverride={q} />, '/driver')
+    await userEvent.click(await screen.findByRole('button', { name: /Stop 1/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Failed attempt' }))
+    const reason = await screen.findByLabelText(/Reason/); reason.focus()
+    expect(document.activeElement).toBe(reason)
+    const before = loads
+    q.enqueueEvent('s9', { type: 'out_for_delivery' })                                                 // something to send, so the sync reloads the route
+    act(() => { window.dispatchEvent(new Event('online')) })                                          // a sync + reload replaces `me`
+    await waitFor(() => expect(loads).toBeGreaterThan(before))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(document.activeElement).toBe(reason)
+  })
+})
+
 // ---- 7: dispatch board ---------------------------------------------------------------------------------------------------------------------------
 describe('dispatch board after a failed action', () => {
   it('reloads the board and says that someone else changed it (409)', async () => {
@@ -299,6 +390,22 @@ describe('dispatch board after a failed action', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Assign' }))
     expect(await screen.findByText(/changed by someone else/)).toBeInTheDocument()
     await waitFor(() => expect(boards).toBeGreaterThan(before))
+  })
+})
+
+describe('dispatch board other refusals', () => {
+  it('shows the server message for a 409 that is not a version conflict', async () => {
+    const d = { id: 'd1', orderId: 'o1', number: 'SO-1', brandId: 'b1', status: 'Unassigned', trackingStatus: null, code: 'LD-1', windowId: 'w1', windowStart: '2026-11-04T12:00:00Z', windowEnd: '2026-11-04T14:00:00Z', city: 'Brooklyn', postalCode: '11201', attempts: 0, driverMembershipId: null, routeId: null, stopSeq: 0, version: 1 }
+    server.use(
+      http.get(`${API}/seller/delivery/board`, () => HttpResponse.json({ date: '2026-11-04', timeZone: 'UTC', windows: [], deliveries: [d], routes: [] })),
+      http.get(`${API}/seller/delivery/drivers`, () => HttpResponse.json([{ membershipId: 'm1', email: 'sam@x.com', firstName: 'Sam' }])),
+      http.post(`${API}/seller/delivery/deliveries/d1/assign`, () => HttpResponse.json({ title: 'This delivery is already on a route.', code: 'invalid_state' }, { status: 409 })),
+    )
+    mountAs('Manager', <DispatchBoard />, '/delivery')
+    await userEvent.selectOptions(await screen.findByLabelText('Driver for SO-1'), 'm1')
+    await userEvent.click(screen.getByRole('button', { name: 'Assign' }))
+    expect(await screen.findByText('This delivery is already on a route.')).toBeInTheDocument()
+    expect(screen.queryByText(/changed by someone else/)).not.toBeInTheDocument()
   })
 })
 
@@ -321,6 +428,16 @@ describe('photos', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm delivery' }))
     expect(await screen.findByText(/could not be prepared/)).toBeInTheDocument()
     expect(q.pending()).toBe(0); expect(blobs.size).toBe(0)
+  })
+
+  it('a canvas that cannot draw never produces a blank JPEG: the byte-level strip is used, and anything else is rejected', async () => {
+    vi.stubGlobal('createImageBitmap', async () => ({ width: 10, height: 10 }))
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+    const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob')
+    const out = await shrinkImage(new Blob([JPEG_WITH_GPS], { type: 'image/jpeg' }))
+    expect(new TextDecoder('latin1').decode(new Uint8Array(await out.arrayBuffer()))).not.toContain('Exif')
+    await expect(shrinkImage(new Blob(['not a jpeg'], { type: 'image/heic' }))).rejects.toThrow('photo_unprocessable')
+    expect(toBlob).not.toHaveBeenCalled()                                                              // no blank canvas was exported
   })
 
   it('a JPEG is queued without its EXIF block when the canvas path is not available', async () => {
@@ -363,6 +480,8 @@ describe('small items', () => {
     server.use(http.get(`${API}/driver/me`, () => HttpResponse.json(me([stop()]))))
     mountAs('Driver', <DriverApp queueOverride={q} />, '/driver')
     const dismiss = await screen.findByRole('button', { name: 'Dismiss' })
-    expect(dismiss).toHaveClass('dr-small')                                   // .dr-small is min-height: var(--target) (44px)
+    expect(dismiss).toHaveClass('dr-small')
+    expect(readFileSync('src/delivery/driver.css', 'utf8')).toMatch(/\.dr-small\s*\{[^}]*min-height:\s*var\(--target\)/)                  // the class is what makes it a touch target
+    expect(dismiss).not.toHaveClass('back')
   })
 })
