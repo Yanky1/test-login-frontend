@@ -200,7 +200,7 @@ describe('Team page', () => {
     await user.click(await screen.findByRole('button', { name: 'Invite a team member' }))
     const dlg = screen.getByRole('dialog', { name: 'Invite a team member' })
     // roles an Admin may hand out: no Owner
-    expect(within(dlg).getAllByRole('option').map((o) => o.textContent)).toEqual(['Admin', 'Manager', 'Viewer'])
+    expect(within(dlg).getAllByRole('option').map((o) => o.textContent)).toEqual(['Admin', 'Manager', 'Viewer', 'Driver'])
     await user.click(within(dlg).getByRole('button', { name: 'Send invitation' }))
     expect(await within(dlg).findByText('Enter a valid email address.')).toBeInTheDocument()
     expect(sent).toBeNull()
