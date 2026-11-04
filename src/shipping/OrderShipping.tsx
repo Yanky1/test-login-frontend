@@ -51,7 +51,7 @@ export function OrderShippingPanel({ order, canWrite, onChanged }: { order: Orde
           <article key={s.id} className="trk" aria-label={`Shipment ${s.trackingNumber}`}>
             <div className="trk-head">
               <div className="grow"><strong>{s.carrier}{s.service ? ` · ${s.service}` : ''}</strong>
-                <div>{s.trackingUrl ? <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer">{s.trackingNumber}<span className="sr-only"> (opens the carrier’s site)</span></a> : s.trackingNumber}</div></div>
+                <div>{s.trackingNumber}</div></div>   {/* the Shipments card above already links the number to the carrier */}
               <span className={`chip ${trackTone(s.status)}`}>{s.statusLabel}</span>
             </div>
             {s.eta && !s.deliveredAt && <p className="sub">Estimated delivery {dt(s.eta)}</p>}
