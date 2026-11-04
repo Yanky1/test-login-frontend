@@ -40,7 +40,7 @@ export default function BookingDetailPage() {
   }
   const quick = async (action: string, ok: string) => { setBusy(action); setMsg(null); try { await act(action, {}, ok) } catch (e) { setMsg({ kind: 'error', text: errText(e) }) } finally { setBusy('') } }
   const hourly = b.pricing.model === 'hourly'
-  const slotQuery = { serviceId: b.serviceId, providerId: b.providerId, location: b.location, postalCode: b.customer?.postalCode ?? null, minutes: b.durationMinutes }
+  const slotQuery = { serviceId: b.serviceId, bookingId: b.id }
   const a = b.actions
   return (
     <main className="pwrap" aria-labelledby="page-title">
