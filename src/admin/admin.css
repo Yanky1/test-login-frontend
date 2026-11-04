@@ -57,9 +57,9 @@
 .adm-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s1) var(--s2); align-items: end; margin-bottom: var(--s1); }
 .adm-filters .btn { margin-bottom: 22px; }
 .adm-check label { display: flex; gap: var(--s1); align-items: center; min-height: var(--target); }
-.adm-tabs { display: flex; gap: var(--s-half); flex-wrap: wrap; margin-bottom: var(--s2); border-bottom: 1px solid var(--border); }
-.adm-tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 0 var(--s2); min-height: var(--target); font: inherit; color: var(--fg); cursor: pointer; }
-.adm-tabs button.active { border-bottom-color: var(--primary); color: var(--primary); font-weight: 700; }
+.adm-tabs { display: flex; gap: var(--s-half); flex-wrap: wrap; margin-bottom: var(--s2); padding: 4px; width: fit-content; max-width: 100%; background: var(--seg-bg); border-radius: var(--r-pill); }
+.adm-tabs button { background: none; border: 0; border-radius: var(--r-pill); padding: 0 var(--s2); min-height: var(--target); font: inherit; color: var(--fg); cursor: pointer; }
+.adm-tabs button.active { background: var(--seg-on); color: var(--seg-on-fg); font-weight: 700; }
 .adm-chips { list-style: none; display: flex; gap: var(--s1); flex-wrap: wrap; padding: 0; margin: 0 0 var(--s1); }
 .adm-chip { min-height: var(--target); padding: 0 var(--s2); border-radius: var(--r-pill); border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg); font: inherit; cursor: pointer; }
 .adm-chip.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }

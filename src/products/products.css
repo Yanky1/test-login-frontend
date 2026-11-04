@@ -1,8 +1,8 @@
 /* Seller products area. Tokens come from src/styles.css; nothing here hard-codes colours. */
 .pframe { min-height: 100%; }
-.ptabs { display: flex; gap: var(--s1); padding: 0 var(--s2); border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; }
-.ptabs a { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--s2); color: var(--muted); text-decoration: none; font-weight: 600; border-bottom: 3px solid transparent; white-space: nowrap; }
-.ptabs a:hover { color: var(--fg); } .ptabs a[aria-current='page'] { color: var(--primary); border-bottom-color: var(--primary); }
+.ptabs { display: flex; gap: var(--s-half); padding: 4px; margin: var(--s1) var(--s2); width: fit-content; max-width: calc(100% - 2 * var(--s2)); background: var(--seg-bg); border-radius: var(--r-pill); overflow-x: auto; }
+.ptabs a { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--s2); color: var(--fg); text-decoration: none; font-weight: 500; border-radius: var(--r-pill); white-space: nowrap; }
+.ptabs a:hover { color: var(--fg); background: color-mix(in srgb, var(--surface) 55%, transparent); } .ptabs a[aria-current='page'] { background: var(--seg-on); color: var(--seg-on-fg); font-weight: 700; }
 .pwrap { width: 100%; max-width: 1240px; margin: 0 auto; padding: var(--s3) var(--s2) var(--s8); }
 .pwrap.narrow { max-width: 640px; } .pwrap .lead { color: var(--muted); margin-bottom: var(--s2); }
 .pcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s3); margin-bottom: var(--s3); }
@@ -19,9 +19,9 @@ details.more > summary { cursor: pointer; font-weight: 600; min-height: 32px; di
 
 /* list */
 .plist-head { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: flex-start; justify-content: space-between; } .plist-cta { display: flex; gap: var(--s1); flex-wrap: wrap; }
-.stabs { display: flex; gap: var(--s-half); overflow-x: auto; border-bottom: 1px solid var(--border); margin-bottom: var(--s2); }
-.stabs button { min-height: var(--target); padding: 0 var(--s2); background: none; border: 0; border-bottom: 3px solid transparent; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
-.stabs button.on { color: var(--primary); border-bottom-color: var(--primary); } .stabs .pcount { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.stabs { display: flex; gap: var(--s-half); overflow-x: auto; padding: 4px; width: fit-content; max-width: 100%; background: var(--seg-bg); border-radius: var(--r-pill); margin-bottom: var(--s2); }
+.stabs button { min-height: var(--target); padding: 0 var(--s2); background: none; border: 0; border-radius: var(--r-pill); font: inherit; font-weight: 500; color: var(--fg); cursor: pointer; white-space: nowrap; }
+.stabs button.on { background: var(--seg-on); color: var(--seg-on-fg); font-weight: 700; } .stabs button.on .pcount { color: inherit; } .stabs .pcount { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
 .filters { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: flex-end; margin-bottom: var(--s2); } .filters .field { margin: 0; min-width: 180px; }
 .field.search { position: relative; flex: 1 1 260px; } .field.search .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); } .field.search input { padding-left: 38px; }
 .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
