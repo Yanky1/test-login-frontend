@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type React from 'react'
+import React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { api, ApiError, onSessionEnded } from '../api'
 import { useAuth } from '../auth'
@@ -373,6 +373,26 @@ describe('device storage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'manual log out' }))
     await waitFor(() => expect(localStorage.getItem('solvelt.driver.queue.sam@x.com|' + A)).toBeNull())
     expect(confirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('a "leave anyway" given earlier (an account switch) does not excuse a later log-out from asking about that queue', async () => {
+    server.use(http.get(`${API}/driver/me`, () => HttpResponse.json(me([stop()]))))
+    const q = new DriverQueue(localStorage, new MemoryBlobs(), offlineSender, 'sam@x.com|' + A); q.enqueueEvent('s1', { type: 'out_for_delivery' })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    function Host() {
+      const { logout } = useAuth(); const [show, setShow] = React.useState(true)
+      return <>{show && <DriverApp queueOverride={q} />}<button onClick={() => setShow(false)}>hide driver app</button><button onClick={() => void logout()}>manual log out</button></>
+    }
+    mountAs('Driver', <Host />, '/driver')
+    await screen.findByRole('heading', { name: 'My deliveries' })
+    await waitFor(() => expect(localStorage.getItem('solvelt.driver.route.sam@x.com|' + A)).not.toBeNull())      // the app knows the signed-in user now (its queue name is email | account)
+    await act(async () => { await canLeave() })                                   // what switching account does: the driver app asks, the driver says "leave anyway"
+    expect(confirm).toHaveBeenCalledTimes(1)
+    await userEvent.click(screen.getByRole('button', { name: 'hide driver app' }))   // the driver app is gone (the other account has no driver view), its handler with it
+    await userEvent.click(screen.getByRole('button', { name: 'manual log out' }))
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(2))                 // the log-out asks for itself
+    expect(confirm.mock.calls[1][0]).toContain('delivery update')
+    await waitFor(() => expect(localStorage.getItem('solvelt.driver.queue.sam@x.com|' + A)).toBeNull())
   })
 
   it('every change to the queue restarts its clock', () => {
