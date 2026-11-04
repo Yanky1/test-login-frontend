@@ -3,7 +3,7 @@ import { ApiError } from '../api'
 import { useAuth } from '../auth'
 import { Alert, Skeleton } from '../components/ui'
 import { setUnsavedHandler } from '../lib/unsaved'
-import { cacheDriverRoutes, driverStorageName, readCachedDriverRoutes } from './storage'
+import { cacheDriverRoutes, dismissExpiredNotice, driverStorageName, readCachedDriverRoutes, readExpiredNotice } from './storage'
 import { driverApi, FAIL_REASONS, STATUS_LABEL, timeRange, type DriverMe, type DriverRoute, type LocalStatus, type StopDto } from './api'
 import { browserBlobs, DriverQueue, type BlobStore } from './queue'
 import './driver.css'
@@ -20,6 +20,9 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
   const [pending, setPending] = useState(queue.pending())
   const [failures, setFailures] = useState(queue.failures())
   const [notices, setNotices] = useState(queue.notices())
+  const [expired, setExpired] = useState<{ count: number; days: number } | null>(null)      // unsent updates removed because they sat on this device for too long
+  const email = user?.email
+  useEffect(() => { setExpired(email ? readExpiredNotice(email) : null) }, [email])
   const [open, setOpen] = useState<string | null>(null)
   const [optimistic, setOptimistic] = useState<Record<string, LocalStatus>>({})
   const [busy, setBusy] = useState(false)
@@ -99,6 +102,12 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
         <Alert>
           {failures.length} update{failures.length > 1 ? 's' : ''} could not be saved: {failures.map((f) => f.message).join('; ')}. Tell your dispatcher.{' '}
           <button type="button" className="dr-small" onClick={() => { queue.dismissFailures(); setFailures([]) }}>Dismiss</button>
+        </Alert>
+      )}
+      {expired && user && (
+        <Alert>
+          {expired.count} unsent update{expired.count > 1 ? 's were' : ' was'} removed from this phone because {expired.count > 1 ? 'they were' : 'it was'} more than {expired.days} days old. Tell your dispatcher.{' '}
+          <button type="button" className="dr-small" onClick={() => { dismissExpiredNotice(user.email); setExpired(null) }}>Dismiss</button>
         </Alert>
       )}
       {notices.length > 0 && (

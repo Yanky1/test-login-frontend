@@ -18,8 +18,8 @@ import { renderAt, signedIn } from '../test/utils'
 import { newId, type DriverMe, type StopDto } from './api'
 import DispatchBoard from './DispatchBoard'
 import DriverApp, { shrinkImage, stripJpegMetadata } from './driver'
-import { classify, DriverQueue, MemoryBlobs, type Sender } from './queue'
-import { cacheDriverUser, clearDriverStorage, endDriverSession, driverStorageName, hasPendingDriverWork, readCachedDriverRoutes, cacheDriverRoutes } from './storage'
+import { classify, DriverQueue, httpSender, MemoryBlobs, type Sender } from './queue'
+import { cacheDriverUser, clearDriverStorage, clearDriverStorageFor, endDriverSession, expireDriverStorage, KEPT_MAX_AGE_DAYS, readExpiredNotice, driverStorageName, hasPendingDriverWork, readCachedDriverRoutes, cacheDriverRoutes } from './storage'
 
 const A = '11111111-1111-1111-1111-111111111111'
 const B = '22222222-2222-2222-2222-222222222222'
@@ -122,6 +122,17 @@ describe('queue failure handling', () => {
     expect(q.notices().map((n) => n.message)).toEqual([expect.stringContaining('newer update')])
   })
 
+  it('a real flush through httpSender whose event gets a 401 (and whose refresh gets a 401) pauses and keeps the delivery', async () => {
+    server.use(
+      http.post(`${API}/driver/stops/s1/events`, () => HttpResponse.json({ error: 'Session expired' }, { status: 401 })),
+      http.post(`${API}/auth/refresh`, () => HttpResponse.json({ error: 'gone' }, { status: 401 })),
+    )
+    const q = new DriverQueue(mem(), new MemoryBlobs(), httpSender)
+    q.enqueueEvent('s1', { type: 'delivered', placement: 'left_at_door' })
+    expect(await q.flush()).toMatchObject({ paused: true, sent: 0 })
+    expect(q.pending()).toBe(1); expect(q.failures()).toHaveLength(0)
+  })
+
   it('keeps a photo until its event has settled, and removes it after a final refusal too', async () => {
     const { s } = sender((op) => (op === 'event' ? err(409, 'stop_finished') : null))
     const blobs = new MemoryBlobs(); const q = new DriverQueue(mem(), blobs, s)
@@ -181,12 +192,12 @@ describe('device storage', () => {
   })
 
   const shell = <Routes><Route element={<RequireAuth />}><Route path="/driver" element={<SessionProbe />} /></Route><Route path="/login" element={<div>login page</div>} /></Routes>
-  const seed = () => { localStorage.setItem('solvelt.driver.queue.sam|A', '[{"id":"1"}]'); localStorage.setItem('solvelt.driver.route.sam|A', '{}') }
-  const wiped = () => expect(localStorage.getItem('solvelt.driver.queue.sam|A')).toBeNull()
+  const seed = () => { localStorage.setItem('solvelt.driver.queue.sam@x.com|A', '[{"id":"1"}]'); localStorage.setItem('solvelt.driver.route.sam@x.com|A', '{}') }
+  const wiped = () => expect(localStorage.getItem('solvelt.driver.queue.sam@x.com|A')).toBeNull()
 
   const kept = () => {
-    expect(localStorage.getItem('solvelt.driver.queue.sam|A')).toBe('[{"id":"1"}]')                // the unsent delivery is still there...
-    expect(localStorage.getItem('solvelt.driver.route.sam|A')).toBeNull()                         // ...but the cached addresses and the cached profile are gone
+    expect(localStorage.getItem('solvelt.driver.queue.sam@x.com|A')).toBe('[{"id":"1"}]')                // the unsent delivery is still there...
+    expect(localStorage.getItem('solvelt.driver.route.sam@x.com|A')).toBeNull()                         // ...but the cached addresses and the cached profile are gone
     expect(localStorage.getItem('solvelt.driver.cachedUser')).toBeNull()
   }
 
@@ -204,15 +215,15 @@ describe('device storage', () => {
 
   it('wipes everything when the session ends and nothing is waiting', async () => {
     const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del })
-    localStorage.setItem('solvelt.driver.queue.sam|A', '[]'); localStorage.setItem('solvelt.driver.route.sam|A', '{}')
+    localStorage.setItem('solvelt.driver.queue.sam@x.com|A', '[]'); localStorage.setItem('solvelt.driver.route.sam@x.com|A', '{}')
     signedIn(login('Driver'))
     server.use(http.get(`${API}/driver/me`, () => HttpResponse.json({ error: 'Session expired' }, { status: 401 })))
     renderAt(shell, '/driver')
     const call = await screen.findByRole('button', { name: 'call api' })
     server.use(http.post(`${API}/auth/refresh`, () => HttpResponse.json({ error: 'gone' }, { status: 401 })))
     await userEvent.click(call)
-    await waitFor(() => expect(localStorage.getItem('solvelt.driver.queue.sam|A')).toBeNull())
-    expect(localStorage.getItem('solvelt.driver.route.sam|A')).toBeNull(); expect(del).toHaveBeenCalledWith('solvelt-driver')
+    await waitFor(() => expect(localStorage.getItem('solvelt.driver.queue.sam@x.com|A')).toBeNull())
+    expect(localStorage.getItem('solvelt.driver.route.sam@x.com|A')).toBeNull(); expect(del).toHaveBeenCalledWith('solvelt-driver')
   })
 
   it('keeps unsent deliveries when the app logs the driver out for inactivity (no confirmation was asked)', async () => {
@@ -263,6 +274,87 @@ describe('device storage', () => {
     setCrossTabForTests(null)
   })
 
+  const SAM = 'solvelt.driver.queue.sam@x.com|A'
+  const seedSam = () => { localStorage.setItem(SAM, '[{"id":"1"}]'); localStorage.setItem('solvelt.driver.blobkeys.sam@x.com|A', '{"c1":"blob-sam"}'); localStorage.setItem('solvelt.driver.touched.sam@x.com|A', String(Date.now())) }
+  const samKept = () => { expect(localStorage.getItem(SAM)).toBe('[{"id":"1"}]'); expect(localStorage.getItem('solvelt.driver.blobkeys.sam@x.com|A')).not.toBeNull() }
+
+  it("another user's manual log-out on the same device does not delete a former driver's kept queue and photos", async () => {
+    const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del }); seedSam()
+    localStorage.setItem('solvelt.driver.queue.kim@x.com|A', '[]')
+    signedIn(login('Owner', A, 'kim@x.com'))
+    renderAt(shell, '/driver')
+    await userEvent.click(await screen.findByRole('button', { name: 'manual log out' }))
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    samKept(); expect(localStorage.getItem('solvelt.driver.queue.kim@x.com|A')).toBeNull()      // Kim's own data went
+    expect(del).not.toHaveBeenCalled()                                                          // the photo database stays: Sam still has things to send
+  })
+
+  it("a manual log-out in another tab removes only this user's data too", async () => {
+    const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del }); seedSam()
+    localStorage.setItem('solvelt.driver.queue.kim@x.com|A', '[]')
+    const bus = fakeBus(); setCrossTabForTests(bus.bus)
+    signedIn(login('Owner', A, 'kim@x.com'))
+    renderAt(shell, '/driver')
+    await screen.findByRole('button', { name: 'call api' })
+    act(() => bus.emit({ type: 'logout', reason: 'manual' }))
+    await screen.findByText('login page')
+    samKept(); expect(localStorage.getItem('solvelt.driver.queue.kim@x.com|A')).toBeNull(); expect(del).not.toHaveBeenCalled()
+    setCrossTabForTests(null)
+  })
+
+  it("clearDriverStorageFor deletes only that user's keys and photos, and the database only when nobody has anything left", async () => {
+    const deleted: string[] = []
+    const fake = { deleteDatabase: vi.fn(), open: () => { const r: { onsuccess?: () => void; onupgradeneeded?: () => void; result?: unknown } = {}; r.result = { createObjectStore: () => undefined, close: () => undefined, transaction: () => ({ objectStore: () => ({ delete: (k: string) => { deleted.push(k); const q: { onsuccess?: () => void } = {}; setTimeout(() => q.onsuccess?.(), 0); return q } }) }) }; setTimeout(() => r.onsuccess?.(), 0); return r } }
+    vi.stubGlobal('indexedDB', fake)
+    seedSam()
+    localStorage.setItem('solvelt.driver.queue.kim@x.com|A', '[{"id":"9"}]'); localStorage.setItem('solvelt.driver.blobkeys.kim@x.com|A', '{"c2":"blob-kim"}'); localStorage.setItem('solvelt.driver.route.kim@x.com|B', '{}')
+    clearDriverStorageFor('kim@x.com')
+    await waitFor(() => expect(deleted).toEqual(['blob-kim']))                                    // only Kim's photo
+    samKept(); expect(localStorage.getItem('solvelt.driver.route.kim@x.com|B')).toBeNull(); expect(fake.deleteDatabase).not.toHaveBeenCalled()
+    clearDriverStorageFor('sam@x.com')                                                            // nobody has anything left: now the database goes
+    expect(localStorage.getItem(SAM)).toBeNull(); expect(fake.deleteDatabase).toHaveBeenCalledWith('solvelt-driver')
+  })
+
+  it('kept queues and photos expire after a week without activity, with a notice on the next visit', () => {
+    const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del })
+    const now = Date.now(); const day = 86_400_000
+    localStorage.setItem(SAM, '[{"id":"1"},{"id":"2"}]'); localStorage.setItem('solvelt.driver.touched.sam@x.com|A', String(now - (KEPT_MAX_AGE_DAYS + 1) * day))
+    localStorage.setItem('solvelt.driver.queue.kim@x.com|A', '[{"id":"3"}]'); localStorage.setItem('solvelt.driver.touched.kim@x.com|A', String(now - 6 * day))
+    expect(expireDriverStorage(now)).toEqual(['sam@x.com|A'])
+    expect(localStorage.getItem(SAM)).toBeNull(); expect(localStorage.getItem('solvelt.driver.queue.kim@x.com|A')).not.toBeNull()      // 6 days old: kept
+    expect(readExpiredNotice('sam@x.com')).toEqual({ count: 2, days: KEPT_MAX_AGE_DAYS }); expect(readExpiredNotice('kim@x.com')).toBeNull()
+  })
+
+  it('every change to the queue restarts its clock', () => {
+    const q = new DriverQueue(mem(), new MemoryBlobs(), NOOP, 'sam@x.com|A')
+    expect(localStorage.getItem('solvelt.driver.touched.sam@x.com|A')).toBeNull()
+    q.enqueueEvent('s1', { type: 'out_for_delivery' })
+    expect(Number(localStorage.getItem('solvelt.driver.touched.sam@x.com|A'))).toBeGreaterThan(Date.now() - 5_000)
+  })
+
+  it('the app removes expired queues when it starts', async () => {
+    localStorage.setItem(SAM, '[{"id":"1"}]'); localStorage.setItem('solvelt.driver.touched.sam@x.com|A', String(Date.now() - 10 * 86_400_000))
+    signedIn(login('Owner', A, 'kim@x.com'))
+    renderAt(shell, '/driver')
+    await screen.findByRole('button', { name: 'call api' })
+    expect(localStorage.getItem(SAM)).toBeNull(); expect(readExpiredNotice('sam@x.com')).toEqual({ count: 1, days: KEPT_MAX_AGE_DAYS })
+  })
+
+  it('a queue without a clock gets one now instead of being deleted', () => {
+    localStorage.setItem(SAM, '[{"id":"1"}]')
+    expect(expireDriverStorage(Date.now())).toEqual([])
+    expect(localStorage.getItem('solvelt.driver.touched.sam@x.com|A')).not.toBeNull(); expect(localStorage.getItem(SAM)).not.toBeNull()
+  })
+
+  it('tells the driver that unsent updates expired, once, and the notice can be dismissed', async () => {
+    localStorage.setItem('solvelt.driver.expired.sam@x.com', JSON.stringify({ count: 2, days: 7 }))
+    server.use(http.get(`${API}/driver/me`, () => HttpResponse.json(me([stop()]))))
+    mountAs('Driver', <DriverApp queueOverride={new DriverQueue(mem(), new MemoryBlobs(), NOOP, 'x')} />, '/driver')
+    expect(await screen.findByText(/2 unsent updates were removed from this phone because they were more than 7 days old/)).toBeInTheDocument()
+    await userEvent.click(screen.getAllByRole('button', { name: 'Dismiss' })[0])
+    expect(screen.queryByText(/removed from this phone/)).not.toBeInTheDocument(); expect(readExpiredNotice('sam@x.com')).toBeNull()
+  })
+
   it('a manual log-out first tries to send what is waiting, then warns before discarding it', async () => {
     const calls: string[] = []
     let online = false
@@ -283,7 +375,7 @@ describe('device storage', () => {
 
 function SessionProbe() {
   const { logout } = useAuth()
-  return <><button onClick={() => void api('/driver/me').catch(() => undefined)}>call api</button><button onClick={() => void logout('idle')}>idle log out</button></>
+  return <><button onClick={() => void api('/driver/me').catch(() => undefined)}>call api</button><button onClick={() => void logout('idle')}>idle log out</button><button onClick={() => void logout()}>manual log out</button></>
 }
 
 // ---- 4: offline reload ----------------------------------------------------------------------------------------------------------------------
