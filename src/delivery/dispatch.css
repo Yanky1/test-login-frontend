@@ -1,0 +1,25 @@
+.dispatch { max-width: 1100px; margin: 0 auto; padding: var(--s2); display: grid; gap: var(--s2); }
+.dp-head { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.dp-head h1 { margin: 0; margin-right: auto; }
+.dp-date { display: flex; align-items: center; gap: var(--s1); }
+.dp-windows { display: flex; gap: var(--s1); flex-wrap: wrap; }
+.dp-win { display: grid; gap: 2px; padding: var(--s1) var(--s2); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.dp-win.nearly_full { border-color: var(--warn); }
+.dp-win.full { border-color: var(--err); background: var(--err-soft); }
+.dp-flag { display: inline-block; padding: 2px var(--s1); border-radius: var(--r-pill); background: var(--err-soft); color: var(--err); font-size: var(--fs-sm); font-weight: 600; }
+.dp-win.nearly_full .dp-flag { background: var(--surface-2); color: var(--warn); }
+.dp-group h3 { margin: var(--s2) 0 var(--s1); }
+.dp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); }
+.dp-row { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); flex-wrap: wrap; padding: var(--s1) var(--s2); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.dp-row.late { border-left: 4px solid var(--warn); }
+.dp-row.exception { border-left: 4px solid var(--err); background: var(--err-soft); }
+.dp-main { display: flex; gap: var(--s1); align-items: center; flex-wrap: wrap; }
+.dp-act { display: flex; gap: var(--s1); align-items: center; flex-wrap: wrap; }
+.dp-act select { min-height: var(--target); }
+.dp-chip { padding: 2px var(--s1); border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-sm); }
+.dp-muted { color: var(--muted); }
+.dp-route { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s2); background: var(--surface); margin-bottom: var(--s1); }
+.dp-route h3 { margin: 0 0 var(--s1); }
+.dp-sheet { border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: var(--s2); background: var(--surface); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media print { .no-print, .dp-head, .dp-windows, .dp-group, .dp-route { display: none !important; } .dp-sheet { border: 0; } }

@@ -24,6 +24,8 @@ const CalendarPage = lazy(() => import('./services/CalendarPage'))
 const BookingsPage = lazy(() => import('./services/BookingsPage'))
 const BookingDetailPage = lazy(() => import('./services/BookingDetailPage'))
 const QuotePage = lazy(() => import('./services/QuotePage'))
+const DriverApp = lazy(() => import('./delivery/driver'))
+const DispatchBoard = lazy(() => import('./delivery/DispatchBoard'))
 const AdminApp = lazy(() => import('./admin/AdminApp'))
 const PhoneLinkPage = lazy(() => import('./pages/PhoneLink'))
 const InvitePage = lazy(() => import('./pages/teams/Invite'))
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/settings/:tab?" element={<SettingsPage />} />
           <Route path="/accounts" element={<ChooseAccount />} />
+          <Route path="/driver" element={<DriverApp />} />
           <Route element={<SellerLayout />}>
             <Route path="/orders" element={<OrdersListPage />} />
             <Route path="/orders/:id" element={<OrderDetailPage />} />
@@ -70,6 +73,7 @@ export default function App() {
             <Route path="/products/:id" element={<ProductEditorPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/delivery" element={<DispatchBoard />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/bookings/quotes/:id" element={<QuotePage />} />

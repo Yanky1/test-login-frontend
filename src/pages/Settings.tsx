@@ -17,6 +17,7 @@ const TeamPage = lazy(() => import('./teams/Team'))
 const BrandsPage = lazy(() => import('./teams/Brands'))
 const NotificationSettings = lazy(() => import('../orders/NotificationSettings'))
 const AvailabilityPage = lazy(() => import('../services/AvailabilityPage'))
+const DeliverySettingsPage = lazy(() => import('../delivery/DeliverySettings'))
 
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
 
@@ -41,12 +42,14 @@ export default function SettingsPage() {
         {brandsTab && <NavLink to="/settings/brands">Brands</NavLink>}
         {brandsTab && <NavLink to="/settings/notifications">Notifications</NavLink>}
         {brandsTab && <NavLink to="/settings/availability">Availability</NavLink>}
+        {brandsTab && user?.role !== 'Driver' && <NavLink to="/settings/delivery">Local delivery</NavLink>}
         <Link to="/">Back to application</Link>
       </nav>
       {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} />
         : tab === 'team' && teamTab ? <Suspense fallback={<Skeleton lines={4} />}><TeamPage hasPassword={me.hasPassword} twoFactorEnabled={me.twoFactorEnabled} /></Suspense>
         : tab === 'notifications' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><NotificationSettings /></Suspense>
         : tab === 'availability' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><AvailabilityPage embedded /></Suspense>
+        : tab === 'delivery' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><DeliverySettingsPage canEdit={user?.role === 'Owner' || user?.role === 'Admin'} /></Suspense>
         : tab === 'brands' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><BrandsPage /></Suspense>
         : <Profile me={me} />}
     </main></Shell>
