@@ -26,7 +26,7 @@ describe('driver offline queue', () => {
     q.enqueueEvent('s1', { type: 'delivered', placement: 'handed_to', recipientName: 'Jane' }, [photo, sig])
     expect(q.pending()).toBe(4); expect(q.pendingFor('s1')).toBe(3)
     const r = await q.flush()
-    expect(r).toEqual({ sent: 4, offline: false })
+    expect(r).toEqual({ sent: 4, offline: false, paused: false })
     expect(calls.map((c) => c.op)).toEqual(['start', 'upload:photo', 'upload:signature', 'event'])
     expect(calls[3].body).toMatchObject({ type: 'delivered', proofIds: ['srv-' + photo, 'srv-' + sig], placement: 'handed_to' })
     expect(typeof calls[3].body?.clientEventId).toBe('string'); expect(typeof calls[3].body?.clientAt).toBe('string')
@@ -38,7 +38,7 @@ describe('driver offline queue', () => {
     const { s, calls } = sender({ failWith: () => (down ? offline() : null) })
     const q = new DriverQueue(mem(), new MemoryBlobs(), s)
     q.enqueueEvent('s1', { type: 'out_for_delivery' }); q.enqueueEvent('s2', { type: 'failed', reason: 'refused' })
-    expect(await q.flush()).toEqual({ sent: 0, offline: true })
+    expect(await q.flush()).toEqual({ sent: 0, offline: true, paused: false })
     expect(q.pending()).toBe(2)
     down = false
     expect((await q.flush()).sent).toBe(2)

@@ -65,6 +65,9 @@ export function csrfToken(): string {
 }
 
 let refreshing: Promise<LoginResponse | null> | null = null
+let unreachable = false
+/** True when the last refresh failed because the server could not be reached (offline), not because the session is gone. */
+export const refreshUnreachable = () => unreachable
 
 /** Single-flight refresh using the HttpOnly cookie (+ CSRF header). Returns null when the session is gone. */
 export function refreshSession(): Promise<LoginResponse | null> {
@@ -77,11 +80,13 @@ export function refreshSession(): Promise<LoginResponse | null> {
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
           body: '{}',
         })
+        unreachable = false
         if (!res.ok) { tokenStore.set(null); return null }
         const body = (await res.json()) as LoginResponse
         tokenStore.set(body.accessToken)
         return body
       } catch {
+        unreachable = true        // network error: the session may be perfectly fine, we just can't tell right now
         return null
       }
     }
@@ -107,6 +112,7 @@ export async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T
   if (res.status === 401 && auth && retry) {
     const renewed = await refreshSession()
     if (renewed) return api<T>(path, { ...opts, retry: false })
+    if (unreachable) throw new TypeError('Network unreachable')   // offline: keep the session (and the driver's queue); callers treat this like any network error
     sessionEndedListeners.forEach((l) => l())
   }
   const text = await res.text()

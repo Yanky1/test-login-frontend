@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api'
 import { useAuth } from '../auth'
 import { Alert, Skeleton } from '../components/ui'
+import { setUnsavedHandler } from '../lib/unsaved'
+import { cacheDriverRoutes, driverStorageName, readCachedDriverRoutes } from './storage'
 import { driverApi, FAIL_REASONS, STATUS_LABEL, timeRange, type DriverMe, type DriverRoute, type LocalStatus, type StopDto } from './api'
 import { browserBlobs, DriverQueue, type BlobStore } from './queue'
 import './driver.css'
@@ -10,29 +12,45 @@ import './driver.css'
 export default function DriverApp({ queueOverride }: { queueOverride?: DriverQueue } = {}) {
   const { user } = useAuth()
   const blobs = useMemo<BlobStore>(() => browserBlobs(), [])
-  const queue = useMemo(() => queueOverride ?? new DriverQueue(localStorage, blobs, undefined, user?.email ?? 'anon'), [queueOverride, blobs, user?.email])
+  const storageName = driverStorageName(user)       // one queue per user AND account: another account's events can never be replayed into this one
+  const queue = useMemo(() => queueOverride ?? new DriverQueue(localStorage, blobs, undefined, storageName), [queueOverride, blobs, storageName])
   const [me, setMe] = useState<DriverMe | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine)
   const [pending, setPending] = useState(queue.pending())
   const [failures, setFailures] = useState(queue.failures())
+  const [notices, setNotices] = useState(queue.notices())
   const [open, setOpen] = useState<string | null>(null)
   const [optimistic, setOptimistic] = useState<Record<string, LocalStatus>>({})
   const [busy, setBusy] = useState(false)
+  const prevOpen = useRef<string | null>(null)
 
   const load = useCallback(async () => {
-    try { setMe(await driverApi.me()); setError(null); setOptimistic({}) }
-    catch (e) { if (!(e instanceof ApiError)) setError('You are offline. Showing the last loaded route.'); else setError(e.message2) }
-  }, [])
+    try { const m = await driverApi.me(); setMe(m); setError(null); setOptimistic({}); cacheDriverRoutes(storageName, m) }
+    catch (e) {
+      if (e instanceof ApiError) { setError(e.message2); return }
+      const cached = readCachedDriverRoutes<DriverMe>(storageName)             // offline: the last route (addresses only, no names or phone numbers) plus the queue
+      if (cached) setMe((m) => m ?? cached)
+      setError('You are offline. Showing the last loaded route; your updates are saved and will be sent.')
+    }
+  }, [storageName])
 
   const sync = useCallback(async () => {
     if (queue.pending() === 0) return
     const r = await queue.flush()
-    setPending(queue.pending()); setFailures(queue.failures())
+    setPending(queue.pending()); setFailures(queue.failures()); setNotices(queue.notices())
+    if (r.paused) setError('Your sign-in needs attention. Your updates are saved and will be sent as soon as you are signed in again.')
     if (r.sent > 0) await load()
   }, [queue, load])
 
-  useEffect(() => queue.subscribe(() => { setPending(queue.pending()); setFailures(queue.failures()) }), [queue])
+  useEffect(() => queue.subscribe(() => { setPending(queue.pending()); setFailures(queue.failures()); setNotices(queue.notices()) }), [queue])
+  // logging out or switching account with unsent deliveries: try to send them first, and only then warn
+  useEffect(() => setUnsavedHandler(async () => {
+    if (queue.pending() === 0) return true
+    if (navigator.onLine) await queue.flush().catch(() => undefined)
+    if (queue.pending() === 0) return true
+    return window.confirm(`${queue.pending()} update(s) have not been sent yet. If you leave now they are lost. Leave anyway?`)
+  }), [queue])
   useEffect(() => { void load().then(sync) }, [load, sync])
   useEffect(() => {
     const on = () => { setOnline(true); void sync() }
@@ -52,6 +70,12 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
 
   const stops = me?.routes.flatMap((r) => r.stops.map((s) => ({ ...s, status: optimistic[s.id] ?? s.status, route: r }))) ?? []
   const current = stops.find((s) => s.id === open)
+  // keyboard / screen-reader focus follows the view: into the stop's heading when it opens, back to its button in the list when it closes
+  useEffect(() => {
+    if (open) document.getElementById('page-title')?.focus()
+    else if (prevOpen.current) document.querySelector<HTMLElement>(`[data-stop="${prevOpen.current}"]`)?.focus()
+    prevOpen.current = open
+  }, [open, me])
 
   const startRoute = async (r: DriverRoute) => {
     setBusy(true)
@@ -74,7 +98,13 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
       {failures.length > 0 && (
         <Alert>
           {failures.length} update{failures.length > 1 ? 's' : ''} could not be saved: {failures.map((f) => f.message).join('; ')}. Tell your dispatcher.{' '}
-          <button type="button" className="linklike" onClick={() => { queue.dismissFailures(); setFailures([]) }}>Dismiss</button>
+          <button type="button" className="dr-small" onClick={() => { queue.dismissFailures(); setFailures([]) }}>Dismiss</button>
+        </Alert>
+      )}
+      {notices.length > 0 && (
+        <Alert kind="info">
+          {notices.map((n) => n.message).join(' ')}{' '}
+          <button type="button" className="dr-small" onClick={() => { queue.dismissNotices(); setNotices([]) }}>Dismiss</button>
         </Alert>
       )}
       {!me ? <Skeleton lines={4} /> : current ? (
@@ -93,7 +123,7 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
                   const st = optimistic[s.id] ?? s.status
                   return (
                     <li key={s.id}>
-                      <button type="button" className="dr-stop" onClick={() => setOpen(s.id)}>
+                      <button type="button" className="dr-stop" data-stop={s.id} onClick={() => setOpen(s.id)}>
                         <span className="dr-seq" aria-hidden="true">{s.seq}</span>
                         <span className="dr-stop-main">
                           <strong><span className="sr-only">Stop {s.seq}: </span>{s.to ? s.to.line1 : 'Finished stop'}</strong>
@@ -179,17 +209,43 @@ function StopView({ stop, queue, onBack, onDone }: { stop: S; queue: DriverQueue
   )
 }
 
-/** Shrinks a phone photo (they are often 8-12 MB) and drops its metadata by redrawing it; falls back to the original file where canvas isn't available. */
+/** Removes the metadata blocks (EXIF with GPS, XMP, IPTC, comments) from a JPEG without re-encoding it. Returns null when the bytes are not a well-formed JPEG. */
+export function stripJpegMetadata(d: Uint8Array): Uint8Array | null {
+  if (d.length < 4 || d[0] !== 0xff || d[1] !== 0xd8) return null
+  const out: number[] = [0xff, 0xd8]
+  let i = 2
+  while (i + 3 < d.length) {
+    if (d[i] !== 0xff) return null
+    const m = d[i + 1]
+    if (m === 0xff) { i++; continue }
+    if (m === 0xda) { for (let k = i; k < d.length; k++) out.push(d[k]); return Uint8Array.from(out) }
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { out.push(0xff, m); i += 2; continue }
+    const len = (d[i + 2] << 8) | d[i + 3]
+    if (len < 2 || i + 2 + len > d.length) return null
+    if (m !== 0xe1 && m !== 0xed && m !== 0xfe) for (let k = i; k < i + 2 + len; k++) out.push(d[k])
+    i += 2 + len
+  }
+  return null
+}
+
+/**
+ * Prepares a phone photo for the queue: redrawn on a canvas (max 1600 px JPEG; the redraw drops all metadata). If the browser can't do that, a JPEG gets its
+ * metadata blocks stripped directly. Anything else is REJECTED: an unprocessed original (with its GPS position) never lands in IndexedDB.
+ */
 export async function shrinkImage(file: Blob, max = 1600): Promise<Blob> {
   try {
-    if (typeof createImageBitmap !== 'function') return file
-    const bmp = await createImageBitmap(file)
-    const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
-    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
-    c.getContext('2d')?.drawImage(bmp, 0, 0, c.width, c.height)
-    const out = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/jpeg', 0.82))
-    return out ?? file
-  } catch { return file }
+    if (typeof createImageBitmap === 'function') {
+      const bmp = await createImageBitmap(file)
+      const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
+      c.getContext('2d')?.drawImage(bmp, 0, 0, c.width, c.height)
+      const out = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/jpeg', 0.82))
+      if (out) return out
+    }
+  } catch { /* fall through to the byte-level strip */ }
+  const clean = stripJpegMetadata(new Uint8Array(await file.arrayBuffer()))
+  if (clean) return new Blob([clean.buffer as ArrayBuffer], { type: 'image/jpeg' })
+  throw new Error('photo_unprocessable')
 }
 
 function PhotoInput({ label, required, onFile }: { label: string; required?: boolean; onFile: (f: File | null) => void }) {
@@ -209,7 +265,9 @@ function DeliverForm({ stop, queue, onCancel, onDone }: { stop: S; queue: Driver
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!photo) { setErr('Take a photo of the delivery first.'); return }
-    const ids = [await queue.enqueueProof(stop.id, 'photo', await shrinkImage(photo))]
+    let prepared: Blob
+    try { prepared = await shrinkImage(photo) } catch { setErr('This photo could not be prepared. Please take it again.'); return }
+    const ids = [await queue.enqueueProof(stop.id, 'photo', prepared)]
     const sig = await pad.current?.toBlob()
     if (sig) ids.push(await queue.enqueueProof(stop.id, 'signature', sig))
     const pos = await position()
@@ -240,7 +298,9 @@ function FailForm({ stop, queue, onCancel, onDone }: { stop: S; queue: DriverQue
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!reason) { setErr('Choose a reason.'); return }
-    const ids = photo ? [await queue.enqueueProof(stop.id, 'photo', await shrinkImage(photo))] : []
+    let prepared: Blob | null = null
+    if (photo) { try { prepared = await shrinkImage(photo) } catch { setErr('This photo could not be prepared. Please take it again.'); return } }
+    const ids = prepared ? [await queue.enqueueProof(stop.id, 'photo', prepared)] : []
     queue.enqueueEvent(stop.id, { type: 'failed', reason, note: note.trim() || undefined }, ids)
     onDone()
   }
@@ -259,21 +319,22 @@ function FailForm({ stop, queue, onCancel, onDone }: { stop: S; queue: DriverQue
 }
 
 export interface SignaturePadHandle { toBlob(): Promise<Blob | null> }
-import { forwardRef, useImperativeHandle } from 'react'
 const SignaturePad = forwardRef<SignaturePadHandle>(function SignaturePad(_p, ref) {
   const cv = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false); const dirty = useRef(false)
   const pt = (e: React.PointerEvent) => { const r = cv.current!.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * cv.current!.width, y: ((e.clientY - r.top) / r.height) * cv.current!.height } }
   useImperativeHandle(ref, () => ({ toBlob: () => new Promise((res) => { if (!dirty.current || !cv.current?.toBlob) res(null); else cv.current.toBlob(res, 'image/png') }) }))
   const ctx = () => cv.current?.getContext?.('2d') ?? null
+  const paper = () => { const c = ctx(); if (c && cv.current) { const st = getComputedStyle(cv.current); c.fillStyle = st.getPropertyValue('--sig-bg').trim() || '#ffffff'; c.fillRect(0, 0, cv.current.width, cv.current.height); c.strokeStyle = st.getPropertyValue('--sig-ink').trim() || '#14172b' } }
+  useEffect(() => { paper() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="dr-field">
       <span id="sig-l">Signature (optional)</span>
       <canvas ref={cv} width={600} height={220} className="dr-sig" role="img" aria-labelledby="sig-l" style={{ touchAction: 'none' }}
-        onPointerDown={(e) => { drawing.current = true; const c = ctx(); if (c) { const p = pt(e); c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(p.x, p.y) } cv.current?.setPointerCapture?.(e.pointerId) }}
+        onPointerDown={(e) => { drawing.current = true; const c = ctx(); if (c) { const p = pt(e); c.lineWidth = 4; c.lineCap = 'round'; c.strokeStyle = getComputedStyle(cv.current!).getPropertyValue('--sig-ink').trim() || '#14172b'; c.beginPath(); c.moveTo(p.x, p.y) } cv.current?.setPointerCapture?.(e.pointerId) }}
         onPointerMove={(e) => { if (!drawing.current) return; const c = ctx(); if (c) { const p = pt(e); c.lineTo(p.x, p.y); c.stroke(); dirty.current = true } }}
         onPointerUp={() => { drawing.current = false }} />
-      <button type="button" className="dr-small" onClick={() => { const c = ctx(); if (c && cv.current) c.clearRect(0, 0, cv.current.width, cv.current.height); dirty.current = false }}>Clear signature</button>
+      <button type="button" className="dr-small" onClick={() => { paper(); dirty.current = false }}>Clear signature</button>
     </div>
   )
 })

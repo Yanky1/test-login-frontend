@@ -28,7 +28,13 @@ export default function DispatchBoard() {
   useEffect(() => { const t = setInterval(() => void load(date), 30_000); return () => clearInterval(t) }, [date, load])   // periodic refresh (no live map in v1)
 
   const act = async (f: () => Promise<unknown>, ok: string) => {
-    try { await f(); setMsg(ok); setError(null); await load(date) } catch (e) { setMsg(null); setError(e instanceof ApiError ? e.message2 : 'That did not work. Try again.') }
+    try { await f(); setMsg(ok); setError(null); await load(date) }
+    catch (e) {
+      setMsg(null)
+      // whatever went wrong, the board may be out of date (someone else assigned it, the driver moved on): reload it so the next click works from the truth
+      await load(date)
+      setError(e instanceof ApiError ? (e.status === 409 ? 'This was changed by someone else. The board has been refreshed: check it and try again.' : e.message2) : 'That did not work. Try again.')   // after the reload, which clears errors
+    }
   }
 
   const unassigned = board?.deliveries.filter((d) => d.status === 'Unassigned') ?? []
