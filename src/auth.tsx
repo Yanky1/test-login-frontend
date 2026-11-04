@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, onAccountLost, onSessionEnded, refreshSession, tokenStore, type AccountItem, type LoginResponse, type Role } from './api'
+import { api, onAccountLost, onSessionEnded, refreshSession, refreshUnreachable, tokenStore, type AccountItem, type LoginResponse, type Role } from './api'
 import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
 import { canLeave, LeaveRefused } from './lib/unsaved'
 import { clearDrafts } from './lib/drafts'
+import { cacheDriverUser, clearDriverStorage, readCachedDriverUser } from './delivery/storage'
 
 export interface User {
   email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
@@ -66,17 +67,19 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
       // Restore the session after a reload: the access token is memory-only, the refresh cookie is not readable by JS.
       const r = await refreshSession()
       if (!alive) return
-      if (r) { setUser(toUser(r)); setStatus('authed') } else setStatus('anon')
+      if (r) { setUser(toUser(r)); setStatus('authed') }
+      else if (refreshUnreachable() && readCachedDriverUser()) { setUser(readCachedDriverUser()); setStatus('authed') }   // offline reload of the driver app: keep working from the queue and the cached route
+      else setStatus('anon')
     })()
     return () => { alive = false }
   }, [initialConfig])
 
-  useEffect(() => onSessionEnded(() => { tokenStore.set(null); clearDrafts(); setUser(null); setStatus('anon') }), [])
+  useEffect(() => onSessionEnded(() => { tokenStore.set(null); clearDrafts(); clearDriverStorage(); setUser(null); setStatus('anon') }), [])
 
   // Another tab logged out (manually or by inactivity): follow it without calling the API again.
   useEffect(() => crossTab().subscribe((m) => {
     if (m.type !== 'logout') return
-    tokenStore.set(null); clearDrafts()
+    tokenStore.set(null); clearDrafts(); clearDriverStorage()
     setUser(null); setStatus('anon')
     setLogoutReason(m.reason === 'idle' ? 'idle' : null)
   }), [])
@@ -111,12 +114,20 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
     if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
-    tokenStore.set(null); clearDrafts()
+    tokenStore.set(null); clearDrafts(); clearDriverStorage()
     setUser(null); setStatus('anon')
     setLogoutReason(reason === 'idle' ? 'idle' : null)
     try { sessionStorage.removeItem('offerPasskey') } catch { /* ignore */ }
     crossTab().post({ type: 'logout', reason })
   }, [])
+
+  // a driver's profile is cached (no token) so an offline reload of /driver still opens the app; back online, the session is picked up again
+  useEffect(() => { if (user?.role === 'Driver') cacheDriverUser(user) }, [user])
+  useEffect(() => {
+    const on = () => { if (status === 'authed' && !tokenStore.get()) void refreshSession().then((r) => { if (r) { setUser(toUser(r)); void refreshAccounts() } }) }
+    window.addEventListener('online', on)
+    return () => window.removeEventListener('online', on)
+  }, [status, refreshAccounts])
 
   const value = useMemo<AuthCtx>(() => ({
     status, user, config, applyLogin, setAccessToken, switchAccount, refreshAccounts, logout, logoutReason, clearLogoutReason: () => setLogoutReason(null),

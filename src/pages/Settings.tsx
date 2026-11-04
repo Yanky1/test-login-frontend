@@ -22,8 +22,10 @@ const DeliverySettingsPage = lazy(() => import('../delivery/DeliverySettings'))
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
 
 export default function SettingsPage() {
-  const { tab = 'profile' } = useParams()
+  const { tab: tabParam = 'profile' } = useParams()
   const { user } = useAuth()
+  const driver = user?.role === 'Driver'
+  const tab = driver ? 'security' : tabParam      // a Driver only has the sign-in and security settings
   const teamTab = !!user?.activeAccountId && can(user.role, 'members.read')
   const brandsTab = !!user?.activeAccountId
   const [me, setMe] = useState<Me | null>(null)
@@ -36,14 +38,14 @@ export default function SettingsPage() {
         <div><h1 tabIndex={-1}>Account settings</h1><p className="acct-sub">{me ? <>{me.vendorName ? <strong>{me.vendorName}</strong> : null}{me.vendorName ? ' · ' : ''}{me.email}</> : ' '}</p></div>
       </div>
       <nav className="tabs" aria-label="Settings">
-        <NavLink to="/settings/profile">Profile</NavLink>
+        {!driver && <NavLink to="/settings/profile">Profile</NavLink>}
         <NavLink to="/settings/security">Security</NavLink>
-        {teamTab && <NavLink to="/settings/team">Team</NavLink>}
-        {brandsTab && <NavLink to="/settings/brands">Brands</NavLink>}
-        {brandsTab && <NavLink to="/settings/notifications">Notifications</NavLink>}
-        {brandsTab && <NavLink to="/settings/availability">Availability</NavLink>}
-        {brandsTab && user?.role !== 'Driver' && <NavLink to="/settings/delivery">Local delivery</NavLink>}
-        <Link to="/">Back to application</Link>
+        {teamTab && !driver && <NavLink to="/settings/team">Team</NavLink>}
+        {brandsTab && !driver && <NavLink to="/settings/brands">Brands</NavLink>}
+        {brandsTab && !driver && <NavLink to="/settings/notifications">Notifications</NavLink>}
+        {brandsTab && !driver && <NavLink to="/settings/availability">Availability</NavLink>}
+        {brandsTab && !driver && <NavLink to="/settings/delivery">Local delivery</NavLink>}
+        {driver ? <Link to="/driver">Back to the driver app</Link> : <Link to="/">Back to application</Link>}
       </nav>
       {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} />
         : tab === 'team' && teamTab ? <Suspense fallback={<Skeleton lines={4} />}><TeamPage hasPassword={me.hasPassword} twoFactorEnabled={me.twoFactorEnabled} /></Suspense>
