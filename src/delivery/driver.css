@@ -35,3 +35,4 @@
 .dr-sig { width: 100%; height: 160px; border: 2px dashed var(--border-strong); border-radius: var(--r-sm); background: var(--surface); }
 .linklike { background: none; border: 0; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; padding: 0; }
 .dr-card address { font-style: normal; font-size: var(--fs-lg); line-height: 1.4; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
