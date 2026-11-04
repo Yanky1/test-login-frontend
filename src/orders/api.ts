@@ -29,7 +29,7 @@ export interface Shipment {
   id: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; shippedAt: string; deliveredAt: string | null; lines: { lineId: string; quantity: number }[]
   method?: string; trackingStatus?: string; trackingStatusDetail?: string | null; eta?: string | null; labelId?: string | null; labelCostCents?: number | null; labelCurrency?: string | null
 }
-export interface ReturnShipmentDto { id: string; returnId: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; trackingStatus: string; eta: string | null; deliveredAt: string | null; labelId: string | null }
+export interface ReturnShipmentDto { id: string; returnId: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; trackingStatus: string; eta: string | null; deliveredAt: string | null; labelId: string | null; voided?: boolean }
 export interface CancelRequestDto { id: string; requestedBy: string; status: 'Requested' | 'Approved' | 'Rejected'; reason: string; note: string | null; decisionNote: string | null; createdAt: string; resolvedAt: string | null }
 export interface ReturnDto {
   id: string; status: 'Requested' | 'Approved' | 'Rejected' | 'Received' | 'Refunded'; reason: string; buyerComment: string | null; decisionReason: string | null; restock: boolean; refundCents: number
@@ -51,7 +51,7 @@ export interface OrderDetail {
   timeline: { id: string; type: string; actor: string; text: string | null; at: string }[]
   notes: { id: string; text: string; author: string; createdAt: string }[]
   conversationId: string | null; actions: OrderActions
-  needsAttention?: boolean; attentionReason?: string | null; returnShipments?: ReturnShipmentDto[]
+  needsAttention?: boolean; attentionReason?: string | null; returnShipments?: ReturnShipmentDto[]; accountTimeZone?: string
   reasons: { cancel: string[]; refund: string[]; rejectReturn: string[]; carriers: string[] }
 }
 export interface TrackingPreview { applied: boolean; total: number; valid: number; results: { row: number; orderNumber: string; orderId: string | null; ok: boolean; error: string | null; applied: boolean }[] }

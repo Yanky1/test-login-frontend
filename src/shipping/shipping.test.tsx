@@ -1,14 +1,14 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'vitest'
 import { server } from '../test/server'
 import OrderDetailPage from '../orders/OrderDetail'
 import OrdersListPage from '../orders/OrdersList'
 import { ACTIONS, API, item, mockOrder, mount, order } from '../orders/testkit'
 import ShippingSettings from './ShippingSettings'
-import { summaryLabel, summaryTone, trackLabel, trackTone } from './format'
-import { errDetail, labelExt, type Label, type OrderTracking, type Quote, type ShippingConfig } from './api'
+import { dayZ, dtZ, summaryLabel, summaryTone, trackLabel, trackTone } from './format'
+import { errDetail, labelExt, printLabel, shippingApi, type Label, type OrderTracking, type Quote, type ShippingConfig } from './api'
 
 const addr = { id: 'a1', brandId: null, label: 'Warehouse', name: 'Acme Shop', company: null, line1: '10 Warehouse Rd', line2: null, city: 'Brooklyn', region: 'NY', postalCode: '11201', country: 'US', phone: null, email: null, isDefault: true, validation: 'valid' as const, validationMessage: null, validatedAt: null }
 const cfg = (o: Partial<ShippingConfig> = {}): ShippingConfig => ({
@@ -223,7 +223,7 @@ describe('Buy label in the ship dialog', () => {
     expect(within(dlg).getByRole('link', { name: /Settings → Shipping/ })).toHaveAttribute('href', '/settings/shipping')
     expect(within(dlg).getByRole('button', { name: 'Mark as shipped' })).toBeInTheDocument()
     await userEvent.click(within(dlg).getByRole('tab', { name: 'Buy label' }))                                                // going back to the label tab explains what is missing
-    expect(await within(dlg).findByRole('button', { name: 'enter a tracking number yourself' })).toBeInTheDocument()
+    expect(await within(dlg).findByRole('button', { name: 'Enter a tracking number yourself' })).toBeInTheDocument()
   })
 
   it('asks for the weight when the products have none', async () => {
@@ -343,3 +343,129 @@ describe('Orders list', () => {
   })
 })
 void fireEvent
+
+describe('Review fixes', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  const approvedReturn = { id: 'r1', status: 'Approved' as const, reason: 'damaged', buyerComment: null, decisionReason: null, restock: false, refundCents: 0, createdAt: '2026-11-03T10:00:00Z', decidedAt: '2026-11-03T11:00:00Z', receivedAt: null, lines: [{ lineId: 'l1', quantity: 1 }] }
+  const rship = (o: object = {}) => ({ id: 'rs1', returnId: 'r1', carrier: 'USPS', service: null, trackingNumber: '9400111899223100009', trackingUrl: null, trackingStatus: 'pre_transit', eta: null, deliveredAt: null, labelId: 'lb2', voided: false, ...o })
+
+  it('after a return label is voided the page offers a new one, and says the old one was voided', async () => {
+    mockOrder(order({ status: 'ReturnApproved', actions: { ...ACTIONS, receiveReturn: true }, returns: [approvedReturn], returnShipments: [rship({ voided: true, trackingStatus: 'unknown' })] }))
+    server.use(http.get(`${API}/seller/shipping/orders/:id/tracking`, () => HttpResponse.json(tracking())))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    expect(await screen.findByRole('button', { name: 'Send a prepaid return label' })).toBeInTheDocument()
+    expect(screen.getByText(/Return label voided/)).toBeInTheDocument(); expect(screen.queryByText(/Return label sent/)).toBeNull()
+  })
+
+  it('a live return label hides the button, and the button is only offered while the order is "Return approved"', async () => {
+    mockOrder(order({ status: 'ReturnApproved', actions: { ...ACTIONS, receiveReturn: true }, returns: [approvedReturn], returnShipments: [rship()] }))
+    server.use(http.get(`${API}/seller/shipping/orders/:id/tracking`, () => HttpResponse.json(tracking())))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    expect(await screen.findByText(/Return label sent/)).toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Send a prepaid return label' })).toBeNull()
+  })
+
+  it('no return label is offered once the order has moved on from "Return approved"', async () => {
+    mockOrder(order({ status: 'ReturnReceived', actions: { ...ACTIONS }, returns: [approvedReturn] }))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    expect(await screen.findByText(/damaged/)).toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Send a prepaid return label' })).toBeNull()
+  })
+
+  it('printing opens the window inside the click (before the file arrives), cuts the opener and only then records the print', async () => {
+    let release!: (b: Blob) => void
+    vi.spyOn(shippingApi, 'fileBlob').mockReturnValue(new Promise<Blob>((r) => { release = r }))
+    const printed = vi.spyOn(shippingApi, 'printed').mockResolvedValue(undefined as never)
+    const w = { opener: 'x' as unknown, location: { href: '' }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(w as unknown as Window)
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:label'), revokeObjectURL: vi.fn() })
+    const p = printLabel(label())
+    expect(open).toHaveBeenCalledTimes(1); expect(open.mock.calls[0][0]).toBe('about:blank')   // synchronously: nothing has been awaited yet
+    expect(w.opener).toBeNull(); expect(printed).not.toHaveBeenCalled()
+    release(new Blob(['x'])); await p
+    expect(w.location.href).toBe('blob:label'); expect(printed).toHaveBeenCalledTimes(1)
+  })
+
+  it('a blocked window is an error and the label is not recorded as printed', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const fetchFile = vi.spyOn(shippingApi, 'fileBlob'); const printed = vi.spyOn(shippingApi, 'printed')
+    await expect(printLabel(label())).rejects.toThrow()
+    expect(printed).not.toHaveBeenCalled(); expect(fetchFile).not.toHaveBeenCalled()
+  })
+
+  it('a failed download closes the blank window instead of leaving it open', async () => {
+    const w = { opener: 'x' as unknown, location: { href: '' }, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(w as unknown as Window); vi.spyOn(shippingApi, 'fileBlob').mockRejectedValue(new Error('nope'))
+    await expect(printLabel(label())).rejects.toThrow(); expect(w.close).toHaveBeenCalled()
+  })
+
+  it('shipping dates use the account time zone, not the browser zone', () => {
+    expect(dayZ('2026-11-04T03:00:00Z', 'America/Los_Angeles')).toMatch(/Nov 3, 2026/); expect(dayZ('2026-11-04T03:00:00Z', 'Asia/Tokyo')).toMatch(/Nov 4, 2026/)
+    expect(dtZ('2026-11-04T03:00:00Z', 'America/Los_Angeles')).toMatch(/Nov 3, 2026/); expect(dayZ('2026-11-04T03:00:00Z', 'Not/AZone')).not.toBe('')   // a bad zone never breaks the page
+    expect(dayZ(null, 'UTC')).toBe('')
+  })
+
+  it('the order page shows shipment times in the account zone', async () => {
+    mockOrder(order({ status: 'Shipped', accountTimeZone: 'Asia/Tokyo', shipments: [{ id: 's1', carrier: 'USPS', service: null, trackingNumber: '9400111899223100001', trackingUrl: null, shippedAt: '2026-11-04T20:30:00Z', deliveredAt: null, lines: [{ lineId: 'l1', quantity: 1 }], trackingStatus: undefined, eta: undefined }] }))
+    server.use(http.get(`${API}/seller/shipping/orders/:id/tracking`, () => HttpResponse.json(tracking())))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    expect(await screen.findByText(/Shipped Nov 5, 2026/)).toBeInTheDocument()   // 20:30 UTC is already the 5th in Tokyo
+  })
+
+  it('after buying a label focus moves to the confirmation inside the dialog', async () => {
+    mockShipping({})
+    mockOrder(accepted())
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Ship order' }))
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(await within(dlg).findByRole('button', { name: 'Get shipping rates' }))
+    await userEvent.click(await within(dlg).findByRole('button', { name: /Buy label/ }))
+    const done = (await within(dlg).findByText(/Label bought for/)).closest('.label-done') as HTMLElement
+    await waitFor(() => expect(done).toHaveFocus()); expect(dlg).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  it('the "ship anyway" reason is required and its error appears on the field', async () => {
+    const calls = mockShipping({ q: quote({ addressStatus: 'unverified', addressMessage: 'The address could not be fully verified.' }) })
+    mockOrder(accepted()); mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Ship order' }))
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(await within(dlg).findByRole('button', { name: 'Get shipping rates' }))
+    await userEvent.click(await within(dlg).findByLabelText('Ship anyway'))
+    const reason = within(dlg).getByLabelText('Why are you shipping to this address?'); expect(reason).toBeRequired()
+    await userEvent.click(within(dlg).getByRole('button', { name: /Buy label/ }))
+    expect(await within(dlg).findByText(/at least 5 characters/)).toBeInTheDocument(); expect(reason).toHaveAttribute('aria-invalid', 'true'); expect(calls.buy).toHaveLength(0)
+  })
+
+  it('Refresh rates is disabled while a label is being bought (it would rotate the idempotency key)', async () => {
+    let finish!: () => void
+    const calls = mockShipping({})
+    server.use(http.post(`${API}/seller/shipping/orders/:id/labels`, async () => { await new Promise<void>((r) => { finish = r }); return HttpResponse.json({ label: label() }, { status: 201 }) }))
+    mockOrder(accepted()); mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Ship order' }))
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(await within(dlg).findByRole('button', { name: 'Get shipping rates' }))
+    await userEvent.click(await within(dlg).findByRole('button', { name: /Buy label/ }))
+    await waitFor(() => expect(within(dlg).getByRole('button', { name: 'Refresh rates' })).toBeDisabled()); expect(calls.buy).toHaveLength(0)
+    finish()
+  })
+
+  it('removing an address asks first, and nothing is deleted until it is confirmed', async () => {
+    const removed: string[] = []
+    server.use(http.get(`${API}/seller/shipping/settings`, () => HttpResponse.json(cfg())), http.delete(`${API}/seller/shipping/addresses/:id`, ({ params }) => { removed.push(String(params.id)); return new HttpResponse(null, { status: 204 }) }))
+    mount(<ShippingSettings />, '/s')
+    await screen.findByRole('heading', { name: 'Ship-from addresses' })
+        await userEvent.click(await screen.findByRole('button', { name: /Remove\s*Warehouse/ }))
+    const dlg = await screen.findByRole('dialog'); expect(within(dlg).getByRole('heading', { name: 'Remove this address?' })).toBeInTheDocument(); expect(removed).toHaveLength(0)
+    await userEvent.click(within(dlg).getByRole('button', { name: 'Keep as it is' })); expect(removed).toHaveLength(0)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await userEvent.click(await screen.findByRole('button', { name: /Remove\s*Warehouse/ })); await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Yes, remove it' }))
+    await waitFor(() => expect(removed).toEqual(['a1']))
+  })
+
+  it('"Clear filters" is offered when only the delivery-progress filter is active', async () => {
+    const dash = { todayOrders: 0, toShip: 0, late: 0, returnsOpen: 0, sales30Cents: 0, orders30: 0, daily: [], lateShipmentRate: 0, cancellationRate: 0, shipping: { labelsToPrint: 0, exceptions: 0 } }
+    server.use(http.get(`${API}/seller/orders`, () => HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25, counts: { needsAction: 0, pending: 0, shipped: 0, delivered: 0, cancelled: 0, returns: 0, late: 0, all: 0, exceptions: 0 } })),
+      http.get(`${API}/seller/orders/dashboard`, () => HttpResponse.json(dash)))
+    mount(<OrdersListPage />, '/orders', '/orders?tab=all&tracking=exception')
+    expect(await screen.findByRole('heading', { name: 'No orders match' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
+  })
+})

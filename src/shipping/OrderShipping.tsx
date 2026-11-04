@@ -2,23 +2,24 @@ import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../api'
 import { Alert, Button, Skeleton } from '../components/ui'
 import { Dialog, SelectField, TextField } from '../products/ui'
-import { dt, money } from '../orders/format'
+import { money } from '../orders/format'
 import { ConfirmDialog } from '../orders/Dialogs'
 import type { OrderDetail } from '../orders/api'
 import { CustomsFields, LabelActions, usePackage } from './BuyLabel'
 import { errDetail, shippingApi, type Label, type OrderTracking, type ShippingConfig, type TrackEvent } from './api'
-import { LABEL_STATUS, newKey, trackLabel, trackTone } from './format'
+import { LABEL_STATUS, dtZ, newKey, trackLabel, trackTone } from './format'
+import { FocusedStatus } from './focus'
 import './shipping.css'
 
 const err = (e: unknown, fallback = 'Something went wrong. Try again.') => (e instanceof ApiError ? e.message2 : fallback)
 
-function Timeline({ events, label }: { events: TrackEvent[]; label: string }) {
+function Timeline({ events, label, tz }: { events: TrackEvent[]; label: string; tz?: string }) {
   if (events.length === 0) return <p className="sub">No updates from the carrier yet. They will appear here as soon as the parcel is scanned.</p>
   return (
     <ol className="timeline track-tl" aria-label={label}>
       {[...events].reverse().map((e, i) => (
         <li key={`${e.at}-${e.status}-${i}`}><span className={`t-dot ${trackTone(e.status)}`} aria-hidden="true" />
-          <div><strong>{e.label || trackLabel(e.status)}</strong>{e.detail && e.detail !== e.status && <span className="sub"> – {e.detail}</span>}<div className="sub">{dt(e.at)}{e.location ? ` · ${e.location}` : ''}</div></div></li>
+          <div><strong>{e.label || trackLabel(e.status)}</strong>{e.detail && e.detail !== e.status && <span className="sub"> – {e.detail}</span>}<div className="sub">{dtZ(e.at, tz)}{e.location ? ` · ${e.location}` : ''}</div></div></li>
       ))}
     </ol>
   )
@@ -54,9 +55,9 @@ export function OrderShippingPanel({ order, canWrite, onChanged }: { order: Orde
                 <div>{s.trackingNumber}</div></div>   {/* the Shipments card above already links the number to the carrier */}
               <span className={`chip ${trackTone(s.status)}`}>{s.statusLabel}</span>
             </div>
-            {s.eta && !s.deliveredAt && <p className="sub">Estimated delivery {dt(s.eta)}</p>}
+            {s.eta && !s.deliveredAt && <p className="sub">Estimated delivery {dtZ(s.eta, order.accountTimeZone)}</p>}
             {s.live && !s.deliveredAt && <p className="sub">Updates arrive automatically.</p>}
-            <Timeline events={s.events} label={`Tracking history of ${s.trackingNumber}`} />
+            <Timeline events={s.events} label={`Tracking history of ${s.trackingNumber}`} tz={order.accountTimeZone} />
             {l && <LabelRow label={l} order={order} canWrite={canWrite} onVoid={() => setVoiding(l)} />}
           </article>
         )
@@ -68,13 +69,13 @@ export function OrderShippingPanel({ order, canWrite, onChanged }: { order: Orde
           <article key={r.id} className="trk return" aria-label={`Return parcel ${r.trackingNumber}`}>
             <div className="trk-head"><div className="grow"><strong>Return parcel · {r.carrier}{r.service ? ` · ${r.service}` : ''}</strong><div>{r.trackingNumber}</div></div><span className={`chip ${trackTone(r.status)}`}>{r.statusLabel}</span></div>
             {r.deliveredAt && <Alert kind="success">Return arrived – inspect the items and mark the return received below.</Alert>}
-            <Timeline events={r.events} label={`Tracking history of return ${r.trackingNumber}`} />
+            <Timeline events={r.events} label={`Tracking history of return ${r.trackingNumber}`} tz={order.accountTimeZone} />
             {l && <LabelRow label={l} order={order} canWrite={canWrite} onVoid={() => setVoiding(l)} />}
           </article>
         )
       })}
       {voiding && (
-        <ConfirmDialog title="Void this label?" confirm="Yes, void the label" onClose={() => setVoiding(null)}
+        <ConfirmDialog title="Void this label?" confirm="Yes, void the label" destructive onClose={() => setVoiding(null)}
           body={<><p>We ask {voiding.carrier} to refund the label ({money(voiding.costCents, voiding.currency)}). The money is credited back to your seller balance only when the carrier confirms the refund.</p>{voiding.kind === 'outbound' && <p>The order goes back to “ready to ship” so you can buy a new label.</p>}<p>You can only void a label the carrier has not scanned yet.</p></>}
           onConfirm={async () => { const r = await shippingApi.voidLabel(voiding.id); setVoiding(null); setFlash(r.pending ? 'Refund requested. We credit your balance when the carrier confirms.' : 'Label voided and refunded.'); await load(); await onChanged() }} />
       )}
@@ -87,7 +88,7 @@ function LabelRow({ label, order, canWrite, onVoid }: { label: Label; order: Ord
     <div className="label-row">
       <div className="grow">
         <strong>{label.kind === 'return' ? 'Return label' : 'Shipping label'}</strong> <span className={`chip ${label.status === 'active' ? '' : label.status === 'refundfailed' ? 'bad' : 'warn'}`}>{LABEL_STATUS[label.status] ?? label.status}</span>
-        <div className="sub">{label.carrier}{label.service ? ` · ${label.service}` : ''} · {money(label.costCents, label.currency)}{label.purchasedAt ? ` · bought ${dt(label.purchasedAt)}` : ''}</div>
+        <div className="sub">{label.carrier}{label.service ? ` · ${label.service}` : ''} · {money(label.costCents, label.currency)}{label.purchasedAt ? ` · bought ${dtZ(label.purchasedAt, order.accountTimeZone)}` : ''}</div>
         {label.status === 'voiding' && <div className="sub">Refund requested. We credit your balance when the carrier confirms.</div>}
         {label.status === 'refundfailed' && <div className="sub">The carrier refused the refund (the label may already be in use). Contact support if this looks wrong.</div>}
         {label.status === 'voided' && <div className="sub">Refunded to your seller balance.</div>}
@@ -119,12 +120,12 @@ export function ReturnLabelDialog({ order, returnId, onClose, onDone }: { order:
   return (
     <Dialog title="Send a prepaid return label" onClose={onClose} wide>
       {done ? (
-        <div role="status">
+        <FocusedStatus>
           <Alert kind="success">Return label bought for {money(done.costCents, done.currency)}. Solvelt emails it to the buyer.</Alert>
           <dl className="sum"><div><dt>Carrier</dt><dd>{done.carrier}{done.service ? ` · ${done.service}` : ''}</dd></div><div><dt>Tracking number</dt><dd>{done.trackingNumber}</dd></div></dl>
           <LabelActions label={done} />
           <div className="actions dlg-actions"><Button type="button" variant="primary" onClick={onClose}>Done</Button></div>
-        </div>
+        </FocusedStatus>
       ) : (
         <>
           <p>We buy a label from the buyer’s address to your return address and send it to the buyer. <strong>You pay for this label</strong>; it is taken from your seller balance like any other label.</p>
@@ -152,12 +153,12 @@ export function BulkLabelsDialog({ orderIds, onClose, onDone }: { orderIds: stri
   return (
     <Dialog title={`Buy labels for ${orderIds.length} order${orderIds.length === 1 ? '' : 's'}`} onClose={() => { if (res) onDone(res.bought); onClose() }} wide>
       {res ? (
-        <div role="status">
+        <FocusedStatus>
           <Alert kind={res.bought === res.total ? 'success' : 'info'}>{res.bought} of {res.total} label{res.total === 1 ? '' : 's'} bought.</Alert>
           <ul className="plain bulk-res">{res.results.map((r) => <li key={r.orderId}><span className={`chip ${r.ok ? 'ok' : 'bad'}`}>{r.ok ? 'Bought' : 'Not bought'}</span> <strong>{r.number ?? 'Order'}</strong>{!r.ok && <span className="sub"> – {r.message}</span>}</li>)}</ul>
           <p className="sub">Open each order to print its label. Orders that were not bought stay as they were.</p>
           <div className="actions dlg-actions"><Button type="button" variant="primary" onClick={() => { onDone(res.bought); onClose() }}>Done</Button></div>
-        </div>
+        </FocusedStatus>
       ) : (
         <>
           <p>We use your default ship-from address and buy the same package for every selected order. Orders with an unverified address or an international destination are skipped; ship those one by one.</p>

@@ -3,6 +3,7 @@ import { ApiError } from '../api'
 import { Alert, Button, Skeleton } from '../components/ui'
 import { useBrands } from '../pages/teams/BrandContext'
 import { fromCents, money, toCents } from '../orders/format'
+import { ConfirmDialog } from '../orders/Dialogs'
 import { Dialog, PIcon, SelectField, TextField } from '../products/ui'
 import { shippingApi, type PackagePreset, type Profile, type ScopeSettings, type ShipAddress, type ShippingConfig, type Speed, type Zone } from './api'
 import { SPEED_LABEL, grams } from './format'
@@ -15,6 +16,7 @@ const msg = (e: unknown, fallback = 'Something went wrong. Try again.') => (e in
 export default function ShippingSettings() {
   const [cfg, setCfg] = useState<ShippingConfig | null>(null); const [error, setError] = useState(''); const [flash, setFlash] = useState('')
   const [dlg, setDlg] = useState<{ k: 'address'; v?: ShipAddress } | { k: 'package'; v?: PackagePreset } | { k: 'profile'; v?: Profile } | null>(null)
+  const [rm, setRm] = useState<{ what: string; name: string; run: () => Promise<unknown>; done: string } | null>(null)
   const load = useCallback(async () => { try { setCfg(await shippingApi.config()); setError('') } catch (e) { setError(msg(e, 'Could not load your shipping settings.')) } }, [])
   useEffect(() => { void load() }, [load])
   if (!cfg) return <div aria-busy="true" aria-label="Loading shipping settings"><Alert>{error}</Alert><Skeleton lines={5} /></div>
@@ -42,7 +44,7 @@ export default function ShippingSettings() {
               {can && <div className="actions">
                 {!a.isDefault && <Button onClick={() => void act(() => shippingApi.defaultAddress(a.id), 'Default address changed.')}>Make default<span className="sr-only"> {a.label || a.name}</span></Button>}
                 <Button onClick={() => setDlg({ k: 'address', v: a })}>Edit<span className="sr-only"> {a.label || a.name}</span></Button>
-                <Button variant="ghost" onClick={() => void act(() => shippingApi.removeAddress(a.id), 'Address removed.')}>Remove<span className="sr-only"> {a.label || a.name}</span></Button>
+                <Button variant="ghost" onClick={() => setRm({ what: 'address', name: a.label || a.name, run: () => shippingApi.removeAddress(a.id), done: 'Address removed.' })}>Remove<span className="sr-only"> {a.label || a.name}</span></Button>
               </div>}
             </li>))}</ul>
         )}
@@ -57,7 +59,7 @@ export default function ShippingSettings() {
               <div className="grow"><strong>{p.name}</strong>{' '}{p.isDefault && <span className="chip ok">Default</span>}
                 <div className="sub">{p.kind === 'box' ? 'Box' : p.kind === 'envelope' ? 'Envelope' : 'Soft pack'} · {p.lengthMm} × {p.widthMm} × {p.heightMm} mm · empty {grams(p.emptyWeightGrams)}</div></div>
               {can && <div className="actions"><Button onClick={() => setDlg({ k: 'package', v: p })}>Edit<span className="sr-only"> {p.name}</span></Button>
-                <Button variant="ghost" onClick={() => void act(() => shippingApi.removePackage(p.id), 'Package removed.')}>Remove<span className="sr-only"> {p.name}</span></Button></div>}
+                <Button variant="ghost" onClick={() => setRm({ what: 'package', name: p.name, run: () => shippingApi.removePackage(p.id), done: 'Package removed.' })}>Remove<span className="sr-only"> {p.name}</span></Button></div>}
             </li>))}</ul>
         )}
       </section>
@@ -72,13 +74,15 @@ export default function ShippingSettings() {
                 {p.freeShippingThresholdCents != null && <div className="sub">Free shipping from {money(p.freeShippingThresholdCents, p.currency)}</div>}
                 <ul className="zone-sum">{p.zones.map((z) => <li key={z.name}><strong>{z.name}</strong> ({z.countries.join(', ')}): {z.speeds.filter((s) => s.enabled).map((s) => `${SPEED_LABEL[s.speed]} ${s.method === 'flat' ? money(s.flatCents ?? 0, p.currency) : `${money(s.baseCents ?? 0, p.currency)} + ${money(s.perKgCents ?? 0, p.currency)}/kg`}`).join(' · ') || 'no speeds on'}</li>)}</ul></div>
               {can && <div className="actions"><Button onClick={() => setDlg({ k: 'profile', v: p })}>Edit<span className="sr-only"> {p.name}</span></Button>
-                <Button variant="ghost" onClick={() => void act(() => shippingApi.removeProfile(p.id), 'Rate profile removed.')}>Remove<span className="sr-only"> {p.name}</span></Button></div>}
+                <Button variant="ghost" onClick={() => setRm({ what: 'rate profile', name: p.name, run: () => shippingApi.removeProfile(p.id), done: 'Rate profile removed.' })}>Remove<span className="sr-only"> {p.name}</span></Button></div>}
             </li>))}</ul>
         )}
       </section>
 
       <HandlingCard cfg={cfg} can={can} onSaved={(m) => { setFlash(m); void load() }} onError={setError} />
 
+      {rm && <ConfirmDialog title={`Remove this ${rm.what}?`} confirm={`Yes, remove it`} destructive onClose={() => setRm(null)} body={<p>“{rm.name}” will no longer be offered when you buy labels or quote shipping.</p>}
+        onConfirm={async () => { await rm.run(); setFlash(rm.done); setRm(null); await load() }} />}
       {dlg?.k === 'address' && <AddressDialog value={dlg.v} onClose={() => setDlg(null)} onSaved={() => { setFlash('Address saved.'); saved() }} />}
       {dlg?.k === 'package' && <PackageDialog value={dlg.v} onClose={() => setDlg(null)} onSaved={() => { setFlash('Package saved.'); saved() }} />}
       {dlg?.k === 'profile' && <ProfileDialog value={dlg.v} onClose={() => setDlg(null)} onSaved={() => { setFlash('Rate profile saved.'); saved() }} />}
