@@ -4,7 +4,7 @@ import { makePng } from './png'
 
 const business = { vendorName: 'Acme Co', contactName: 'Dana Seller', contactPhone: '+1 555 123 4567', addressLine1: '1 Main St', city: 'Brooklyn', region: 'NY', postalCode: '11201', country: 'US', smsOptIn: false }
 /** A UPS tracking number nobody else uses. The specs share ONE database and the backend refuses a number that is already on a live parcel (409 tracking_in_use), so a fixed number can only be used once per run. */
-export const upsNumber = () => '1Z999AA1' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0')
+export const upsNumber = () => '1Z999AA1' + String(Math.floor(Math.random() * 1e10)).padStart(10, '0')   // 1Z + 16 characters
 export const bearer = (t: string) => ({ Authorization: `Bearer ${t}` })
 
 export async function tokenFor(request: APIRequestContext, email: string) {
