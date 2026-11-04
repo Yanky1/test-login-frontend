@@ -31,6 +31,7 @@ export default function SellerLayout() {
     { to: '/messages', label: 'Messages', icon: 'msg', badge: messages?.unread, badgeLabel: 'unread' },
     { to: '/products', label: 'Products', icon: 'box', end: true }, { to: '/products/import', label: 'Bulk upload', icon: 'upload' },
     { to: '/questions', label: 'Questions', icon: 'msg' },
+    { to: '/delivery', label: 'Local delivery', icon: 'box' },
     { to: '/payments', label: 'Payments', icon: 'wallet', show: admin },
   ]
   const scheduling: Item[] = [
