@@ -18,6 +18,8 @@ export function RequireAuth() {
   const loc = useLocation()
   if (status === 'loading') return <div className="center"><Spinner /></div>
   if (status === 'anon') return <Navigate to={`/login?${logoutReason === 'idle' ? 'reason=idle&' : ''}next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />
+  // Drivers only have the driver app: anything else goes there (the server enforces this too, default deny).
+  if (user?.role === 'Driver' && !loc.pathname.startsWith('/driver') && !loc.pathname.startsWith('/settings/security')) return <Navigate to="/driver" replace />
   // Several accounts (or none) and none selected yet: choose first. `accounts === null` means an old server without accounts.
   const needAccount = !!user?.accounts && !user.activeAccountId && !loc.pathname.startsWith('/accounts')
   return (

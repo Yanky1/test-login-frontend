@@ -13,6 +13,7 @@ export default function Home() {
   const [noSeller, setNoSeller] = useState(false)
   // Team members who are not the Owner don't fill in the seller application (Owner-only): they land on the product catalog.
   const member = !!user?.role && user.role !== 'Owner'
+  if (user?.role === 'Driver') return <Navigate to="/driver" replace />
   useEffect(() => {
     if (member) return
     let alive = true

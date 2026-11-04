@@ -10,6 +10,7 @@ import { CancelDialog, CancelRequestDialog, ConfirmDialog, HoldDialog, RefundDia
 import { dt, eventLabel, money, reasonLabel, shipByText, statusLabel, statusTone } from './format'
 import { useLiveReload } from './live'
 import { PackingSlips } from './PackingSlips'
+import LocalTracking from '../delivery/LocalTracking'
 import './orders.css'
 
 type Dlg = { k: 'ship' } | { k: 'hold' } | { k: 'cancel' } | { k: 'refund'; returnId?: string } | { k: 'deliver' } | { k: 'tracking'; id: string }
@@ -104,6 +105,8 @@ export default function OrderDetailPage() {
               ))}
             </ul>
           </section>
+
+          <LocalTracking orderId={o.id} status={o.status} canConvert={o.actions.ship} />
 
           {(o.shipments.length > 0) && (
             <section className="pcard" aria-labelledby="ship-h">
