@@ -11,13 +11,26 @@ export const currencyDigits = (currency: string): number => {
   return d
 }
 
-/** Amount in minor units -> text with the currency's real decimals (1500 JPY is ¥1,500, 1500 USD is $15.00). */
+let knownCurrencies: Set<string> | null | undefined
+/** True for a currency the runtime knows (so its decimals are known too). Engines without the list accept any well-formed code. */
+const isKnownCurrency = (currency: string): boolean => {
+  if (knownCurrencies === undefined) {
+    try { knownCurrencies = new Set(Intl.supportedValuesOf('currency')) } catch { knownCurrencies = null }
+  }
+  return knownCurrencies === null ? /^[A-Za-z]{3}$/.test(currency) : knownCurrencies.has(currency.toUpperCase())
+}
+
+/**
+ * Amount in minor units -> text with the currency's real decimals (1500 JPY is ¥1,500, 1500 USD is $15.00).
+ * A currency the runtime does not know has unknown decimals: it is never assumed to have two, the raw minor units are shown with the code.
+ */
 export const money = (minor: number | null | undefined, currency = 'USD'): string => {
   if (minor == null) return ''
+  if (!isKnownCurrency(currency)) return `${minor} ${currency} (minor units)`
   const digits = currencyDigits(currency)
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits }).format(minor / 10 ** digits)
-  } catch { return `${(minor / 100).toFixed(2)} ${currency}` }
+  } catch { return `${minor} ${currency} (minor units)` }
 }
 
 /** A date that Stripe/the server sends as a UTC instant but means as a calendar day (transfer day, payout arrival, evidence deadline): shown in UTC, never shifted by the viewer's zone. */
