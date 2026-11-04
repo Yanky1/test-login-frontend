@@ -50,7 +50,7 @@ test('configure shipping, buy a label, print it, follow tracking to delivered (a
   await expect(dlg.getByText(/^Label bought for/)).toBeVisible()
   const tn = (await dlg.locator('dd').filter({ hasText: /^\d{10,}$/ }).first().textContent())!.trim()
   const [popup] = await Promise.all([page.waitForEvent('popup'), dlg.getByRole('button', { name: 'Print label' }).click()])
-  expect(popup.url()).toMatch(/^blob:/); await popup.close()
+  await expect.poll(() => popup.url(), { message: 'the label opens in a new tab through a blob URL' }).toMatch(/^blob:/); await popup.close()   // the popup navigates after it opens
   await expectNoSeriousA11y(page)
   await dlg.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByText('Shipped', { exact: true }).first()).toBeVisible()
