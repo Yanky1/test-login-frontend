@@ -4,7 +4,7 @@ import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
 import { canLeave, LeaveRefused } from './lib/unsaved'
 import { clearDrafts } from './lib/drafts'
-import { cacheDriverUser, clearDriverStorage, readCachedDriverUser } from './delivery/storage'
+import { cacheDriverUser, clearDriverStorage, endDriverSession, readCachedDriverUser } from './delivery/storage'
 
 export interface User {
   email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
@@ -74,12 +74,13 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
     return () => { alive = false }
   }, [initialConfig])
 
-  useEffect(() => onSessionEnded(() => { tokenStore.set(null); clearDrafts(); clearDriverStorage(); setUser(null); setStatus('anon') }), [])
+  useEffect(() => onSessionEnded(() => { tokenStore.set(null); clearDrafts(); endDriverSession(); setUser(null); setStatus('anon') }), [])    // a session that simply ended must not eat unsent deliveries
 
   // Another tab logged out (manually or by inactivity): follow it without calling the API again.
   useEffect(() => crossTab().subscribe((m) => {
     if (m.type !== 'logout') return
-    tokenStore.set(null); clearDrafts(); clearDriverStorage()
+    tokenStore.set(null); clearDrafts()
+    if (m.reason === 'idle') endDriverSession(); else clearDriverStorage()      // a manual log-out in the other tab was confirmed there; an inactivity one was not
     setUser(null); setStatus('anon')
     setLogoutReason(m.reason === 'idle' ? 'idle' : null)
   }), [])
@@ -114,7 +115,8 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
     if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
-    tokenStore.set(null); clearDrafts(); clearDriverStorage()
+    tokenStore.set(null); clearDrafts()
+    if (reason === 'idle') endDriverSession(); else clearDriverStorage()       // idle skips the confirmation (canLeave), so it must keep the unsent queue
     setUser(null); setStatus('anon')
     setLogoutReason(reason === 'idle' ? 'idle' : null)
     try { sessionStorage.removeItem('offerPasskey') } catch { /* ignore */ }

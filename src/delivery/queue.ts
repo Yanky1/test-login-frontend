@@ -82,6 +82,8 @@ export function classify(e: unknown): Outcome {
   if (e.status === 409 && e.code === 'version_conflict') return 'backoff'
   return 'final'
 }
+/** A 409 that never clears (about 8 tries, minutes apart) must not block every later stop forever: after that it is moved to the failures list, where the driver sees it. */
+export const MAX_CONFLICT_ATTEMPTS = 8
 export const backoffMs = (attempts: number) => Math.min(5 * 60_000, 2_000 * 2 ** Math.max(0, attempts - 1))
 
 const NOTICE_TEXT: Record<string, string> = {
@@ -163,8 +165,9 @@ export class DriverQueue {
           }
         } else {
           const map = this.read<Record<string, string>>(this.key('proofmap'), {})
-          const res = await this.send.event(item.stopId, { ...item.body, proofIds: item.proofClientIds.map((c) => map[c]).filter(Boolean) }) as { applied?: boolean; replayed?: boolean; reason?: string } | null
-          if (res && res.applied === false && !res.replayed && res.reason && NOTICE_TEXT[res.reason]) this.write(this.key('notices'), [...this.notices(), { stopId: item.stopId, message: NOTICE_TEXT[res.reason] }])
+          const res = await this.send.event(item.stopId, { ...item.body, proofIds: item.proofClientIds.map((c) => map[c]).filter(Boolean) }) as { applied?: boolean; replayed?: boolean; reason?: string; result?: string } | null
+          const why = res?.reason ?? res?.result      // a replay (the first answer got lost) reports the stored result instead of a reason: the driver still has to be told
+          if (res && res.applied === false && why && NOTICE_TEXT[why]) this.write(this.key('notices'), [...this.notices(), { stopId: item.stopId, message: NOTICE_TEXT[why] }])
           await this.settleProofs(item.proofClientIds)
         }
         this.drop(item.id); sent++
@@ -172,7 +175,7 @@ export class DriverQueue {
         const o = classify(e)
         if (o === 'retry') return { sent, offline: true, paused: false }
         if (o === 'pause') return { sent, offline: false, paused: true }
-        if (o === 'backoff') {
+        if (o === 'backoff' && (item.attempts ?? 0) + 1 < MAX_CONFLICT_ATTEMPTS) {
           const attempts = (item.attempts ?? 0) + 1
           this.patch(item.id, { attempts, notBefore: Date.now() + backoffMs(attempts) })
           return { sent, offline: true, paused: false }
