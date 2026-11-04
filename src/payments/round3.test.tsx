@@ -117,4 +117,22 @@ describe('Payments tables', () => {
     release()
     expect(await screen.findByRole('table', { name: /2026-10 statement/ })).toBeInTheDocument()
   })
+
+  it('removes the previous month table while the next one loads (no stale numbers under a new month)', async () => {
+    const stmt = (month: string, sales: number) => ({ month, currencies: [{ currency: 'USD', openingCents: 0, salesCents: sales, feesCents: 0, refundsCents: 0, disputesCents: 0, adjustmentsCents: 0, shippingLabelsCents: 0, transfersCents: 0, closingCents: sales, paidOutCents: 0 }] })
+    let release!: () => void
+    server.use(
+      http.get(`${API}/seller/payments/summary`, () => HttpResponse.json(summary)),
+      http.get(`${API}/seller/payments/statements`, () => HttpResponse.json({ months: ['2026-11', '2026-10'] })),
+      http.get(`${API}/seller/payments/statements/2026-11`, () => HttpResponse.json(stmt('2026-11', 2499))),
+      http.get(`${API}/seller/payments/statements/2026-10`, async () => { await new Promise<void>((r) => { release = r }); return HttpResponse.json(stmt('2026-10', 1000)) }),
+    )
+    mount(<PaymentsPage />, '/payments', '/payments?tab=statements', as('Owner'))
+    expect(await screen.findByRole('table', { name: /2026-11 statement/ })).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Month'), '2026-10')
+    expect(screen.queryByRole('table', { name: /2026-11 statement/ })).toBeNull()
+    expect(screen.getByRole('status', { name: /loading the statement/i })).toBeInTheDocument()
+    release()
+    expect(await screen.findByRole('table', { name: /2026-10 statement/ })).toBeInTheDocument()
+  })
 })
