@@ -26,7 +26,7 @@ export interface DisputeRow {
   orderId: string | null; orderNumber: string | null; bookingId: string | null; bookingNumber: string | null; canRespond: boolean
 }
 export interface StatementCurrency {
-  currency: string; openingCents: number; salesCents: number; feesCents: number; refundsCents: number; disputesCents: number; adjustmentsCents: number
+  currency: string; openingCents: number; salesCents: number; feesCents: number; refundsCents: number; disputesCents: number; adjustmentsCents: number; shippingLabelsCents: number
   transfersCents: number; closingCents: number; paidOutCents: number
 }
 export interface Statement { month: string; currencies: StatementCurrency[] }
@@ -40,7 +40,7 @@ const qs = (o: Record<string, string | number | undefined>) => {
 
 export const paymentsApi = {
   summary: () => api<Summary>(`${P}/summary`),
-  ledger: (o: { type?: string; from?: string; to?: string; orderId?: string; page?: number }) => api<Page<LedgerRow>>(`${P}/ledger${qs({ ...o, pageSize: 25 })}`),
+  ledger: (o: { type?: string; from?: string; to?: string; orderId?: string; reference?: string; page?: number }) => api<Page<LedgerRow>>(`${P}/ledger${qs({ ...o, pageSize: 25 })}`),
   transfers: () => api<Page<TransferRow>>(`${P}/transfers`),
   payouts: () => api<Page<PayoutRow>>(`${P}/payouts`),
   disputes: () => api<Page<DisputeRow>>(`${P}/disputes`),
@@ -55,5 +55,5 @@ export const paymentsApi = {
 export const TYPE_LABEL: Record<string, string> = {
   sale: 'Sale', policy_fee: 'Cancellation / no-show fee', extra_charge: 'Extra charge', refund: 'Refund', dispute: 'Dispute', dispute_fee: 'Dispute fee', dispute_won: 'Dispute won',
   release: 'Released to available', reserve_release: 'Reserve released', adjustment: 'Adjustment by Solvelt', transfer: 'Transfer to Stripe', transfer_failed: 'Transfer failed (returned)',
-  transfer_reversed: 'Transfer reversed', payout: 'Payout to your bank', payout_reversed: 'Payout returned',
+  shipping_label: 'Shipping label', shipping_label_refund: 'Shipping label refunded', transfer_reversed: 'Transfer reversed', payout: 'Payout to your bank', payout_reversed: 'Payout returned',
 }
