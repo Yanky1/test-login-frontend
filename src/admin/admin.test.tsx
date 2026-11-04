@@ -145,8 +145,8 @@ describe('role-based shell', () => {
     const out = vi.fn(() => new HttpResponse(null, { status: 204 }))
     const user = await signIn('SuperAdmin')
     server.use(http.post(`${A}/auth/logout`, out))
-    expect(screen.queryAllByRole('link', { name: 'Skip to content' }).length).toBeLessThanOrEqual(1)   // the app-wide one (App.tsx) is not repeated by the admin shell
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.queryAllByRole('link', { name: 'Skip to content' })).toHaveLength(0)   // AdminApp is mounted without App: the shell must not add its own (the app-wide one lives in App.tsx)
+    expect(await screen.findAllByRole('heading', { level: 1 })).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByRole('heading', { name: 'Staff sign-in' })).toBeInTheDocument()
     expect(out).toHaveBeenCalled()
