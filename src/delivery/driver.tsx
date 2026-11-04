@@ -3,7 +3,7 @@ import { ApiError } from '../api'
 import { useAuth } from '../auth'
 import { Alert, Skeleton } from '../components/ui'
 import { setUnsavedHandler } from '../lib/unsaved'
-import { cacheDriverRoutes, dismissExpiredNotice, driverStorageName, readCachedDriverRoutes, readExpiredNotice } from './storage'
+import { cacheDriverRoutes, dismissExpiredNotice, driverStorageName, noteDriverDiscardConfirmed, readCachedDriverRoutes, readExpiredNotice } from './storage'
 import { driverApi, FAIL_REASONS, STATUS_LABEL, timeRange, type DriverMe, type DriverRoute, type LocalStatus, type StopDto } from './api'
 import { browserBlobs, DriverQueue, type BlobStore } from './queue'
 import './driver.css'
@@ -52,8 +52,10 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
     if (queue.pending() === 0) return true
     if (navigator.onLine) await queue.flush().catch(() => undefined)
     if (queue.pending() === 0) return true
-    return window.confirm(`${queue.pending()} update(s) have not been sent yet. If you leave now they are lost. Leave anyway?`)
-  }), [queue])
+    const ok = window.confirm(`${queue.pending()} update(s) have not been sent yet. If you leave now they are lost. Leave anyway?`)
+    if (ok) noteDriverDiscardConfirmed(storageName)        // a log-out that follows must not ask about this queue a second time
+    return ok
+  }), [queue, storageName])
   useEffect(() => { void load().then(sync) }, [load, sync])
   useEffect(() => {
     const on = () => { setOnline(true); void sync() }

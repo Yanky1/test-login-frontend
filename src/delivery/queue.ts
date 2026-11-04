@@ -151,6 +151,7 @@ export class DriverQueue {
 
   private async run() {
     let sent = 0
+    if (this.name !== 'default' && this.items().length > 0) touchDriverQueue(this.name)      // a queue that is still being retried (offline, 5xx, 401, or flushed from another tab) is alive: it must not expire
     for (;;) {
       const item = this.items()[0]
       if (!item) return { sent, offline: false, paused: false }

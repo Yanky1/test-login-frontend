@@ -116,6 +116,22 @@ export function readExpiredNotice(email: string): { count: number; days: number 
 }
 export function dismissExpiredNotice(email: string) { try { localStorage.removeItem(EXPIRED + email) } catch { /* ignore */ } }
 
+/** Queue names (email|account) of this user that still have something to send: every account counts, not only the active one. */
+export function pendingDriverNamesFor(email: string): { name: string; count: number }[] {
+  const out: { name: string; count: number }[] = []
+  for (const k of allKeys()) {
+    if (!k.startsWith(DRIVER_PREFIX + 'queue.' + email + '|')) continue
+    try { const n = (JSON.parse(localStorage.getItem(k) ?? '[]') as unknown[]).length; if (n > 0) out.push({ name: k.slice((DRIVER_PREFIX + 'queue.').length), count: n }) } catch { /* ignore */ }
+  }
+  return out
+}
+export const hasPendingDriverWorkFor = (email: string) => pendingDriverNamesFor(email).length > 0
+
+// The driver app asks "leave anyway?" for ITS queue before a log-out; the log-out then must not ask again for that same queue (but still asks for the others).
+let discardConfirmed: { name: string; at: number } | null = null
+export function noteDriverDiscardConfirmed(name: string) { discardConfirmed = { name, at: Date.now() } }
+export function takeDriverDiscardConfirmed(): string | null { const d = discardConfirmed; discardConfirmed = null; return d && Date.now() - d.at < 10_000 ? d.name : null }
+
 /** The signed-in driver's profile, so an offline reload of /driver still opens the app (no token: only the queue and the cached route work). */
 export function cacheDriverUser(u: User) { try { localStorage.setItem(CACHED_USER, JSON.stringify(u)) } catch { /* ignore */ } }
 export function readCachedDriverUser(): User | null {
