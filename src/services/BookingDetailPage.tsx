@@ -24,8 +24,14 @@ export default function BookingDetailPage() {
   if (failed !== null) return <main className="pwrap"><h1 id="page-title" tabIndex={-1}>{failed === 404 ? 'Booking not found' : 'Could not load this booking'}</h1><p>{failed === 404 ? "It may belong to another team member or brand, or it doesn't exist." : 'Check your connection and try again.'}</p><Link className="btn" to="/bookings">Back to bookings</Link></main>
   if (!b) return <main className="pwrap"><h1 id="page-title" tabIndex={-1}>Booking</h1><Skeleton lines={6} /></main>
   const tz = b.providerTimeZone
+  // the button that was used may be gone (Approve, Complete…): keep keyboard and screen-reader users in the page, on the next action or the heading
+  const settleFocus = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+    const ae = document.activeElement
+    if (ae && ae !== document.body && ae.isConnected) return
+    ;(document.querySelector<HTMLElement>('[role="group"][aria-label="Actions"] button') ?? document.getElementById('page-title'))?.focus()
+  }))
   const act = async (action: string, body: Record<string, unknown> = {}, ok = 'Done.') => {
-    try { const d = await servicesApi.act(b.id, action, { ...body, version: b.version }); if ('id' in d) setB(d); else await load(); setMsg({ kind: 'success', text: ok }) }
+    try { const d = await servicesApi.act(b.id, action, { ...body, version: b.version }); if ('id' in d) setB(d); else await load(); setMsg({ kind: 'success', text: ok }); settleFocus() }
     catch (e) {
       // someone else changed the booking: show the latest instead of leaving a stale page with a dead end (dialogs close, nothing is sent twice)
       if (e instanceof ApiError && e.status === 409 && e.body?.code === 'version_conflict') { await load(); setMsg({ kind: 'error', text: 'This booking changed while you were looking at it. The latest version is shown; check it and try again.' }); return }
@@ -34,6 +40,7 @@ export default function BookingDetailPage() {
   }
   const quick = async (action: string, ok: string) => { setBusy(action); setMsg(null); try { await act(action, {}, ok) } catch (e) { setMsg({ kind: 'error', text: errText(e) }) } finally { setBusy('') } }
   const hourly = b.pricing.model === 'hourly'
+  const slotQuery = { serviceId: b.serviceId, providerId: b.providerId, location: b.location, postalCode: b.customer?.postalCode ?? null, minutes: b.durationMinutes }
   const a = b.actions
   return (
     <main className="pwrap" aria-labelledby="page-title">
@@ -74,7 +81,7 @@ export default function BookingDetailPage() {
             ) : <><p>{b.customer.name ? `${b.customer.name}${b.customer.postalCode ? ` · ${b.customer.postalCode}` : ''}` : 'Hidden'}</p><p className="hint">The customer's phone and address are shown to the assigned provider and to Owners and Admins, from the moment the booking is confirmed.</p></>}
             {b.intake.filter((i) => i.answer).length > 0 && <><h3>Their answers</h3><dl className="kv">{b.intake.filter((i) => i.answer).map((i) => <Fragment key={i.id}><dt>{i.question}</dt><dd>{i.answer}</dd></Fragment>)}</dl></>}
           </section>
-          <Thread id={b.id} canWrite={a.cancel || a.approve || a.start || a.complete || b.isMine} />
+          <Thread id={b.id} tz={tz} canWrite={a.cancel || a.approve || a.start || a.complete || b.isMine} />
         </div>
         <div>
           <section className="pcard" aria-labelledby="bd-price"><h2 id="bd-price">Price and policy</h2>
@@ -96,15 +103,15 @@ export default function BookingDetailPage() {
       {dlg === 'cancel' && <ReasonDialog title="Cancel this booking" label="Reason (the buyer will see it)" required confirm="Cancel booking" destructive hint="Cancelling is free for the buyer. This can't be undone." onClose={() => setDlg(null)} onSubmit={(r) => act('cancel', { reason: r }, 'Booking cancelled.')} />}
       {dlg === 'decide-no' && <ReasonDialog title="Decline the new time" label="Note for the buyer" confirm="Keep the current time" onClose={() => setDlg(null)} onSubmit={(r) => act('decline-reschedule', { note: r }, 'The booking stays at its current time.')} />}
       {dlg === 'noshow' && <ConfirmDialog title="Mark as no-show" confirm="Mark no-show" destructive message={`The customer didn't turn up. A fee of ${b.policy?.noShowFeePercent ?? 0}% is recorded and sent to the marketplace.`} onClose={() => setDlg(null)} onSubmit={() => act('no-show', {}, 'Marked as no-show.')} />}
-      {dlg === 'propose' && <TimeDialog title="Propose another time" tz={tz} initial={b.startAt} confirm="Send proposal" hint="The buyer can accept or decline. The time is not reserved until they accept." onClose={() => setDlg(null)} onSubmit={(iso) => act('propose', { start: iso }, 'Proposal sent.')} />}
-      {dlg === 'reschedule' && <TimeDialog title="Reschedule booking" tz={tz} initial={b.startAt} confirm="Move booking" hint="The buyer is told about the new time and may cancel without a fee." onClose={() => setDlg(null)} onSubmit={(iso) => act('reschedule', { start: iso }, 'Booking moved.')} />}
+      {dlg === 'propose' && <TimeDialog title="Propose another time" tz={tz} initial={b.startAt} slotQuery={slotQuery} confirm="Send proposal" hint="The buyer can accept or decline. The time is not reserved until they accept." onClose={() => setDlg(null)} onSubmit={(iso) => act('propose', { start: iso }, 'Proposal sent.')} />}
+      {dlg === 'reschedule' && <TimeDialog title="Reschedule booking" tz={tz} initial={b.startAt} slotQuery={slotQuery} confirm="Move booking" hint="The buyer is told about the new time and may cancel without a fee." onClose={() => setDlg(null)} onSubmit={(iso) => act('reschedule', { start: iso }, 'Booking moved.')} />}
       {dlg === 'complete' && <CompleteDialog hourly={hourly} bookedMinutes={b.durationMinutes} increment={b.policy?.incrementMinutes ?? 60} onClose={() => setDlg(null)} onSubmit={(m) => act('complete', { actualMinutes: m }, 'Booking completed.')} />}
       {dlg === 'reassign' && <ReassignDialog providers={team} current={b.providerId} onClose={() => setDlg(null)} onSubmit={(p) => act('reassign', { providerId: p }, 'Booking reassigned.')} />}
     </main>
   )
 }
 
-function Thread({ id, canWrite }: { id: string; canWrite: boolean }) {
+function Thread({ id, canWrite, tz }: { id: string; canWrite: boolean; tz: string }) {
   const [list, setList] = useState<BookingMessage[] | null>(null); const [text, setText] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false)
   const load = useCallback(() => servicesApi.messages(id).then((r) => setList(r.messages)).catch(() => setErr('Could not load messages.')), [id])
   useEffect(() => { void load() }, [load])
@@ -112,7 +119,7 @@ function Thread({ id, canWrite }: { id: string; canWrite: boolean }) {
   return (
     <section className="pcard" aria-labelledby="bd-msg"><h2 id="bd-msg">Messages</h2>
       {list && list.length === 0 && <p>No messages yet.</p>}
-      {list && list.length > 0 && <ul className="thread" aria-label="Conversation">{list.map((m) => <li key={m.id} className={m.mine || m.direction === 'seller' ? 'mine' : ''}><div className="who">{m.direction === 'buyer' ? 'Buyer' : 'Your team'} · {fmtDateTime(m.createdAt, Intl.DateTimeFormat().resolvedOptions().timeZone)}</div>{m.text}</li>)}</ul>}
+      {list && list.length > 0 && <ul className="thread" aria-label="Conversation">{list.map((m) => <li key={m.id} className={m.mine || m.direction === 'seller' ? 'mine' : ''}><div className="who">{m.direction === 'buyer' ? 'Buyer' : 'Your team'} · {fmtDateTime(m.createdAt, tz)}</div>{m.text}</li>)}</ul>}
       <Alert>{err}</Alert>
       {canWrite && <form onSubmit={send}><AreaField id="msg-text" label="Reply to the buyer" rows={2} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} /><Button type="submit" variant="primary" loading={busy} disabled={!text.trim()}>Send message</Button></form>}
     </section>

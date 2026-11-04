@@ -8,7 +8,7 @@ import BookingDetailPage from './BookingDetailPage'
 import QuotePage, { Composer } from './QuotePage'
 import { ServiceProviders } from './ServiceSections'
 import type { QuoteDto } from './types'
-import { API, NY, booking, mockSchedule, mount, noActions } from './testkit'
+import { API, NY, booking, mockSchedule, mount, noActions, slotQueries } from './testkit'
 
 const quote = (o: Partial<QuoteDto> = {}): QuoteDto => ({ id: 'q1', status: 'Requested', serviceId: 's1', serviceTitle: 'Fence repair', brandId: 'b1', location: 'customer', buyerName: 'Sam', details: 'Broken fence', postalCode: '11201', preferredTimes: [], address: null, phone: null, quote: null, bookingId: null, declineReason: null, version: 3, createdAt: '2030-01-01T10:00:00Z', ...o } as QuoteDto)
 const conflict = () => HttpResponse.json({ code: 'version_conflict', title: 'Changed.' }, { status: 409 })
@@ -139,5 +139,53 @@ describe('account settings (Owners and Admins)', () => {
     mount(<AvailabilityPage />, '/availability', '/availability', { activeAccountId: 'a1', accounts: [{ sellerId: 'a1', vendorName: 'A', role: 'Manager', accountStatus: 'Approved', brandCount: 1 }] })
     await screen.findByRole('heading', { name: 'Provider settings' }, { timeout: 5000 })
     expect(screen.queryByRole('heading', { name: 'Account time zone' })).toBeNull()
+  })
+})
+
+describe('server-side slot picker and provider-zone times', () => {
+  it('offers the engine\'s free times for the chosen day in the provider zone and sends the picked one', async () => {
+    slotQueries.length = 0
+    const calls = mockSchedule({ booking: booking({ status: 'Confirmed', actions: { ...noActions, reschedule: true } }) })
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Reschedule…' }))
+    const dlg = within(await screen.findByRole('dialog', { name: 'Reschedule booking' }))
+    fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '2030-01-10' } })
+    const group = await dlg.findByRole('group', { name: 'Free start times on this day' })
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['09:00', '13:30'])   // 14:00Z and 18:30Z in New York
+    expect(slotQueries.at(-1)).toContain('location=customer'); expect(slotQueries.at(-1)).toContain('postalCode=11201'); expect(slotQueries.at(-1)).toContain('minutes=120')
+    await userEvent.click(within(group).getByRole('button', { name: '13:30' }))
+    expect(within(group).getByRole('button', { name: '13:30' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(dlg.getByRole('button', { name: 'Move booking' }))
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/reschedule'))).toBe(true))
+    expect((calls.find((c) => c.url.endsWith('/reschedule'))!.body as { start: string }).start).toBe('2030-01-10T18:30:00.000Z')
+  })
+  it('says so when a day has no free times and still lets the seller type one', async () => {
+    mockSchedule({ booking: booking({ status: 'Confirmed', actions: { ...noActions, reschedule: true } }) })
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Reschedule…' }))
+    const dlg = within(await screen.findByRole('dialog', { name: 'Reschedule booking' }))
+    fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '2030-03-01' } })
+    expect(await dlg.findByText(/No free times on this day/)).toBeInTheDocument()
+    expect(dlg.getByLabelText('Start time')).toBeInTheDocument()
+  })
+  it('shows message times in the provider zone, not the browser zone', async () => {
+    mockSchedule({ booking: booking() })
+    server.use(http.get(`${API}/seller/bookings/:id/messages`, () => HttpResponse.json({ messages: [{ id: 'm1', direction: 'buyer', text: 'Hello', createdAt: '2030-01-01T10:05:00Z', mine: false }] })))
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    expect(await screen.findByText(/Buyer · .*5:05 AM/)).toBeInTheDocument()   // 10:05Z is 05:05 in New York
+  })
+})
+
+describe('focus after an action', () => {
+  it('moves focus to the next action (or the heading) when the button that was used disappears', async () => {
+    mockSchedule({ booking: booking() })
+    server.use(http.post(`${API}/seller/bookings/:id/approve`, () => HttpResponse.json(booking({ status: 'Confirmed', version: 2, actions: { ...noActions, cancel: true } }))))
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    const approve = await screen.findByRole('button', { name: 'Approve' })
+    approve.focus(); await userEvent.click(approve)
+    expect(await screen.findByText('Booking confirmed.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    await waitFor(() => expect(document.activeElement && document.activeElement !== document.body).toBe(true))
+    expect(document.activeElement?.id === 'page-title' || document.activeElement?.closest('[aria-label="Actions"]') !== null).toBe(true)
   })
 })
