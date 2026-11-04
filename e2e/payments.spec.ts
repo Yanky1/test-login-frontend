@@ -85,6 +85,9 @@ test('payments: a Manager sees no Payments in the menu and the API refuses them;
   await expect(page.getByRole('navigation', { name: 'Seller' }).getByRole('link', { name: 'Payments' })).toHaveCount(0)
   const mt = (await (await request.post('/api/v1/auth/login', { data: { email: manager, password: 'Tr1cky-Horse-Battery!' } })).json()).accessToken as string
   expect((await request.get('/api/v1/seller/payments/summary', { headers: bearer(mt) })).status()).toBe(403)
+  await page.goto('/payments')                                   // typing the address does not show the page shell either
+  await expect(page).not.toHaveURL(/\/payments/)
+  await expect(page.getByRole('heading', { name: 'Payments', level: 1 })).toHaveCount(0)
 
   await page.context().clearCookies()
   await signIn(page, admin, '/payments')
