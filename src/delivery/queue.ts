@@ -1,6 +1,6 @@
 import { api, ApiError } from '../api'
 import { newId, type DriverEventBody } from './api'
-import { DRIVER_DB, DRIVER_PREFIX } from './storage'
+import { DRIVER_DB, DRIVER_PREFIX, touchDriverQueue } from './storage'
 
 /**
  * Offline queue of the driver app. Everything a driver does (start route, photos, events) is written here FIRST and sent in order when the network is
@@ -102,7 +102,7 @@ export class DriverQueue {
 
   private key(part: string) { return `${DRIVER_PREFIX}${part}.${this.name}` }
   private read<T>(k: string, d: T): T { try { const v = this.kv.getItem(k); return v ? (JSON.parse(v) as T) : d } catch { return d } }
-  private write(k: string, v: unknown) { this.kv.setItem(k, JSON.stringify(v)); this.listeners.forEach((l) => l()) }
+  private write(k: string, v: unknown) { this.kv.setItem(k, JSON.stringify(v)); if (k === this.key('queue') && this.name !== 'default') touchDriverQueue(this.name); this.listeners.forEach((l) => l()) }
 
   items = (): QueueItem[] => this.read<QueueItem[]>(this.key('queue'), [])
   failures = (): QueueFailure[] => this.read<QueueFailure[]>(this.key('failures'), [])

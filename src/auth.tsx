@@ -1,10 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, onAccountLost, onSessionEnded, refreshSession, refreshUnreachable, tokenStore, type AccountItem, type LoginResponse, type Role } from './api'
 import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
 import { canLeave, LeaveRefused } from './lib/unsaved'
 import { clearDrafts } from './lib/drafts'
-import { cacheDriverUser, clearDriverStorage, endDriverSession, readCachedDriverUser } from './delivery/storage'
+import { cacheDriverUser, clearDriverStorageFor, endDriverSession, expireDriverStorage, readCachedDriverUser } from './delivery/storage'
 
 export interface User {
   email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
@@ -55,12 +55,15 @@ const withInfo = (u: User, i: AccountsInfo): User => ({
 export function AuthProvider({ children, initialConfig }: { children: ReactNode; initialConfig?: RuntimeConfig }) {
   const [status, setStatus] = useState<Status>('loading')
   const [user, setUser] = useState<User | null>(null)
+  const userRef = useRef<User | null>(null)       // the log-out paths below run from effects/callbacks created once: they need the CURRENT user
+  userRef.current = user
   const [config, setConfig] = useState<RuntimeConfig>(initialConfig ?? defaultConfig)
   const [logoutReason, setLogoutReason] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
     ;(async () => {
+      expireDriverStorage()      // kept queues and photos of former drivers on this device expire after a week
       const cfg = initialConfig ?? (await loadConfig())
       if (!alive) return
       setConfig(cfg)
@@ -80,7 +83,8 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   useEffect(() => crossTab().subscribe((m) => {
     if (m.type !== 'logout') return
     tokenStore.set(null); clearDrafts()
-    if (m.reason === 'idle') endDriverSession(); else clearDriverStorage()      // a manual log-out in the other tab was confirmed there; an inactivity one was not
+    // a manual log-out in the other tab was confirmed there, but only for THIS user's data: another driver's kept queue on the device stays
+    if (m.reason === 'idle' || !userRef.current) endDriverSession(); else clearDriverStorageFor(userRef.current.email)
     setUser(null); setStatus('anon')
     setLogoutReason(m.reason === 'idle' ? 'idle' : null)
   }), [])
@@ -116,7 +120,8 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
     if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
     tokenStore.set(null); clearDrafts()
-    if (reason === 'idle') endDriverSession(); else clearDriverStorage()       // idle skips the confirmation (canLeave), so it must keep the unsent queue
+    // idle skips the confirmation (canLeave), so it keeps the unsent queue; a confirmed manual log-out removes THIS user's data only (never another driver's kept queue)
+    if (reason === 'idle' || !userRef.current) endDriverSession(); else clearDriverStorageFor(userRef.current.email)
     setUser(null); setStatus('anon')
     setLogoutReason(reason === 'idle' ? 'idle' : null)
     try { sessionStorage.removeItem('offerPasskey') } catch { /* ignore */ }

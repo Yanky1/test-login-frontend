@@ -23,7 +23,7 @@ export function clearDriverStorage() {
  * The session ended WITHOUT the driver confirming anything (it expired, or the app logged them out for inactivity, or the log-out came from another tab).
  * Unsent deliveries must survive that: only the cached profile and route (which hold addresses) go; the queue, the failures, the photo bookkeeping and the
  * photo database stay. They are keyed by email + account, so nothing can replay into another account, and the same driver's next sign-in sends them.
- * With nothing waiting it is a full wipe. A manual log-out the driver confirmed (after the pending-work warning) still wipes everything: clearDriverStorage().
+ * With nothing waiting it is a full wipe. A manual log-out the driver confirmed (after the pending-work warning) removes only THEIR data: clearDriverStorageFor().
  */
 export function endDriverSession(): 'kept' | 'wiped' {
   if (!hasPendingDriverWork()) { clearDriverStorage(); return 'wiped' }
@@ -46,6 +46,75 @@ export function hasPendingDriverWork(): boolean {
   } catch { /* ignore */ }
   return false
 }
+
+// ---- one user's data on a shared device ------------------------------------------------------------------------------------------------------------
+/** Kept queues and photos expire after this long without activity (a shared phone must not hold a former driver's addresses and photos forever). */
+export const KEPT_MAX_AGE_DAYS = 7
+const TOUCHED = DRIVER_PREFIX + 'touched.'
+const EXPIRED = DRIVER_PREFIX + 'expired.'
+
+/** The storage name (email|account) a solvelt.driver.<part>.<name> key belongs to, or null for keys without one (the cached profile). */
+function nameOfKey(k: string): string | null {
+  if (!k.startsWith(DRIVER_PREFIX)) return null
+  const rest = k.slice(DRIVER_PREFIX.length); const dot = rest.indexOf('.')
+  return dot < 0 || rest.startsWith('expired.') ? null : rest.slice(dot + 1)
+}
+const allKeys = (): string[] => { const out: string[] = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith(DRIVER_PREFIX)) out.push(k) } } catch { /* ignore */ } return out }
+const namesWhere = (f: (name: string) => boolean) => [...new Set(allKeys().map(nameOfKey).filter((n): n is string => n !== null && f(n)))]
+
+/** Remember that this queue was last used now: the clock for the expiry above. */
+export function touchDriverQueue(name: string) { try { localStorage.setItem(TOUCHED + name, String(Date.now())) } catch { /* ignore */ } }
+
+/** Deletes photo blobs by key (IndexedDB), best effort. */
+async function deleteBlobs(keys: string[]) {
+  if (keys.length === 0 || typeof indexedDB === 'undefined') return
+  try {
+    const db = await new Promise<IDBDatabase>((res, rej) => { const r = indexedDB.open(DRIVER_DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
+    try { for (const k of keys) await new Promise<void>((res) => { const r = db.transaction('blobs', 'readwrite').objectStore('blobs').delete(k); r.onsuccess = () => res(); r.onerror = () => res() }) } finally { db.close() }
+  } catch { /* ignore */ }
+}
+
+/** Removes everything stored for these queue names: keys, and their photos. The photo database itself is deleted only when nobody has anything left to send. */
+function clearNames(names: string[]) {
+  const blobKeys: string[] = []
+  for (const n of names) { try { blobKeys.push(...Object.values(JSON.parse(localStorage.getItem(`${DRIVER_PREFIX}blobkeys.${n}`) ?? '{}') as Record<string, string>)) } catch { /* ignore */ } }
+  for (const k of allKeys()) { const n = nameOfKey(k); if (n !== null && names.includes(n)) { try { localStorage.removeItem(k) } catch { /* ignore */ } } }
+  if (!hasPendingDriverWork()) { try { if (typeof indexedDB !== 'undefined') indexedDB.deleteDatabase(DRIVER_DB) } catch { /* ignore */ } }
+  else void deleteBlobs(blobKeys)
+}
+
+/**
+ * A manual log-out by this user: removes THEIR queues (every account), routes and photos, and the cached profile when it is theirs. Another driver's kept queue on the
+ * same device is not touched, and the photo database is deleted only when nothing is waiting for anybody.
+ */
+export function clearDriverStorageFor(email: string) {
+  clearNames(namesWhere((n) => n.startsWith(email + '|')))
+  try { const c = readCachedDriverUser(); if (!c || c.email === email) localStorage.removeItem(CACHED_USER); localStorage.removeItem(EXPIRED + email) } catch { /* ignore */ }
+}
+
+/** App start: queues that have not been touched for KEPT_MAX_AGE_DAYS are removed, and the driver is told (once) on their next visit. A queue without a clock starts it now. */
+export function expireDriverStorage(now = Date.now()): string[] {
+  const cutoff = now - KEPT_MAX_AGE_DAYS * 86_400_000
+  const expired: string[] = []
+  for (const n of namesWhere(() => true)) {
+    let t = NaN
+    try { t = Number(localStorage.getItem(TOUCHED + n)) } catch { /* ignore */ }
+    if (!t) { touchDriverQueue(n); continue }
+    if (t < cutoff) expired.push(n)
+  }
+  for (const n of expired) {
+    let count = 0
+    try { count = (JSON.parse(localStorage.getItem(`${DRIVER_PREFIX}queue.${n}`) ?? '[]') as unknown[]).length } catch { /* ignore */ }
+    clearNames([n])
+    if (count > 0) { try { localStorage.setItem(EXPIRED + n.split('|')[0], JSON.stringify({ count, days: KEPT_MAX_AGE_DAYS })) } catch { /* ignore */ } }
+  }
+  return expired
+}
+/** The "your unsent updates were removed" notice for this user, if any. */
+export function readExpiredNotice(email: string): { count: number; days: number } | null {
+  try { const v = localStorage.getItem(EXPIRED + email); return v ? (JSON.parse(v) as { count: number; days: number }) : null } catch { return null }
+}
+export function dismissExpiredNotice(email: string) { try { localStorage.removeItem(EXPIRED + email) } catch { /* ignore */ } }
 
 /** The signed-in driver's profile, so an offline reload of /driver still opens the app (no token: only the queue and the cached route work). */
 export function cacheDriverUser(u: User) { try { localStorage.setItem(CACHED_USER, JSON.stringify(u)) } catch { /* ignore */ } }
