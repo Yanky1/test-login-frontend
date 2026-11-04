@@ -49,8 +49,10 @@ test('configure shipping, buy a label, print it, follow tracking to delivered (a
   await dlg.getByRole('button', { name: /^Buy label · / }).click()
   await expect(dlg.getByText(/^Label bought for/)).toBeVisible()
   const tn = (await dlg.locator('dd').filter({ hasText: /^\d{10,}$/ }).first().textContent())!.trim()
+  // the label must open through a blob URL (the file needs our bearer token, so it is never a public URL); the popup's own URL is browser-dependent (headless Chromium downloads PDFs), so record what the app passes to window.open
+  await page.evaluate(() => { const open = window.open.bind(window); (window as unknown as { __opened: string[] }).__opened = []; window.open = (u, ...rest) => { (window as unknown as { __opened: string[] }).__opened.push(String(u)); return open(u, ...rest) } })
   const [popup] = await Promise.all([page.waitForEvent('popup'), dlg.getByRole('button', { name: 'Print label' }).click()])
-  await expect.poll(() => popup.url(), { message: 'the label opens in a new tab through a blob URL' }).toMatch(/^blob:/); await popup.close()   // the popup navigates after it opens
+  expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened[0])).toMatch(/^blob:/); await popup.close()
   await expectNoSeriousA11y(page)
   await dlg.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByText('Shipped', { exact: true }).first()).toBeVisible()
