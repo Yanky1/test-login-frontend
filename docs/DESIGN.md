@@ -191,3 +191,18 @@ Do use tokens (`var(--…)`) for every colour; add new colours to both the light
 
 ### Still for a designer
 Vector logo; review of the designed dark mode; Figma-only illustrations were not reproduced.
+
+## Local delivery (workstream L)
+
+Backend contract and privacy rules: `docs/LOCAL-DELIVERY.md` in the backend repository. Code: `src/delivery/**`; tests `src/delivery/*.test.ts(x)` (Vitest + MSW) and `e2e/delivery.spec.ts` (real backend, axe, mobile viewport for the driver).
+
+* **Routes:** `/delivery` (dispatch board, sidebar "Local delivery"), `/settings/delivery` (Owner/Admin edit, others read), `/driver` (the driver app), plus a tracking panel in the order detail (`LocalTracking`).
+* **Driver role is default deny in the UI too:** `RequireAuth` sends a Driver anywhere except `/driver` (and security settings) to `/driver`; `Home` does the same. The server answers 403 for everything else, so this is only the friendly half.
+* **Driver app = one screen, big targets:** route list -> stop view -> a form. 56 px buttons, `min-height: var(--target)` fields, one-handed layout, no hard-coded colours (design tokens only), `dr-*` classes in `src/delivery/driver.css`. PWA: `public/driver.webmanifest`, `public/driver-icon.svg`, `public/driver-sw.js` (shell cache only; API calls are never cached), registered in production builds with scope `/driver`.
+* **Offline queue (`queue.ts`):** every action is written to the queue first (localStorage for the item list, IndexedDB for photo blobs with a memory fallback) and sent in order: start route, photo uploads (idempotent on a client id), then events carrying a client event id and the time they happened. Network errors, 5xx, 408 and 429 keep the item and stop the flush; any other server answer is final for that item and is shown to the driver ("N updates could not be saved") without blocking the rest. The UI is optimistic (the stop shows Delivered at once, with a "waiting to send" count) and re-reads the route after a successful flush.
+* **Photos** are redrawn on a canvas (max 1600 px JPEG) before queueing: smaller uploads and no EXIF; the server strips metadata again.
+* **Location sharing** needs an explicit "Allow sharing" (explained in plain words), runs only while a route is active, can be paused or stopped at any time, and posts about every 45 s.
+* **Details hidden after completion:** the stop view shows "This stop is finished" and no address/contact (the API sends none).
+* **Inputs that reformat while typing** (money, postcode lists) keep their own text and commit the parsed value (`Parsed` in `DeliverySettings.tsx`): found by a test that typed "5.50" and got 55000 cents.
+* **Settings tab "Local delivery":** time zone, cutoff, lead time, days ahead, zones (fee, free-over, minimum, postcodes with `112*`, radius + origin) and windows (from/to, capacity, weekdays).
+* **Dispatch board:** day picker, window capacity chips with "Nearly full / Full", deliveries grouped by window with Late and "Needs attention" highlights, assign / unassign (a failed stop is unassigned, then assigned again), per-route optimize / reassign / print sheet; refreshes every 30 s (no live map in v1).
