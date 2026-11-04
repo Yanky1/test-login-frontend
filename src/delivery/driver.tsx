@@ -93,10 +93,10 @@ export default function DriverApp({ queueOverride }: { queueOverride?: DriverQue
                   const st = optimistic[s.id] ?? s.status
                   return (
                     <li key={s.id}>
-                      <button type="button" className="dr-stop" onClick={() => setOpen(s.id)} aria-label={`Stop ${s.seq}, ${STATUS_LABEL[st]}${s.to ? `, ${s.to.line1}` : ''}`}>
+                      <button type="button" className="dr-stop" onClick={() => setOpen(s.id)}>
                         <span className="dr-seq" aria-hidden="true">{s.seq}</span>
                         <span className="dr-stop-main">
-                          <strong>{s.to ? s.to.line1 : 'Finished stop'}</strong>
+                          <strong><span className="sr-only">Stop {s.seq}: </span>{s.to ? s.to.line1 : 'Finished stop'}</strong>
                           <span>{s.to ? `${s.to.city} ${s.to.postalCode} · ` : ''}{timeRange(s.window.start, s.window.end)}</span>
                         </span>
                         <span className={`dr-chip st-${st}`}>{STATUS_LABEL[st]}{queue.pendingFor(s.id) > 0 ? ' ⟳' : ''}</span>
