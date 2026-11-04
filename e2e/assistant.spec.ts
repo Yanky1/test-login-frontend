@@ -4,6 +4,7 @@ import { expect, test, expectNoSeriousA11y, createSeller, dismissPasskeyOffer, l
 import { makePng } from './png'
 
 const SHOTS = process.env.SHOTS_DIR
+const DARK = process.env.SHOT_THEME === 'dark' // SHOT_THEME=dark captures the dark variants (files get a -dark suffix)
 const INBOUND = 'e2e-inbound-secret-0123456789abcdef'
 const business = { vendorName: 'Rivka Bakes', contactName: 'Dana Seller', contactPhone: '+1 555 123 4567', addressLine1: '1 Main St', city: 'Brooklyn', region: 'NY', postalCode: '11201', country: 'US', smsOptIn: false }
 
@@ -67,6 +68,7 @@ test('"Add a draft product for a challah board": action card, Confirm, the produ
   await signIn(page, s.email)
   await openAssistant(page)
   await expect(page.getByLabel('Message the assistant')).toBeFocused()
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/assistant-empty-desktop${DARK ? '-dark' : ''}.png` })
   await ask(page, 'Add a draft product for a challah board, $25, 10 in stock')
 
   const card = page.getByRole('region', { name: /Proposed action/ })
@@ -75,7 +77,7 @@ test('"Add a draft product for a challah board": action card, Confirm, the produ
   await expect(card.getByText(/Nothing has changed yet/)).toBeVisible()
   expect((await drafts(request, s)).filter((d) => /challah/i.test(d.title))).toHaveLength(0) // nothing exists before Confirm
   await expectNoSeriousA11y(page)
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/assistant-card-desktop.png` })
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/assistant-card-desktop${DARK ? '-dark' : ''}.png` })
 
   await card.getByRole('button', { name: /Confirm/ }).click()
   await expect(card.getByRole('heading', { name: 'Done' })).toBeVisible()
@@ -108,7 +110,8 @@ test('"Which orders are late?" answers with a link to the order; keyboard and ax
   await expect(link).toHaveAttribute('href', `/orders/${order.id}`)
   await expect(page.getByText(/Looking up your orders/)).toBeVisible()
   await expectNoSeriousA11y(page)
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/assistant-answer-desktop.png` })
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/assistant-answer-desktop${DARK ? '-dark' : ''}.png` })
+  if (SHOTS) { await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300); await page.screenshot({ path: `${SHOTS}/assistant-answer-mobile${DARK ? '-dark' : ''}.png` }); await page.setViewportSize({ width: 1280, height: 720 }) }
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Solvelt Assistant' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Assistant' })).toBeFocused()
