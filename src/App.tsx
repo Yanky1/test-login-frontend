@@ -3,6 +3,7 @@ import { Route, Routes, Navigate } from 'react-router-dom'
 import { Spinner } from './components/ui'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { RedirectIfAuthed, RequireAuth } from './components/RequireAuth'
+import { RequirePayments } from './payments/RequirePayments'
 import LoginPage from './pages/Login'
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/Recovery'
 import AuthCallback from './pages/AuthCallback'
@@ -72,7 +73,7 @@ export default function App() {
             <Route path="/products/import" element={<CsvPage />} />
             <Route path="/products/:id" element={<ProductEditorPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
-            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/payments" element={<RequirePayments><PaymentsPage /></RequirePayments>} />
             <Route path="/delivery" element={<DispatchBoard />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
