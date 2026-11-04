@@ -33,7 +33,7 @@ const NAV: { to: string; label: string; perm: Permission; icon: IconName; end?: 
 ]
 
 function Brand() {
-  return <Link to="/admin" className="logo" aria-label="Solvelt staff home"><span className="logo-mark"><Icon name="shield" /></span><span>Solvelt <small className="adm-stafftag">Staff</small></span></Link>
+  return <Link to="/admin" className="logo" aria-label="Solvelt staff home"><span className="logo-mark" aria-hidden="true" /><span>Solvelt <small className="adm-stafftag">Staff</small></span></Link>
 }
 
 function Layout() {

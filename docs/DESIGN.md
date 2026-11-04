@@ -4,11 +4,11 @@
 1. Calm and trustworthy: auth screens do one thing; the primary action is always the strongest element.
 2. Never lose input; say what to do next in plain words.
 3. Accessible by construction: 44px targets, visible focus, labels, errors with icon+text+`aria-live`, reduced motion.
-4. Small footprint: no UI framework, system font stack (no webfont, no layout shift), inline SVG icons.
+4. Small footprint: no UI framework, self-hosted latin-subset fonts with metric-matched fallbacks (no third-party requests, no layout shift), inline SVG icons.
 
 ## Tokens (`src/styles.css`, `:root`)
 - Colour: `--bg --surface --surface-2 --fg --muted --border --primary --accent --err --ok …` Light by default; dark via `prefers-color-scheme` and `[data-theme=dark]`. A manual toggle persists to `localStorage` (`solvelt-theme`); an inline script in `index.html` applies it before paint.
-- Type: fluid `--fs-sm … --fs-2xl` using `clamp()`.
+- Type: fluid `--fs-sm … --fs-2xl` using `clamp()`; `--font` (Plus Jakarta Sans) and `--font-display` (Playfair Display), see "Figma restyle" below.
 - Spacing: 8-pt grid `--s1…--s8` (plus a 4px half-step). Radius `--r-*`, shadow `--shadow-*`, motion `--t-*`/`--ease`.
 
 ## Components (`src/components/ui.tsx`)
@@ -147,3 +147,46 @@ Sidebar entry **Payments** (Owners and Admins only; Managers/Viewers do not see 
 - A11y: tab semantics from `TabList`, tables with captions and `scope` headers, `aria-live` for paging/notices, expandable rows use a real button with `aria-expanded`; axe (WCAG 2.2 AA) runs on every screen in E2E. Responsive: cards wrap, tables scroll inside `.tablewrap`; light/dark through the existing tokens.
 - Tests: Vitest `src/payments/payments.test.tsx` (8); Playwright against the REAL backend + fake Stripe provider `e2e/payments.spec.ts` (2): onboarding states -> simulated order -> delivery -> release -> transfer (balance cards, transactions, transfers), refund after the transfer (negative balance), statement CSV download, Manager sees no Payments, Admin read-only; screenshots `SHOTS_DIR=docs/screenshots npx playwright test e2e/payments-shots.spec.ts` -> `docs/screenshots/payments-*-desktop.png` / `-mobile.png`.
 - E2E uses the backend's Development/Testing helpers (`/api/dev/payments/*`, see the backend `docs/PAYMENTS.md`).
+
+
+## Figma restyle (workstream J)
+**Brief:** take the *styling* of the Solvelt Figma and apply it to every existing screen; layouts, flows, copy, behaviour and test selectors are unchanged. Mock-only Figma features were not built. Source: backend `docs/agent-briefs/J-figma-restyle.md`, references in backend `docs/design/figma/`.
+
+### Fonts
+Self-hosted via `@fontsource/plus-jakarta-sans` (400/500/600/700) and `@fontsource/playfair-display` (500/600/700 + 400 italic), latin subset only, `font-display: swap`, imported in `src/fonts/fonts.css`. `Plus Jakarta Sans Fallback` / `Playfair Display Fallback` are `@font-face` rules over local Arial / Georgia with `size-adjust` and ascent/descent overrides so the swap does not shift layout. CSP stays `default-src 'self'` (no Google Fonts). Display type (h1, h2, OTP digits, metric numbers, logo "S") uses `--font-display`; everything else `--font`.
+
+### Colour tokens and contrast (WCAG 2.2 AA; measured, not assumed)
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `--bg` | `#f4f6f4` | `#071612` | page |
+| `--surface` / `--surface-2` | `#ffffff` / `#f4f7f5` | `#0d231e` / `#14352e` | cards, panels / subtle fills |
+| `--fg` | `#0d231e` (15.2 on bg) | `#e9efea` (15.9) | text |
+| `--muted` | `#40564e` (7.9 on surface) | `#b8cbc0` (9.7) | secondary text |
+| `--muted-2` | `#5b7369` (5.1 on white, 4.7 on bg) | `#a3bbb0` | small helper text, placeholders |
+| `--border` / `--border-ctl` | `#e2eae4` / `#dde5df` | `#2d584e` | decorative card and bar borders |
+| `--border-strong` | `#6f897e` (3.8 on white) | `#5f8a7c` (4.2 on surface) | input, checkbox, button borders (non-text contrast ≥ 3:1) |
+| `--primary` / `--primary-fg` | `#1f4d40` / `#fff` (9.6) | `#e7c655` / `#071612` (11.1) | primary buttons, active states |
+| `--link` | `#22634d` (7.1) | `#f2dc87` (12.0) | links |
+| `--ok` on `--ok-soft` | `#1e5d44` on `#e5f2ec` (6.8) | `#7fe0ad` on `#10301f` (9.0) | success |
+| `--err` on `--err-soft` | `#b42318` on `#fdecea` (5.8) | `#ff9b92` on `#3a1a1f` (7.7) | errors |
+| `--warn` | `#8a5a00` (5.9) | `#f4c06a` (9.9) | warnings |
+| `--gold-ink` on `--gold-soft` | `#85651b` on `#fcf6e6` (5.0) | `#f2dc87` on `#2a2a18` | gold badges |
+| `--on-gold` on `--gold-2` | `#071612` on `#e7c655` (11.1) | same | staff pill, logo tile |
+| sidebar | `--side #0d231e`: active `#fff` (16.5), idle `rgba(214,226,218,.8)` (≈12), group label `#8faaa2` (6.6) | same (sidebar is dark in both themes) | seller + staff navigation |
+| segmented tabs | track `#e3eae5`, active `#0d231e` + `#f8ebb8` (13.8) | track `#14352e`, active `#e7c655` + `#071612` | `.tabs` |
+
+Decisions: the Figma's `#8faaa2` muted is only ~2.6:1 on white, so it is used only on the dark sidebar; small text uses `--muted-2`. The Figma input border (`#dde5df`) is below 3:1, so controls use `--border-strong` and the Figma colour stays for decorative borders. The dark mode is designed (not in Figma) from the sidebar palette; the primary button becomes gold on dark green.
+
+### Shape and elevation
+Cards 24px (large panels) / 16px (tiles, toasts, auth card); controls and nav items 12px, inputs 10px, pills 9999px; card shadow `0 1px 1px rgba(0,0,0,.05)`; hero/primary-button shadow `--shadow-2`. The brand panel on auth screens uses the hero gradient (`#18483e → #0a241e`) with soft gold and green glows.
+
+### Components
+Buttons (dark-green primary, white secondary), inputs, cards, alerts, stepper, modal, switcher menus and tables use tokens only. `.tabs` is now a pill segmented control. Seller sidebar (`.sidenav`) and staff navigation (`.adm-nav`) are the dark-green sidebar with the active-item style. The staff area is distinguishable by a gold "Staff" pill in its top bar. Metric tiles in the staff dashboard have a 3px gold top border and Playfair numbers.
+**Logo:** accessible text wordmark (Plus Jakarta Sans bold "Solvelt", spaced "MARKET", gold sparkle SVG) and a 36px gold tile with a Playfair "S". The tile letter and "MARKET" are CSS-generated (`::before`) so the link's accessible name ("Solvelt home") contains its visible text (WCAG 2.5.3). **A vector logo from the designer should replace this wordmark.**
+
+### Do / don't
+Do use tokens (`var(--…)`) for every colour; add new colours to both the light block and both dark blocks; keep text pairs ≥ 4.5:1 (3:1 for large text and control borders). Don't hard-code hex values in components, don't use `--muted-2` for anything below the 4.5:1 requirement on its background, don't make headers sticky over content (it obscured the "Activate" button and failed axe target-size).
+**Adding a screen:** wrap it in `Shell`/`Card`, use `h1` (Playfair via the global rule), existing `.btn`, `.field`, `.chip`, `.tabs` classes and tokens; run `npm run test:ui` (axe, light/dark, 390/1440).
+
+### Still for a designer
+Vector logo; review of the designed dark mode; Figma-only illustrations were not reproduced.
