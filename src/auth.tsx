@@ -4,7 +4,7 @@ import { loadConfig, defaultConfig, type RuntimeConfig } from './config'
 import { crossTab } from './lib/crossTab'
 import { canLeave, LeaveRefused } from './lib/unsaved'
 import { clearDrafts } from './lib/drafts'
-import { cacheDriverUser, clearDriverStorageFor, endDriverSession, expireDriverStorage, readCachedDriverUser } from './delivery/storage'
+import { cacheDriverUser, clearDriverStorageFor, endDriverSession, expireDriverStorage, pendingDriverNamesFor, readCachedDriverUser, takeDriverDiscardConfirmed } from './delivery/storage'
 
 export interface User {
   email: string; sellerId: string; vendorName: string; accountStatus: string; roles: string[]
@@ -118,6 +118,13 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
 
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
     if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
+    if (reason === 'manual' && userRef.current) {
+      // unsent driver deliveries of THIS user (any account) are discarded by a manual log-out, whichever page they log out from: ask first (the driver app already asked about its own queue)
+      const asked = takeDriverDiscardConfirmed()
+      const left = pendingDriverNamesFor(userRef.current.email).filter((q) => q.name !== asked)
+      const n = left.reduce((a, q) => a + q.count, 0)
+      if (n > 0 && !window.confirm(`${n} delivery update${n > 1 ? 's' : ''} saved on this phone ${n > 1 ? 'have' : 'has'} not been sent yet. If you log out now ${n > 1 ? 'they are' : 'it is'} lost. Log out anyway?`)) return
+    }
     try { await api('/auth/logout', { method: 'POST', auth: false }) } catch { /* server session is revoked best-effort */ }
     tokenStore.set(null); clearDrafts()
     // idle skips the confirmation (canLeave), so it keeps the unsent queue; a confirmed manual log-out removes THIS user's data only (never another driver's kept queue)

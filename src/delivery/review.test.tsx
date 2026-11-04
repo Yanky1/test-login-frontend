@@ -254,13 +254,14 @@ describe('device storage', () => {
     expect(endDriverSession()).toBe('wiped'); expect(localStorage.getItem('solvelt.driver.queue.x')).toBeNull()
   })
 
-  it('is wiped on a manual log-out', async () => {
+  it('is wiped on a manual log-out (after the driver confirmed discarding what was unsent)', async () => {
     const del = vi.fn(); vi.stubGlobal('indexedDB', { deleteDatabase: del }); seed()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     signedIn(login('Driver'))
     renderAt(shell, '/driver')
     await screen.findByRole('button', { name: 'call api' })
     await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
-    await waitFor(() => wiped()); expect(del).toHaveBeenCalled()
+    await waitFor(() => wiped()); expect(del).toHaveBeenCalled(); expect(confirm).toHaveBeenCalled()
   })
 
   it('is wiped when another tab logs out', async () => {
@@ -323,6 +324,55 @@ describe('device storage', () => {
     expect(expireDriverStorage(now)).toEqual(['sam@x.com|A'])
     expect(localStorage.getItem(SAM)).toBeNull(); expect(localStorage.getItem('solvelt.driver.queue.kim@x.com|A')).not.toBeNull()      // 6 days old: kept
     expect(readExpiredNotice('sam@x.com')).toEqual({ count: 2, days: KEPT_MAX_AGE_DAYS }); expect(readExpiredNotice('kim@x.com')).toBeNull()
+  })
+
+  const offlineSender: Sender = { start: async () => { throw new TypeError('offline') }, upload: async () => { throw new TypeError('offline') }, event: async () => { throw new TypeError('offline') } }
+  const SAM_B = 'solvelt.driver.queue.sam@x.com|' + B
+
+  it('a queue that keeps retrying offline does not expire: every flush restarts its clock', async () => {
+    const q = new DriverQueue(localStorage, new MemoryBlobs(), offlineSender, 'sam@x.com|A')
+    q.enqueueEvent('s1', { type: 'out_for_delivery' })
+    localStorage.setItem('solvelt.driver.touched.sam@x.com|A', String(Date.now() - (KEPT_MAX_AGE_DAYS + 1) * 86_400_000))      // untouched for 8 days...
+    expect(await q.flush()).toMatchObject({ offline: true })                                                                   // ...but a flush just tried (offline)
+    expect(expireDriverStorage()).toEqual([]); expect(q.pending()).toBe(1)
+  })
+
+  it('a manual log-out from a page outside the driver app asks before discarding unsent updates of ANY account, and cancel keeps them', async () => {
+    localStorage.setItem(SAM, '[{"id":"1"},{"id":"2"}]'); localStorage.setItem(SAM_B, '[{"id":"3"}]')
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    signedIn(login('Driver'))
+    renderAt(shell, '/driver')
+    await userEvent.click(await screen.findByRole('button', { name: 'manual log out' }))
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1))
+    expect(confirm.mock.calls[0][0]).toContain('3 delivery updates')                                  // both accounts counted
+    expect(screen.getByRole('button', { name: 'call api' })).toBeInTheDocument()                    // cancelled: still signed in
+    expect(localStorage.getItem(SAM)).not.toBeNull(); expect(localStorage.getItem(SAM_B)).not.toBeNull()
+    confirm.mockReturnValue(true)
+    await userEvent.click(screen.getByRole('button', { name: 'manual log out' }))
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    expect(localStorage.getItem(SAM)).toBeNull(); expect(localStorage.getItem(SAM_B)).toBeNull()
+  })
+
+  it('a manual log-out asks nothing when this user has nothing unsent (another user\'s kept queue is not theirs to confirm)', async () => {
+    localStorage.setItem(SAM, '[{"id":"1"}]')
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    signedIn(login('Owner', A, 'kim@x.com'))
+    renderAt(shell, '/driver')
+    await userEvent.click(await screen.findByRole('button', { name: 'manual log out' }))
+    expect(await screen.findByText('login page')).toBeInTheDocument()
+    expect(confirm).not.toHaveBeenCalled(); expect(localStorage.getItem(SAM)).not.toBeNull()
+  })
+
+  it('inside the driver app a log-out asks once: the app asked about its own queue, the log-out does not ask again', async () => {
+    server.use(http.get(`${API}/driver/me`, () => HttpResponse.json(me([stop()]))))
+    const q = new DriverQueue(localStorage, new MemoryBlobs(), offlineSender, 'sam@x.com|' + A); q.enqueueEvent('s1', { type: 'out_for_delivery' })      // the name the app itself uses: email | account id
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    function LogoutBtn() { const { logout } = useAuth(); return <button onClick={() => void logout()}>manual log out</button> }
+    mountAs('Driver', <><DriverApp queueOverride={q} /><LogoutBtn /></>, '/driver')
+    await screen.findByRole('heading', { name: 'My deliveries' })
+    await userEvent.click(screen.getByRole('button', { name: 'manual log out' }))
+    await waitFor(() => expect(localStorage.getItem('solvelt.driver.queue.sam@x.com|' + A)).toBeNull())
+    expect(confirm).toHaveBeenCalledTimes(1)
   })
 
   it('every change to the queue restarts its clock', () => {
