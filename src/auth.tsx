@@ -117,6 +117,7 @@ export function AuthProvider({ children, initialConfig }: { children: ReactNode;
   useEffect(() => onAccountLost(() => { void refreshAccounts() }), [refreshAccounts])
 
   const logout = useCallback(async (reason: 'idle' | 'manual' = 'manual') => {
+    if (reason === 'manual') takeDriverDiscardConfirmed()      // forget any older "leave anyway" (an account switch): only a confirm given by THIS log-out's own canLeave() counts
     if (reason === 'manual' && !(await canLeave())) return // idle/cross-tab logouts are never blocked
     if (reason === 'manual' && userRef.current) {
       // unsent driver deliveries of THIS user (any account) are discarded by a manual log-out, whichever page they log out from: ask first (the driver app already asked about its own queue)
