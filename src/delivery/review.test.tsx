@@ -348,7 +348,9 @@ describe('small items', () => {
   })
 
   it('Settings shows a Driver only the security settings and a way back to the driver app', async () => {
-    server.use(http.get(`${API}/account/me`, () => HttpResponse.json({ email: 'sam@x.com', emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 0, logins: [], sellerStatus: null, vendorName: null })))
+    server.use(http.get(`${API}/account/me`, () => HttpResponse.json({ email: 'sam@x.com', emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 0, logins: [], sellerStatus: null, vendorName: null })),
+      http.get(`${API}/account/passkeys`, () => HttpResponse.json([])),
+      http.get(`${API}/account/sessions`, () => HttpResponse.json([])))
     mountAs('Driver', <SettingsPage />, '/settings/team')
     expect(await screen.findByRole('link', { name: 'Security' })).toBeInTheDocument()
     for (const n of ['Profile', 'Team', 'Brands', 'Notifications', 'Availability', 'Local delivery']) expect(screen.queryByRole('link', { name: n })).not.toBeInTheDocument()
