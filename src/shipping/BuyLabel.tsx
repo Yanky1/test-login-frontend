@@ -66,8 +66,8 @@ export function LabelActions({ label, order }: { label: Label; order?: OrderDeta
 }
 
 /** The "Buy label" tab of the ship dialog: choose package and ship-from, see live rates, buy once, print. */
-export default function BuyLabel({ order, lines, partial, onFinished, reload, onManual }: {
-  order: OrderDetail; lines: { lineId: string; quantity: number }[]; partial: boolean; onFinished: (o: OrderDetail) => void; reload?: () => Promise<void>; onManual: () => void
+export default function BuyLabel({ order, lines, partial, onFinished, reload, onManual, onNoSetup }: {
+  order: OrderDetail; lines: { lineId: string; quantity: number }[]; partial: boolean; onFinished: (o: OrderDetail) => void; reload?: () => Promise<void>; onManual: () => void; onNoSetup?: () => void
 }) {
   const [cfg, setCfg] = useState<ShippingConfig | null>(null); const [loadErr, setLoadErr] = useState('')
   const [from, setFrom] = useState(''); const pkg = usePackage(cfg)
@@ -84,6 +84,8 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
       setFrom((usable.find((a) => a.isDefault) ?? usable[0])?.id ?? '')
     }).catch((e) => setLoadErr(err(e, 'Could not load your shipping settings.')))
   }, [order.brandId])
+  const noSetup = !!cfg && !cfg.addresses.some((a) => a.brandId === null || a.brandId === order.brandId)
+  useEffect(() => { if (noSetup) onNoSetup?.() }, [noSetup, onNoSetup])   // nothing to buy with yet: the dialog falls back to the manual form (with a hint)
   const fromAddr = cfg?.addresses.find((a) => a.id === from)
   const international = !!fromAddr && fromAddr.country.toUpperCase() !== order.shippingAddress.country.toUpperCase()
   const usableAddrs = useMemo(() => (cfg?.addresses ?? []).filter((a) => a.brandId === null || a.brandId === order.brandId), [cfg, order.brandId])
