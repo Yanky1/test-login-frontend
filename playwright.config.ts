@@ -56,6 +56,9 @@ export default defineConfig({
         Assistant__Provider: 'Fake',
         RateLimit__PaymentsPerMinute: '100000',
         Payments__NewSellerReservePercent: '0',
+        RateLimit__ShippingPerMinute: '100000',
+        Shipping__WebhookSecret: 'e2e-shipping-webhook-secret-0123456789',
+        Shipping__RefundCheckMinutes: '0',   // the fake provider confirms a label refund on the next maintenance run
         Phone__Enabled: 'true',
         Phone__Provider: 'Sink',
         Phone__SigningKey: 'e2e-phone-signing-key',
