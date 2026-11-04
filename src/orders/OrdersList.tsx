@@ -13,6 +13,8 @@ import { day, money, shipByText, statusLabel, statusTone } from './format'
 import { useLiveReload } from './live'
 import { PackingSlips } from './PackingSlips'
 import { TrackingImport } from './TrackingImport'
+import { BulkLabelsDialog } from '../shipping/OrderShipping'
+import { summaryLabel, summaryTone } from '../shipping/format'
 import './orders.css'
 
 const TABS: [string, string, keyof OrderCounts][] = [
@@ -28,6 +30,7 @@ function Flags({ o }: { o: OrderListItem }) {
       {o.late && <span className="chip bad">Late</span>}
       {o.oversold && <span className="chip warn">Oversold</span>}
       {o.cancelRequested && <span className="chip warn">Cancel requested</span>}
+      {o.trackingStatus && <span className={`chip ${summaryTone(o.trackingStatus)}`}>{summaryLabel(o.trackingStatus)}</span>}
     </>
   )
 }
@@ -43,14 +46,14 @@ export default function OrdersListPage() {
   const [sp, setSp] = useSearchParams()
   const tab = sp.get('tab') ?? 'needs_action'; const q = sp.get('q') ?? ''; const page = Number(sp.get('page') ?? '1') || 1
   const sort = sp.get('sort') ?? 'placed_desc'; const status = sp.get('status') ?? ''; const speed = sp.get('speed') ?? ''
-  const from = sp.get('from') ?? ''; const to = sp.get('to') ?? ''; const late = sp.get('late') === '1'; const oversold = sp.get('oversold') === '1'
+  const tracking = sp.get('tracking') ?? ''; const from = sp.get('from') ?? ''; const to = sp.get('to') ?? ''; const late = sp.get('late') === '1'; const oversold = sp.get('oversold') === '1'
   const [search, setSearch] = useState(q)
   const [data, setData] = useState<OrderList | null>(null); const [counts, setCounts] = useState<OrderCounts | null>(null); const [dash, setDash] = useState<Dashboard | null>(null)
   const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [notice, setNotice] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
-  const [slips, setSlips] = useState<PackingSlip[] | null>(null); const [importing, setImporting] = useState(false)
+  const [slips, setSlips] = useState<PackingSlip[] | null>(null); const [importing, setImporting] = useState(false); const [bulkLabels, setBulkLabels] = useState(false)
   const set = useCallback((o: Record<string, string>) => { const n = new URLSearchParams(sp); for (const [k, v] of Object.entries(o)) { if (v) n.set(k, v); else n.delete(k) } if (!('page' in o)) n.delete('page'); setSp(n, { replace: true }) }, [sp, setSp])
-  const params = useMemo(() => ({ tab, q, page, sort, status, speed, from, to, late: late || undefined, oversold: oversold || undefined, brandId, pageSize: 20 }), [tab, q, page, sort, status, speed, from, to, late, oversold, brandId])
+  const params = useMemo(() => ({ tab, q, page, sort, status, speed, tracking, from, to, late: late || undefined, oversold: oversold || undefined, brandId, pageSize: 20 }), [tab, q, page, sort, status, speed, tracking, from, to, late, oversold, brandId])
   const load = useCallback(async () => {
     setLoading(true); setError('')
     try { setData(await ordersApi.list(params)) } catch (e) { setError(e instanceof ApiError ? e.message2 : 'Could not load your orders.') } finally { setLoading(false) }
@@ -91,6 +94,7 @@ export default function OrdersListPage() {
           <ul className="stats">
             {stat(dash.todayOrders, "Today's orders")}{stat(dash.toShip, 'To ship')}{stat(dash.late, 'Late', dash.late > 0 ? 'bad' : '')}{stat(dash.returnsOpen, 'Open returns', dash.returnsOpen > 0 ? 'warn' : '')}
             {stat(money(dash.sales30Cents), 'Sales, last 30 days')}{stat(`${dash.lateShipmentRate}%`, 'Shipped late')}{stat(`${dash.cancellationRate}%`, 'Cancelled by seller or buyer')}
+            {dash.shipping && stat(dash.shipping.labelsToPrint, 'Labels to print', dash.shipping.labelsToPrint > 0 ? 'warn' : '')}{dash.shipping && stat(dash.shipping.exceptions, 'Delivery problems', dash.shipping.exceptions > 0 ? 'bad' : '')}
           </ul>
           <div className="sales-chart" role="img" aria-label={`Daily sales for the last 30 days, ${money(dash.sales30Cents)} in total across ${dash.orders30} orders`}>
             {dash.daily.map((d) => <span key={d.date} style={{ height: `${Math.max(4, (d.salesCents / maxSales) * 100)}%` }} />)}
@@ -107,12 +111,13 @@ export default function OrdersListPage() {
           <option value="placed_desc">Newest first</option><option value="placed_asc">Oldest first</option><option value="shipby_asc">Ship-by date</option><option value="total_desc">Highest total</option><option value="total_asc">Lowest total</option>
         </SelectField>
       </div>
-      <details className="filters-more" open={!!(from || to || status || speed || late || oversold)}>
+      <details className="filters-more" open={!!(from || to || status || speed || tracking || late || oversold)}>
         <summary>More filters</summary>
         <div className="filters">
           <TextField label="Placed from" type="date" value={from} onChange={(e) => set({ from: e.target.value })} />
           <TextField label="Placed until" type="date" value={to} onChange={(e) => set({ to: e.target.value })} />
           <SelectField label="Status" value={status} onChange={(e) => set({ status: e.target.value })}><option value="">Any status</option>{STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}</SelectField>
+          <SelectField label="Delivery progress" value={tracking} onChange={(e) => set({ tracking: e.target.value })}><option value="">Any</option><option value="in_transit">In transit</option><option value="exception">Delivery problem</option><option value="delivered">Delivered</option></SelectField>
           <SelectField label="Shipping speed" value={speed} onChange={(e) => set({ speed: e.target.value })}><option value="">Any speed</option><option value="standard">Standard</option><option value="expedited">Expedited</option><option value="overnight">Overnight</option></SelectField>
           <div className="field check"><label><input type="checkbox" checked={late} onChange={(e) => set({ late: e.target.checked ? '1' : '' })} /> Late only</label></div>
           <div className="field check"><label><input type="checkbox" checked={oversold} onChange={(e) => set({ oversold: e.target.checked ? '1' : '' })} /> Oversold only</label></div>
@@ -125,7 +130,7 @@ export default function OrdersListPage() {
       {canWrite && sel.size > 0 && (
         <div className="bulkbar-sel" role="region" aria-label="Selected orders">
           <strong>{sel.size} selected</strong>
-          <Button variant="primary" onClick={() => void bulkAccept()}>Accept</Button><Button onClick={() => void printSlips()}>Print packing slips</Button><Button variant="ghost" onClick={() => setSel(new Set())}>Clear</Button>
+          <Button variant="primary" onClick={() => void bulkAccept()}>Accept</Button><Button onClick={() => setBulkLabels(true)}>Buy labels</Button><Button onClick={() => void printSlips()}>Print packing slips</Button><Button variant="ghost" onClick={() => setSel(new Set())}>Clear</Button>
         </div>
       )}
       {!canWrite && sel.size > 0 && <div className="bulkbar-sel"><Button onClick={() => void printSlips()}>Print packing slips</Button></div>}
@@ -134,8 +139,8 @@ export default function OrdersListPage() {
       {loading && !data && <div className="skel-table" aria-busy="true" aria-label="Loading orders">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton row-sk" />)}</div>}
       {data && items.length === 0 && !loading && (
         <div className="pempty"><PIcon name="box" />
-          <h2>{q || status || from || to || late || oversold || speed ? 'No orders match' : tab === 'needs_action' ? 'Nothing needs your attention' : 'No orders here yet'}</h2>
-          <p>{q || status || from || to || late || oversold || speed ? 'Try different filters or clear the search.' : tab === 'needs_action' ? 'New orders and requests from buyers will show up here.' : 'When shoppers order your products, they appear here.'}</p>
+          <h2>{q || status || from || to || late || oversold || speed || tracking ? 'No orders match' : tab === 'needs_action' ? 'Nothing needs your attention' : 'No orders here yet'}</h2>
+          <p>{q || status || from || to || late || oversold || speed || tracking ? 'Try different filters or clear the search.' : tab === 'needs_action' ? 'New orders and requests from buyers will show up here.' : 'When shoppers order your products, they appear here.'}</p>
           {(q || status || from || to || late || oversold || speed) && <Button onClick={() => { setSearch(''); setSp(new URLSearchParams(tab === 'needs_action' ? {} : { tab })) }}>Clear filters</Button>}
         </div>
       )}
@@ -178,6 +183,7 @@ export default function OrdersListPage() {
       )}
       </div>
       {slips && <PackingSlips slips={slips} onClose={() => setSlips(null)} />}
+      {bulkLabels && <BulkLabelsDialog orderIds={[...sel]} onClose={() => setBulkLabels(false)} onDone={(n) => { if (n > 0) setNotice({ kind: 'success', text: `${n} label${n === 1 ? '' : 's'} bought. Open each order to print it.` }); setSel(new Set()); void load() }} />}
       {importing && <TrackingImport onClose={() => setImporting(false)} onDone={(n) => { setNotice({ kind: 'success', text: `${n} order${n === 1 ? '' : 's'} marked as shipped.` }); void load() }} />}
     </main>
   )

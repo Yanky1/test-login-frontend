@@ -11,10 +11,12 @@ import { dt, eventLabel, money, reasonLabel, shipByText, statusLabel, statusTone
 import { useLiveReload } from './live'
 import { PackingSlips } from './PackingSlips'
 import LocalTracking from '../delivery/LocalTracking'
+import { OrderShippingPanel, ReturnLabelDialog } from '../shipping/OrderShipping'
+import { trackLabel, trackTone } from '../shipping/format'
 import './orders.css'
 
 type Dlg = { k: 'ship' } | { k: 'hold' } | { k: 'cancel' } | { k: 'refund'; returnId?: string } | { k: 'deliver' } | { k: 'tracking'; id: string }
-  | { k: 'creq'; id: string; approve: boolean } | { k: 'rreject'; id: string } | { k: 'rreceive'; id: string } | { k: 'slip'; slip: PackingSlip }
+  | { k: 'creq'; id: string; approve: boolean } | { k: 'rreject'; id: string } | { k: 'rreceive'; id: string } | { k: 'slip'; slip: PackingSlip } | { k: 'retlabel'; id: string }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [done, setDone] = useState(false)
@@ -76,6 +78,7 @@ export default function OrderDetailPage() {
             {o.oversold && <span className="chip warn">Oversold – needs attention</span>}
             {o.cancelRequested && <span className="chip warn">Cancellation requested</span>}
             {o.returnOpen && <span className="chip warn">Return in progress</span>}
+            {o.needsAttention && <span className="chip bad">Delivery problem – needs attention</span>}
             {sb.tone !== 'none' && <span className={`chip ${sb.tone === 'bad' ? 'bad' : sb.tone === 'warn' ? 'warn' : 'ok'}`}>{sb.text}</span>}
           </div>
         </div>
@@ -117,7 +120,8 @@ export default function OrderDetailPage() {
                     <div className="grow">
                       <strong>{s.carrier}{s.service ? ` · ${s.service}` : ''}</strong>
                       <div>{s.trackingUrl ? <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer">{s.trackingNumber}<span className="sr-only"> (opens the carrier’s site)</span></a> : s.trackingNumber}</div>
-                      <div className="sub">Shipped {dt(s.shippedAt)}{s.deliveredAt ? ` · Delivered ${dt(s.deliveredAt)}` : ''}</div>
+                      <div className="sub">Shipped {dt(s.shippedAt)}{s.deliveredAt ? ` · Delivered ${dt(s.deliveredAt)}` : ''}{s.labelCostCents != null ? ` · Label ${money(s.labelCostCents, s.labelCurrency ?? o.currency)}` : ''}</div>
+                      {s.trackingStatus && s.trackingStatus !== 'unknown' && <div><span className={`chip ${trackTone(s.trackingStatus)}`}>{trackLabel(s.trackingStatus)}</span>{s.eta && !s.deliveredAt ? <span className="sub"> Estimated delivery {dt(s.eta)}</span> : null}</div>}
                       <div className="sub">{s.lines.map((x) => `${x.quantity} × ${lineOf(x.lineId)?.title ?? 'item'}`).join(', ')}</div>
                     </div>
                     {a.editTracking && !s.deliveredAt && <Button onClick={() => setDlg({ k: 'tracking', id: s.id })}>Edit tracking<span className="sr-only"> {s.trackingNumber}</span></Button>}
@@ -126,6 +130,8 @@ export default function OrderDetailPage() {
               </ul>
             </section>
           )}
+
+          {(o.shipments.length > 0 || (o.returnShipments?.length ?? 0) > 0) && <OrderShippingPanel order={o} canWrite={canWrite} onChanged={load} />}
 
           {o.cancellations.length > 0 && (
             <section className="pcard" aria-labelledby="cr-h"><h2 id="cr-h">Cancellation requests</h2>
@@ -145,8 +151,13 @@ export default function OrderDetailPage() {
                   <p><strong>{r.lines.map((x) => `${x.quantity} × ${lineOf(x.lineId)?.title ?? 'item'}`).join(', ')}</strong> <span className="chip">{r.status}</span></p>
                   <p className="sub">{reasonLabel(r.reason)}{r.buyerComment ? ` – “${r.buyerComment}”` : ''}</p>
                   {r.decisionReason && <p className="sub">Decision: {r.decisionReason}</p>}
+                  {o.returnShipments?.filter((x) => x.returnId === r.id).map((x) => (
+                    <p key={x.id} className="sub">Return label sent · {x.carrier} {x.trackingNumber} · <span className={`chip ${trackTone(x.trackingStatus)}`}>{trackLabel(x.trackingStatus)}</span></p>
+                  ))}
+                  {r.status === 'Approved' && o.returnShipments?.some((x) => x.returnId === r.id && x.deliveredAt) && <Alert kind="success">Return arrived – inspect the items and mark the return as received.</Alert>}
                   {canWrite && <div className="actions">
                     {r.status === 'Requested' && a.decideReturn && <><ActionButton primary run={async () => done(await ordersApi.act(o.id, `returns/${r.id}/approve`, { version: o.version }), 'Return approved.')} onError={fail}>Approve return</ActionButton><Button onClick={() => setDlg({ k: 'rreject', id: r.id })}>Reject return</Button></>}
+                    {r.status === 'Approved' && !o.returnShipments?.some((x) => x.returnId === r.id) && <Button onClick={() => setDlg({ k: 'retlabel', id: r.id })}>Send a prepaid return label</Button>}
                     {r.status === 'Approved' && a.receiveReturn && <Button variant="primary" onClick={() => setDlg({ k: 'rreceive', id: r.id })}>Mark as received</Button>}
                     {r.status === 'Received' && a.refund && <Button variant="primary" onClick={() => setDlg({ k: 'refund', returnId: r.id })}>Refund this return</Button>}
                   </div>}
@@ -211,7 +222,6 @@ export default function OrderDetailPage() {
                 {a.refund && <Button onClick={() => setDlg({ k: 'refund' })}>Issue a refund…</Button>}
                 {!a.refund && o.status !== 'Cancelled' && o.money.refundableCents > 0 && a.refundLimitCents == null && !o.lines.some((l) => l.shippedQty > 0) && <p className="sub">Refunds open once something has shipped. Before that, cancel the order.</p>}
                 {!a.refund && a.refundLimitCents === 0 && <p className="sub">Only an Owner or Admin can refund.</p>}
-                <p className="sub"><PIcon name="box" /> Shipping labels are coming later.</p>
               </div>
             </section>
           )}
@@ -227,6 +237,7 @@ export default function OrderDetailPage() {
       {dlg?.k === 'creq' && <CancelRequestDialog reload={load} order={o} request={o.cancellations.find((c) => c.id === dlg.id)!} approve={dlg.approve} onClose={closeDlg} onDone={(n) => done(n, dlg.approve ? 'Order cancelled.' : 'Request declined.')} />}
       {dlg?.k === 'rreject' && <ReturnRejectDialog reload={load} order={o} ret={o.returns.find((r) => r.id === dlg.id)!} onClose={closeDlg} onDone={(n) => done(n, 'Return rejected.')} />}
       {dlg?.k === 'rreceive' && <ReturnReceiveDialog reload={load} order={o} ret={o.returns.find((r) => r.id === dlg.id)!} onClose={closeDlg} onDone={(n) => done(n, 'Return marked as received.')} />}
+      {dlg?.k === 'retlabel' && <ReturnLabelDialog order={o} returnId={dlg.id} onClose={closeDlg} onDone={() => { void load() }} />}
       {dlg?.k === 'deliver' && <ConfirmDialog title="Mark as delivered?" confirm="Yes, it was delivered" onClose={closeDlg} body={<p>Only do this if the carrier hasn’t confirmed the delivery yet and you know the parcel arrived.</p>} onConfirm={async () => done(await ordersApi.act(o.id, 'deliver', { version: o.version }), 'Marked as delivered.')} />}
       {dlg?.k === 'slip' && <PackingSlips slips={[dlg.slip]} onClose={closeDlg} />}
     </main>
