@@ -225,7 +225,7 @@ Code: `src/shipping/**` (`api.ts`, `ShippingSettings.tsx`, `BuyLabel.tsx`, `Orde
 - Server error details for labels are read from `error.errors` as an object (`errDetail`), never through `fieldErrors()` (which expects arrays).
 
 ### Tests
-- Vitest `src/shipping/shipping.test.tsx` (25): settings (CRUD, validation, read-only role, handling save, profile cents), buy flow (recommended, idempotent double click, expiry, unverified address, customs, no address, weight), tracking timeline, void, delivery problem, return label, return arrival, orders list (chips, filter, tiles, bulk, Viewer).
+- Vitest `src/shipping/shipping.test.tsx` (38): settings (CRUD, validation, read-only role, handling save, profile cents), buy flow (recommended, idempotent double click, expiry, unverified address, customs, no address, weight), tracking timeline, void, delivery problem, return label, return arrival, orders list (chips, filter, tiles, bulk, Viewer).
 - Playwright against the REAL backend + fake provider with axe on every screen: `e2e/shipping.spec.ts` (6): configure settings, buy a label, print, tracking in transit then delivered, void with refund confirmation, bulk labels, return label on an approved return to arrival, delivery problem on the order/list/dashboard, a Viewer sees no purchase buttons. `e2e/shippingKit.ts` has the helpers; the backend's dev helpers (`/api/dev/shipping/tracking`, `/api/dev/shipping/run-maintenance`) push signed fake webhooks through the real pipeline. `playwright.config.ts` sets `Shipping__RefundCheckMinutes=0` so the fake provider confirms a refund on the next maintenance run.
 - Screenshots: `SHOTS_DIR=docs/screenshots npx playwright test e2e/shipping-shots.spec.ts` (desktop and mobile).
 
