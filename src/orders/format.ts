@@ -36,6 +36,8 @@ const REASONS: Record<string, string> = {
 export const reasonLabel = (r: string) => REASONS[r] ?? r
 
 const EVENT: Record<string, string> = {
+  'shipment.exception': 'Delivery problem reported', 'shipment.voided': 'Shipping label voided', 'shipment.attention_dismissed': 'Delivery problem marked as handled',
+  'return.label_created': 'Prepaid return label sent', 'return.label_voided': 'Return label voided', 'return.arrived': 'Return parcel arrived', 'label.voided': 'Shipping label refunded',
   'order.placed': 'Order placed', 'order.accepted': 'Accepted', 'order.held': 'Put on hold', 'order.resumed': 'Hold removed', 'order.shipped': 'Shipped', 'order.partially_shipped': 'Partly shipped',
   'order.tracking_updated': 'Tracking updated', 'order.delivered': 'Delivered', 'shipment.delivered': 'Shipment delivered', 'order.cancelled': 'Cancelled', 'order.remainder_cancelled': 'Unshipped items cancelled',
   'order.refunded': 'Refund issued', 'order.completed': 'Completed', 'order.oversold': 'Not enough stock', 'order.pii_redacted': 'Buyer details removed', 'cancellation.requested': 'Buyer asked to cancel',
