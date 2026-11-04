@@ -1,5 +1,5 @@
 export interface AccountItem { sellerId: string; vendorName: string; role: Role; accountStatus: string; brandCount: number }
-export type Role = 'Owner' | 'Admin' | 'Manager' | 'Viewer'
+export type Role = 'Owner' | 'Admin' | 'Manager' | 'Viewer' | 'Driver'
 
 export interface LoginResponse {
   tokenType: string
