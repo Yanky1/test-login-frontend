@@ -132,11 +132,17 @@ describe('review fixes', () => {
     expect(screen.getByRole('tab', { name: 'Bookings' })).toHaveAttribute('aria-controls', screen.getByRole('tabpanel').id)
   })
 
-  it('the whole app has exactly one skip link on an admin page', async () => {
+  it('the whole app has exactly one skip link on the admin login page and once the shell is up', async () => {
     mockSignIn('SuperAdmin')
-    adminToken.set('staff-tok')
+    const user = userEvent.setup()
     render(<MemoryRouter initialEntries={['/admin/login']}><App /></MemoryRouter>)
     await screen.findByRole('heading', { name: 'Staff sign-in' })
+    expect(screen.getAllByRole('link', { name: 'Skip to content' })).toHaveLength(1)
+    await user.type(screen.getByLabelText('Email'), 'staff@example.com'); await user.type(screen.getByLabelText('Password'), 'Some-Passw0rd!x')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.type(await screen.findByLabelText('Authenticator code'), '123456')
+    await user.click(screen.getByRole('button', { name: 'Verify and sign in' }))
+    await screen.findByRole('navigation', { name: 'Staff areas' })
     expect(screen.getAllByRole('link', { name: 'Skip to content' })).toHaveLength(1)
   })
 })
