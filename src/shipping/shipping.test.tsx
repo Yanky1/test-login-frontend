@@ -7,6 +7,7 @@ import OrderDetailPage from '../orders/OrderDetail'
 import OrdersListPage from '../orders/OrdersList'
 import { ACTIONS, API, item, mockOrder, mount, order } from '../orders/testkit'
 import ShippingSettings from './ShippingSettings'
+import { BulkLabelsDialog, ReturnLabelDialog } from './OrderShipping'
 import { dayZ, dtZ, summaryLabel, summaryTone, trackLabel, trackTone } from './format'
 import { errDetail, labelExt, printLabel, shippingApi, type Label, type OrderTracking, type Quote, type ShippingConfig } from './api'
 
@@ -467,5 +468,53 @@ describe('Review fixes', () => {
     mount(<OrdersListPage />, '/orders', '/orders?tab=all&tracking=exception')
     expect(await screen.findByRole('heading', { name: 'No orders match' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
+  })
+})
+
+describe('Review fixes, round 2', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('placed, refund, timeline, deliver-by and note times on the order page use the account zone', async () => {
+    mockOrder(order({ accountTimeZone: 'Asia/Tokyo', placedAt: '2026-11-04T20:30:00Z', deliverByAt: '2026-11-06T20:30:00Z' }))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    expect(await screen.findByText(/Placed Nov 5, 2026/)).toBeInTheDocument()     // 20:30 UTC is already the 5th in Tokyo
+    expect(screen.getByText(/deliver by Nov 7, 2026/)).toBeInTheDocument()
+  })
+
+  it('the return label dialog moves focus to its confirmation after buying', async () => {
+    server.use(http.get(`${API}/seller/shipping/settings`, () => HttpResponse.json(cfg())),
+      http.post(`${API}/seller/shipping/orders/:id/returns/:rid/label`, () => HttpResponse.json({ label: label({ kind: 'return', id: 'lb2', returnId: 'r1', costCents: 460 }) }, { status: 201 })))
+    mount(<ReturnLabelDialog order={order({ status: 'ReturnApproved' })} returnId="r1" onClose={() => undefined} onDone={() => undefined} />, '/x')
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(await within(dlg).findByRole('button', { name: 'Buy and send the return label' }))
+    const done = (await within(dlg).findByText(/Return label bought for/)).closest('[tabindex="-1"]') as HTMLElement
+    await waitFor(() => expect(done).toHaveFocus())
+  })
+
+  it('the bulk dialog moves focus to its results after buying', async () => {
+    server.use(http.get(`${API}/seller/shipping/settings`, () => HttpResponse.json(cfg())),
+      http.post(`${API}/seller/shipping/labels/bulk`, () => HttpResponse.json({ bought: 1, total: 1, results: [{ orderId: 'o1', number: 'SO-2026-000001', ok: true, code: 'ok', message: '' }] })))
+    mount(<BulkLabelsDialog orderIds={['o1']} onClose={() => undefined} onDone={() => undefined} />, '/x')
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(await within(dlg).findByRole('button', { name: 'Buy 1 label' }))
+    const done = (await within(dlg).findByText('1 of 1 label bought.')).closest('[tabindex="-1"]') as HTMLElement
+    await waitFor(() => expect(done).toHaveFocus())
+  })
+
+  it('the void confirmation is a destructive action', async () => {
+    mockOrder(order({ status: 'Shipped', actions: { ...ACTIONS, editTracking: true }, shipments: [{ id: 's1', carrier: 'USPS', service: null, trackingNumber: '9400111899223100001', trackingUrl: null, shippedAt: '2026-11-02T10:00:00Z', deliveredAt: null, lines: [{ lineId: 'l1', quantity: 1 }] }] }))
+    server.use(http.get(`${API}/seller/shipping/orders/:id/tracking`, () => HttpResponse.json(tracking({ labels: [label()], shipments: [{ id: 's1', method: 'carrier', carrier: 'USPS', service: null, trackingNumber: '9400111899223100001', trackingUrl: null, status: 'in_transit', statusLabel: 'In transit', statusDetail: null, eta: null, deliveredAt: null, live: true, labelId: 'lb1', events: [] }] }))))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: /Void label/ }))
+    expect(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Yes, void the label' })).toHaveClass('danger')
+  })
+
+  it('a blocked print window shows the "Try Download instead" message on screen', async () => {
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    mockOrder(order({ status: 'Shipped', actions: { ...ACTIONS, editTracking: true }, shipments: [{ id: 's1', carrier: 'USPS', service: null, trackingNumber: '9400111899223100001', trackingUrl: null, shippedAt: '2026-11-02T10:00:00Z', deliveredAt: null, lines: [{ lineId: 'l1', quantity: 1 }] }] }))
+    server.use(http.get(`${API}/seller/shipping/orders/:id/tracking`, () => HttpResponse.json(tracking({ labels: [label()], shipments: [{ id: 's1', method: 'carrier', carrier: 'USPS', service: null, trackingNumber: '9400111899223100001', trackingUrl: null, status: 'in_transit', statusLabel: 'In transit', statusDetail: null, eta: null, deliveredAt: null, live: true, labelId: 'lb1', events: [] }] }))))
+    mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Print label' }))
+    expect(await screen.findByText('Could not open the label. Try Download instead.')).toBeInTheDocument()
   })
 })
