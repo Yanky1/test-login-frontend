@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { server } from '../test/server'
 import AvailabilityPage from './AvailabilityPage'
 import BookingDetailPage from './BookingDetailPage'
+import CalendarPage from './CalendarPage'
 import QuotePage, { Composer } from './QuotePage'
 import { ServiceProviders } from './ServiceSections'
 import type { QuoteDto } from './types'
@@ -152,7 +153,8 @@ describe('server-side slot picker and provider-zone times', () => {
     fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '2030-01-10' } })
     const group = await dlg.findByRole('group', { name: 'Free start times on this day' })
     expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['09:00', '13:30'])   // 14:00Z and 18:30Z in New York
-    expect(slotQueries.at(-1)).toContain('location=customer'); expect(slotQueries.at(-1)).toContain('postalCode=11201'); expect(slotQueries.at(-1)).toContain('minutes=120')
+    // the server works the move out from the booking itself (duration with add-ons, location, its own slot free): the page sends only the booking
+    expect(slotQueries.at(-1)).toContain('bookingId=bk1'); expect(slotQueries.at(-1)).not.toMatch(/minutes=|location=|postalCode=|providerId=/)
     await userEvent.click(within(group).getByRole('button', { name: '13:30' }))
     expect(within(group).getByRole('button', { name: '13:30' })).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(dlg.getByRole('button', { name: 'Move booking' }))
@@ -187,5 +189,60 @@ describe('focus after an action', () => {
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
     await waitFor(() => expect(document.activeElement && document.activeElement !== document.body).toBe(true))
     expect(document.activeElement?.id === 'page-title' || document.activeElement?.closest('[aria-label="Actions"]') !== null).toBe(true)
+  })
+})
+
+describe('slot picker details', () => {
+  it('shows a hint instead of "Looking for free times" when the date is empty or invalid', async () => {
+    mockSchedule({ booking: booking({ status: 'Confirmed', actions: { ...noActions, reschedule: true } }) })
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Reschedule…' }))
+    const dlg = within(await screen.findByRole('dialog', { name: 'Reschedule booking' }))
+    fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '' } })
+    expect(await dlg.findByText('Choose a date to see the free times.')).toBeInTheDocument()
+    expect(dlg.queryByText(/Looking for free times/)).toBeNull()
+  })
+  it('tells the two 01:30 slots of the day the clocks go back apart and sends the exact instant that was picked', async () => {
+    const calls = mockSchedule({ booking: booking({ status: 'Confirmed', actions: { ...noActions, reschedule: true } }) })
+    server.use(http.get(`${API}/seller/services/:id/slots`, () => HttpResponse.json({ durationMinutes: 120, slots: [
+      { startAt: '2026-11-01T05:30:00Z', endAt: '2026-11-01T07:30:00Z', providerIds: ['m-owner'] },   // 01:30 EDT
+      { startAt: '2026-11-01T06:30:00Z', endAt: '2026-11-01T08:30:00Z', providerIds: ['m-owner'] },   // 01:30 EST, an hour later
+      { startAt: '2026-11-01T15:00:00Z', endAt: '2026-11-01T17:00:00Z', providerIds: ['m-owner'] },   // 10:00 EST
+    ] })))
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Reschedule…' }))
+    const dlg = within(await screen.findByRole('dialog', { name: 'Reschedule booking' }))
+    fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '2026-11-01' } })
+    const group = await dlg.findByRole('group', { name: 'Free start times on this day' })
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['01:30 EDT', '01:30 EST', '10:00'])
+    await userEvent.click(within(group).getByRole('button', { name: '01:30 EDT' }))   // the FIRST 01:30; a bare "01:30" would be read as the second
+    expect(within(group).getByRole('button', { name: '01:30 EDT' })).toHaveAttribute('aria-pressed', 'true'); expect(within(group).getByRole('button', { name: '01:30 EST' })).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(dlg.getByRole('button', { name: 'Move booking' }))
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/reschedule'))).toBe(true))
+    expect((calls.find((c) => c.url.endsWith('/reschedule'))!.body as { start: string }).start).toBe('2026-11-01T05:30:00.000Z')
+  })
+  it('typing a time after picking a slot drops the picked instant', async () => {
+    const calls = mockSchedule({ booking: booking({ status: 'Confirmed', actions: { ...noActions, reschedule: true } }) })
+    mount(<BookingDetailPage />, '/bookings/:id', '/bookings/bk1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Reschedule…' }))
+    const dlg = within(await screen.findByRole('dialog', { name: 'Reschedule booking' }))
+    fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '2030-01-10' } })
+    await userEvent.click(await dlg.findByRole('button', { name: '09:00' }))
+    fireEvent.change(dlg.getByLabelText('Start time'), { target: { value: '11:15' } })
+    expect(dlg.getByRole('button', { name: '09:00' })).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(dlg.getByRole('button', { name: 'Move booking' }))
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/reschedule'))).toBe(true))
+    expect((calls.find((c) => c.url.endsWith('/reschedule'))!.body as { start: string }).start).toBe('2030-01-10T16:15:00.000Z')   // 11:15 EST
+  })
+  it('offers free times for a customer-location booking from the calendar too (the server works from the booking, no postal code needed here)', async () => {
+    slotQueries.length = 0
+    mockSchedule()
+    mount(<CalendarPage />, '/calendar', '/calendar?view=agenda&date=2030-01-09')
+    await userEvent.click(await screen.findByRole('button', { name: /Home cleaning/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Reschedule…' }))
+    const dlg = within(await screen.findByRole('dialog', { name: 'Reschedule booking' }))
+    fireEvent.change(dlg.getByLabelText('Date'), { target: { value: '2030-01-10' } })
+    expect(await dlg.findByRole('group', { name: 'Free start times on this day' })).toBeInTheDocument()
+    expect(slotQueries.at(-1)).toContain('bookingId=bk1')
   })
 })
