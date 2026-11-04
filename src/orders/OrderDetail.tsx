@@ -7,7 +7,7 @@ import { AreaField, PIcon, SelectField } from '../products/ui'
 import { useCanWrite } from '../products/usePermissions'
 import { ordersApi, messagesApi, type MessageTemplate, type OrderDetail, type PackingSlip } from './api'
 import { CancelDialog, CancelRequestDialog, ConfirmDialog, HoldDialog, RefundDialog, ReturnReceiveDialog, ReturnRejectDialog, ShipDialog, TrackingDialog } from './Dialogs'
-import { dt, eventLabel, money, reasonLabel, shipByText, statusLabel, statusTone } from './format'
+import { eventLabel, money, reasonLabel, shipByText, statusLabel, statusTone } from './format'
 import { useLiveReload } from './live'
 import { PackingSlips } from './PackingSlips'
 import LocalTracking from '../delivery/LocalTracking'
@@ -71,7 +71,7 @@ export default function OrderDetailPage() {
       <header className="order-head">
         <div>
           <h1 id="page-title" tabIndex={-1}>Order {o.number}</h1>
-          <p className="sub">Placed {dt(o.placedAt)} · {o.brandName} · Solvelt order {o.marketplaceOrderId}</p>
+          <p className="sub">Placed {dtZ(o.placedAt, o.accountTimeZone)} · {o.brandName} · Solvelt order {o.marketplaceOrderId}</p>
           <div className="chips-row">
             <span className={`chip ${statusTone(o.status)}`}>{statusLabel(o.status, o.money)}</span>
             {o.late && <span className="chip bad">Late</span>}
@@ -167,7 +167,7 @@ export default function OrderDetailPage() {
 
           {o.refunds.length > 0 && (
             <section className="pcard" aria-labelledby="ref-h"><h2 id="ref-h">Refunds</h2>
-              <ul className="plain">{o.refunds.map((r) => <li key={r.id}><strong>{money(r.amountCents, o.currency)}</strong> · {reasonLabel(r.reason)} · {dt(r.createdAt)}{r.shippingCents > 0 && <span className="sub"> (includes {money(r.shippingCents, o.currency)} shipping)</span>}</li>)}</ul>
+              <ul className="plain">{o.refunds.map((r) => <li key={r.id}><strong>{money(r.amountCents, o.currency)}</strong> · {reasonLabel(r.reason)} · {dtZ(r.createdAt, o.accountTimeZone)}{r.shippingCents > 0 && <span className="sub"> (includes {money(r.shippingCents, o.currency)} shipping)</span>}</li>)}</ul>
             </section>
           )}
 
@@ -175,7 +175,7 @@ export default function OrderDetailPage() {
 
           <section className="pcard" aria-labelledby="tl-h">
             <h2 id="tl-h">Timeline</h2>
-            <ol className="timeline">{[...o.timeline].reverse().map((e) => <li key={e.id}><span className="t-dot" aria-hidden="true" /><div><strong>{eventLabel(e.type)}</strong>{e.text && <span className="sub"> – {e.text}</span>}<div className="sub">{dt(e.at)} · {e.actor === 'Seller' ? 'You' : e.actor === 'Buyer' ? 'Buyer' : 'Solvelt'}</div></div></li>)}</ol>
+            <ol className="timeline">{[...o.timeline].reverse().map((e) => <li key={e.id}><span className="t-dot" aria-hidden="true" /><div><strong>{eventLabel(e.type)}</strong>{e.text && <span className="sub"> – {e.text}</span>}<div className="sub">{dtZ(e.at, o.accountTimeZone)} · {e.actor === 'Seller' ? 'You' : e.actor === 'Buyer' ? 'Buyer' : 'Solvelt'}</div></div></li>)}</ol>
           </section>
         </div>
 
@@ -201,7 +201,7 @@ export default function OrderDetailPage() {
               <>
                 <address>{o.shippingAddress.name}<br />{o.shippingAddress.line1}<br />{o.shippingAddress.line2 && <>{o.shippingAddress.line2}<br /></>}{o.shippingAddress.city}{o.shippingAddress.region ? `, ${o.shippingAddress.region}` : ''} {o.shippingAddress.postalCode}<br />{o.shippingAddress.country}</address>
                 <CopyButton label="the shipping address" text={[o.shippingAddress.name, o.shippingAddress.line1, o.shippingAddress.line2, `${o.shippingAddress.city}${o.shippingAddress.region ? ', ' + o.shippingAddress.region : ''} ${o.shippingAddress.postalCode}`, o.shippingAddress.country].filter(Boolean).join('\n')} />
-                <p className="sub">{o.shippingMethod} ({o.shippingSpeed}) · deliver by {dt(o.deliverByAt)}</p>
+                <p className="sub">{o.shippingMethod} ({o.shippingSpeed}) · deliver by {dtZ(o.deliverByAt, o.accountTimeZone)}</p>
                 {o.buyer.phone && <p className="sub">Phone for the carrier: {o.buyer.phone}</p>}
                 {o.giftMessage && <p className="gift-note"><strong>Gift message:</strong> {o.giftMessage}</p>}
               </>
@@ -255,7 +255,7 @@ function Notes({ order, canWrite, onChange }: { order: OrderDetail; canWrite: bo
     <section className="pcard" aria-labelledby="notes-h">
       <h2 id="notes-h">Internal notes</h2>
       <p className="sub">Only your team sees these.</p>
-      <ul className="plain">{order.notes.map((n) => <li key={n.id}><p>{n.text}</p><p className="sub">{n.author} · {dt(n.createdAt)}</p></li>)}</ul>
+      <ul className="plain">{order.notes.map((n) => <li key={n.id}><p>{n.text}</p><p className="sub">{n.author} · {dtZ(n.createdAt, order.accountTimeZone)}</p></li>)}</ul>
       {canWrite && (
         <form onSubmit={async (e) => { e.preventDefault(); if (!text.trim()) return; setBusy(true); setErr(''); try { onChange(await ordersApi.act(order.id, 'notes', { text: text.trim() })); setText('') } catch (x) { setErr(x instanceof ApiError ? x.message2 : 'Could not save the note.') } finally { setBusy(false) } }}>
           <AreaField label="Add a note" rows={2} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} error={err} />
