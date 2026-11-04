@@ -216,10 +216,13 @@ function Disputes({ owner }: { owner: boolean }) {
   if (err) return <Alert>{err}</Alert>
   if (!d) return <Loading what="disputes" />
   if (d.items.length === 0) return <p className="sub">No disputes. If a buyer disputes a payment, it shows up here with the date your evidence is due.</p>
+  const respondable = d.items.some((r) => r.canRespond)   // an inquiry under review, or a closed dispute, has nothing left to answer
   return (
     <>
-      <p>Respond to disputes in your Stripe Express dashboard before the evidence deadline.</p>
-      {owner && <div className="btnrow"><Button loading={busy} onClick={() => void open()}>Respond in Stripe</Button></div>}
+      {respondable
+        ? <p>Respond to disputes in your Stripe Express dashboard before the evidence deadline.</p>
+        : <p className="sub">No dispute needs a response right now. Disputes under review and closed ones stay listed for your records.</p>}
+      {owner && respondable && <div className="btnrow"><Button loading={busy} onClick={() => void open()}>Respond in Stripe</Button></div>}
       <div className="tablewrap"><table className="ptable"><caption className="sr-only">Disputes</caption>
         <thead><tr><th scope="col">Opened</th><th scope="col">Order / booking</th><th scope="col" className="num">Amount</th><th scope="col">Status</th><th scope="col">Evidence due</th></tr></thead>
         <tbody>{d.items.map((r) => (
