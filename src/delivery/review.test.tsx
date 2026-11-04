@@ -353,7 +353,7 @@ describe('small items', () => {
       http.get(`${API}/account/sessions`, () => HttpResponse.json([])))
     mountAs('Driver', <SettingsPage />, '/settings/team')
     expect(await screen.findByRole('link', { name: 'Security' })).toBeInTheDocument()
-    for (const n of ['Profile', 'Team', 'Brands', 'Notifications', 'Availability', 'Local delivery']) expect(screen.queryByRole('link', { name: n })).not.toBeInTheDocument()
+    for (const n of ['Profile', 'Team', 'Brands', 'Shipping', 'Notifications', 'Availability', 'Local delivery']) expect(screen.queryByRole('link', { name: n })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to the driver app' })).toHaveAttribute('href', '/driver')
   })
 
