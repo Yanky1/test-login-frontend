@@ -6,6 +6,7 @@ import { fromCents, money, toCents } from '../orders/format'
 import { Dialog, PIcon, SelectField, TextField } from '../products/ui'
 import { shippingApi, type PackagePreset, type Profile, type ScopeSettings, type ShipAddress, type ShippingConfig, type Speed, type Zone } from './api'
 import { SPEED_LABEL, grams } from './format'
+import '../products/products.css'   // dialog sizing/scrolling (.pdialog) and field grids; only loaded with the product routes otherwise
 import './shipping.css'
 
 const msg = (e: unknown, fallback = 'Something went wrong. Try again.') => (e instanceof ApiError ? Object.values(e.fieldErrors())[0] ?? e.message2 : fallback)
