@@ -475,10 +475,19 @@ describe('Review fixes, round 2', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
   it('placed, refund, timeline, deliver-by and note times on the order page use the account zone', async () => {
-    mockOrder(order({ accountTimeZone: 'Asia/Tokyo', placedAt: '2026-11-04T20:30:00Z', deliverByAt: '2026-11-06T20:30:00Z' }))
+    const at = '2026-11-04T20:30:00Z'                                              // 20:30 UTC is already the 5th in Tokyo
+    mockOrder(order({
+      accountTimeZone: 'Asia/Tokyo', placedAt: at, deliverByAt: '2026-11-06T20:30:00Z',
+      refunds: [{ id: 'rf1', returnId: null, amountCents: 500, shippingCents: 0, reason: 'goodwill', note: null, createdAt: at, lines: [] }],
+      timeline: [{ id: 'e1', type: 'order.placed', actor: 'Buyer', text: 'Order placed', at }],
+      notes: [{ id: 'n1', text: 'Call the buyer', author: 'me@x.com', createdAt: at }],
+    }))
     mount(<OrderDetailPage />, '/orders/:id', '/orders/o1')
-    expect(await screen.findByText(/Placed Nov 5, 2026/)).toBeInTheDocument()     // 20:30 UTC is already the 5th in Tokyo
+    expect(await screen.findByText(/Placed Nov 5, 2026/)).toBeInTheDocument()
     expect(screen.getByText(/deliver by Nov 7, 2026/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Refunds' }).closest('section')).toHaveTextContent(/Nov 5, 2026/)      // the refund date
+    expect(screen.getByText(/Nov 5, 2026, .* · Buyer/)).toBeInTheDocument()                                          // the timeline entry
+    expect(screen.getByText(/me@x\.com · Nov 5, 2026/)).toBeInTheDocument()                                          // the note
   })
 
   it('the return label dialog moves focus to its confirmation after buying', async () => {
