@@ -1,6 +1,6 @@
 import { test, expect } from './helpers'
 import type { Page } from '@playwright/test'
-import { bearer, buyerEvent, orderAction, product, seller, signIn, simulate } from './ordersKit'
+import { bearer, buyerEvent, orderAction, product, seller, signIn, simulate, upsNumber } from './ordersKit'
 
 const SHOTS = process.env.SHOTS_DIR
 const DARK = process.env.SHOT_THEME === 'dark' // SHOT_THEME=dark captures the dark variants (files get a -dark suffix)
@@ -17,7 +17,7 @@ test('screenshots of the orders and messages pages (desktop + mobile)', async ({
   const b = (await simulate(request, s.token, 'multi'))[0]            // part shipped, with a message and a cancel request
   await orderAction(request, s.token, b.id, 'accept')
   const detail = await (await request.get(`/api/v1/seller/orders/${b.id}`, { headers: bearer(s.token) })).json()
-  await orderAction(request, s.token, b.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784', lines: [{ lineId: detail.lines[0].id, quantity: 1 }] })
+  await orderAction(request, s.token, b.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber(), lines: [{ lineId: detail.lines[0].id, quantity: 1 }] })
   await buyerEvent(request, s.token, b.id, 'message', { text: 'Hi! Can you ship before Friday?' })
   const c = (await simulate(request, s.token, 'single'))[0]
   await buyerEvent(request, s.token, c.id, 'cancel_request')

@@ -1,6 +1,6 @@
 import { test, expect } from './helpers'
 import type { Page } from '@playwright/test'
-import { bearer, orderAction, product, seller, signIn, simulate } from './ordersKit'
+import { bearer, orderAction, product, seller, signIn, simulate, upsNumber } from './ordersKit'
 
 const SHOTS = process.env.SHOTS_DIR
 const DARK = process.env.SHOT_THEME === 'dark' // SHOT_THEME=dark captures the dark variants (files get a -dark suffix)
@@ -15,7 +15,7 @@ test('screenshots of the Payments pages (desktop + mobile)', async ({ page, requ
   await product(request, s.token, 'Speckled stoneware mug')
   const deliver = async () => {
     const [o] = await simulate(request, s.token, 'single')
-    await orderAction(request, s.token, o.id, 'accept'); await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' }); await orderAction(request, s.token, o.id, 'deliver')
+    await orderAction(request, s.token, o.id, 'accept'); await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber() }); await orderAction(request, s.token, o.id, 'deliver')
     expect((await request.post(`/api/dev/payments/capture/${o.id}`)).ok()).toBeTruthy()
     return o
   }
