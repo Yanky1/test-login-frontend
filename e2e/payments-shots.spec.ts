@@ -2,6 +2,7 @@ import { test, expect } from './helpers'
 import type { Page } from '@playwright/test'
 import { bearer, orderAction, product, seller, signIn, simulate } from './ordersKit'
 
+const ups = () => '1Z999AA1' + String(Math.floor(Math.random() * 1e10)).padStart(10, '0')   // a tracking number can only be used once
 const SHOTS = process.env.SHOTS_DIR
 const DARK = process.env.SHOT_THEME === 'dark' // SHOT_THEME=dark captures the dark variants (files get a -dark suffix)
  // set to capture the screenshots, e.g. SHOTS_DIR=docs/screenshots
@@ -15,7 +16,7 @@ test('screenshots of the Payments pages (desktop + mobile)', async ({ page, requ
   await product(request, s.token, 'Speckled stoneware mug')
   const deliver = async () => {
     const [o] = await simulate(request, s.token, 'single')
-    await orderAction(request, s.token, o.id, 'accept'); await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' }); await orderAction(request, s.token, o.id, 'deliver')
+    await orderAction(request, s.token, o.id, 'accept'); await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: ups() }); await orderAction(request, s.token, o.id, 'deliver')
     expect((await request.post(`/api/dev/payments/capture/${o.id}`)).ok()).toBeTruthy()
     return o
   }

@@ -1,6 +1,8 @@
 import { expect, expectNoSeriousA11y, test } from './helpers'
 import { bearer, mgr, orderAction, product, seller, signIn, simulate } from './ordersKit'
 
+/** A fresh, valid UPS tracking number per shipment (a number can only be used once). */
+const ups = () => '1Z999AA1' + String(Math.floor(Math.random() * 1e10)).padStart(10, '0')
 const money = (c: number) => (c < 0 ? '-' : '') + '$' + (Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 test('payments: onboarding, order -> delivery -> release -> transfer, refund reduces the balance, statement CSV (axe on every screen)', async ({ page, request }) => {
@@ -9,7 +11,7 @@ test('payments: onboarding, order -> delivery -> release -> transfer, refund red
   await product(request, s.token, 'Payments mug')
   const [o] = await simulate(request, s.token, 'single')
   await orderAction(request, s.token, o.id, 'accept')
-  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' })
+  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: ups() })
   await orderAction(request, s.token, o.id, 'deliver')
   const net = ((await (await request.get(`/api/v1/seller/orders/${o.id}`, { headers: bearer(s.token) })).json()).money.netCents) as number
   expect(net).toBeGreaterThan(0)
@@ -85,6 +87,9 @@ test('payments: a Manager sees no Payments in the menu and the API refuses them;
   await expect(page.getByRole('navigation', { name: 'Seller' }).getByRole('link', { name: 'Payments' })).toHaveCount(0)
   const mt = (await (await request.post('/api/v1/auth/login', { data: { email: manager, password: 'Tr1cky-Horse-Battery!' } })).json()).accessToken as string
   expect((await request.get('/api/v1/seller/payments/summary', { headers: bearer(mt) })).status()).toBe(403)
+  await page.goto('/payments')                                   // typing the address does not show the page shell either
+  await expect(page).not.toHaveURL(/\/payments/)
+  await expect(page.getByRole('heading', { name: 'Payments', level: 1 })).toHaveCount(0)
 
   await page.context().clearCookies()
   await signIn(page, admin, '/payments')
