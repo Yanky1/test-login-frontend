@@ -27,6 +27,9 @@ lockout (2 tries left → last try + captcha → locked), forgot/reset, passkey 
 ## Seller orders and messages
 Sidebar entries **Orders** and **Messages** (with badges): `/orders` (tabs, search, filters, bulk accept / packing slips / CSV tracking upload / export, at-a-glance tiles), `/orders/:id` (ship in full or part, tracking, cancel, refund, returns, notes, buyer messages), `/messages` (one inbox for order and pre-sale questions, saved replies, attachments, assignment, internal notes), Settings → Notifications, and `/dev/simulator` (dev server only: creates test orders and simulates buyer events). Live updates use one fetch-based event stream with a 30 s polling fallback. Backend contract: `docs/ORDERS.md` in the backend repo; design notes: `docs/DESIGN.md`. E2E needs the backend checkout (`BACKEND_DIR`, default `../Yanky1-test-login-backend`) and runs it in the Testing environment, where the simulator and the dev sink exist.
 
+## Shipping & tracking
+Settings -> Shipping (addresses, packages, rates, handling time, return address), a **Buy label** tab in the ship dialog (live rates, recommended service, print, void), bulk labels, tracking timeline and status chips on orders, prepaid return labels, and dashboard tiles (`/settings/shipping`, `/orders`). Backend contract and flows: backend `docs/SHIPPING.md`; design notes: `docs/DESIGN.md`.
+
 ## Seller payments
 Sidebar **Payments** (Owner/Admin): balances, ledger, transfers and payouts, monthly statements (CSV), disputes, and Stripe Express payout setup (`/payments`). Backend contract and money flow: backend `docs/PAYMENTS.md`; design notes: `docs/DESIGN.md`.
 
