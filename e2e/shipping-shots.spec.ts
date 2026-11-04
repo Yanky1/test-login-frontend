@@ -55,8 +55,9 @@ test('screenshots of the shipping pages (desktop + mobile)', async ({ page, requ
   for (const [view, size] of VIEWS) {
     await page.setViewportSize(size)
     await acceptedOrder(request, s.token); await acceptedOrder(request, s.token)
-    await page.goto('/orders'); await page.locator('table input[type=checkbox]').first().check(); await page.locator('table input[type=checkbox]').nth(1).check().catch(() => undefined)
-    if (view === 'mobile') { await page.locator('.pcards input[type=checkbox]').first().check(); await page.locator('.pcards input[type=checkbox]').nth(1).check() }
+    await page.goto('/orders')
+    const rows = view === 'mobile' ? page.locator('.pcards input[type=checkbox]') : page.locator('table tbody input[type=checkbox]')
+    await expect(rows.nth(1)).toBeVisible(); await rows.nth(0).check(); await rows.nth(1).check()
     await page.getByRole('button', { name: 'Buy labels' }).click()
     const d = page.getByRole('dialog', { name: /^Buy labels for/ }); await d.getByLabel(/Weight of the items/).fill('400'); await shot(page, 'shipping-bulk-labels', view)
     await d.getByRole('button', { name: /^Buy \d+ labels?$/ }).click(); await expect(d.getByText(/labels? bought\./)).toBeVisible(); await shot(page, 'shipping-bulk-labels-done', view)
@@ -65,11 +66,11 @@ test('screenshots of the shipping pages (desktop + mobile)', async ({ page, requ
   const [ro] = await simulate(request, s.token, 'multi')
   await orderAction(request, s.token, ro.id, 'accept'); await orderAction(request, s.token, ro.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' }); await orderAction(request, s.token, ro.id, 'deliver'); await buyerEvent(request, s.token, ro.id, 'return_request')
   await page.setViewportSize(VIEWS[0][1]); await page.goto(`/orders/${ro.id}`); await page.getByRole('button', { name: 'Approve return' }).click(); await expect(page.getByText('Return approved.')).toBeVisible()
-  for (const [view, size] of VIEWS) {
+  for (const [view, size] of [...VIEWS].reverse()) {   // mobile first: buying the label (desktop) removes the button
     await page.setViewportSize(size); await page.goto(`/orders/${ro.id}`)
     await page.getByRole('button', { name: 'Send a prepaid return label' }).click(); const d = page.getByRole('dialog', { name: 'Send a prepaid return label' })
     await d.getByLabel(/Weight of the items/).fill('450'); await shot(page, 'shipping-return-label', view)
-    if (view === 'mobile') { await page.keyboard.press('Escape'); break }
+    if (view === 'mobile') { await page.keyboard.press('Escape'); continue }
     await d.getByRole('button', { name: 'Buy and send the return label' }).click(); await expect(d.getByText(/Return label bought for/)).toBeVisible(); await d.getByRole('button', { name: 'Done' }).click()
   }
 })
