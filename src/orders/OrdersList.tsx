@@ -141,7 +141,7 @@ export default function OrdersListPage() {
         <div className="pempty"><PIcon name="box" />
           <h2>{q || status || from || to || late || oversold || speed || tracking ? 'No orders match' : tab === 'needs_action' ? 'Nothing needs your attention' : 'No orders here yet'}</h2>
           <p>{q || status || from || to || late || oversold || speed || tracking ? 'Try different filters or clear the search.' : tab === 'needs_action' ? 'New orders and requests from buyers will show up here.' : 'When shoppers order your products, they appear here.'}</p>
-          {(q || status || from || to || late || oversold || speed) && <Button onClick={() => { setSearch(''); setSp(new URLSearchParams(tab === 'needs_action' ? {} : { tab })) }}>Clear filters</Button>}
+          {(q || status || from || to || late || oversold || speed || tracking) && <Button onClick={() => { setSearch(''); setSp(new URLSearchParams(tab === 'needs_action' ? {} : { tab })) }}>Clear filters</Button>}
         </div>
       )}
       {items.length > 0 && (
