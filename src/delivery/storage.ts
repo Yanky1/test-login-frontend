@@ -19,6 +19,23 @@ export function clearDriverStorage() {
   try { if (typeof indexedDB !== 'undefined') indexedDB.deleteDatabase(DRIVER_DB) } catch { /* ignore */ }
 }
 
+/**
+ * The session ended WITHOUT the driver confirming anything (it expired, or the app logged them out for inactivity, or the log-out came from another tab).
+ * Unsent deliveries must survive that: only the cached profile and route (which hold addresses) go; the queue, the failures, the photo bookkeeping and the
+ * photo database stay. They are keyed by email + account, so nothing can replay into another account, and the same driver's next sign-in sends them.
+ * With nothing waiting it is a full wipe. A manual log-out the driver confirmed (after the pending-work warning) still wipes everything: clearDriverStorage().
+ */
+export function endDriverSession(): 'kept' | 'wiped' {
+  if (!hasPendingDriverWork()) { clearDriverStorage(); return 'wiped' }
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i)
+      if (k === CACHED_USER || k?.startsWith(DRIVER_PREFIX + 'route.')) localStorage.removeItem(k)
+    }
+  } catch { /* ignore */ }
+  return 'kept'
+}
+
 /** Anything still waiting to be sent (any account) — for warnings that don't have the queue object at hand. */
 export function hasPendingDriverWork(): boolean {
   try {

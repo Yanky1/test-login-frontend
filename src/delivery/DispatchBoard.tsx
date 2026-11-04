@@ -33,7 +33,7 @@ export default function DispatchBoard() {
       setMsg(null)
       // whatever went wrong, the board may be out of date (someone else assigned it, the driver moved on): reload it so the next click works from the truth
       await load(date)
-      setError(e instanceof ApiError ? (e.status === 409 ? 'This was changed by someone else. The board has been refreshed: check it and try again.' : e.message2) : 'That did not work. Try again.')   // after the reload, which clears errors
+      setError(e instanceof ApiError ? (e.code === 'version_conflict' ? 'This was changed by someone else. The board has been refreshed: check it and try again.' : e.message2) : 'That did not work. Try again.')   // after the reload, which clears errors
     }
   }
 
