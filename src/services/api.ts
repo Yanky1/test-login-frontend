@@ -12,9 +12,9 @@ const qs = (o: Record<string, string | number | undefined | null>) => {
 
 export const servicesApi = {
   saveDetails: (id: string, d: Record<string, unknown>) => api<ProductDetail>(`${S}/services/${id}/details`, { method: 'PUT', body: d }),
-  /** The times the booking engine would offer a buyer for this listing between two instants (seller-side view, same engine). */
-  slots: (id: string, q: { from: string; to: string; providerId?: string; location?: string; postalCode?: string | null; minutes?: number }) => {
-    const p = new URLSearchParams({ from: q.from, to: q.to }); if (q.providerId) p.set('providerId', q.providerId); if (q.location) p.set('location', q.location); if (q.postalCode) p.set('postalCode', q.postalCode); if (q.minutes) p.set('minutes', String(q.minutes))
+  /** Free start times between two instants from the booking engine. With `bookingId`: the times THAT booking can be moved to (its own duration incl. add-ons, its own slot free, the real notice rules). */
+  slots: (id: string, q: { from: string; to: string; bookingId?: string; providerId?: string; location?: string; postalCode?: string | null; minutes?: number }) => {
+    const p = new URLSearchParams({ from: q.from, to: q.to }); if (q.bookingId) p.set('bookingId', q.bookingId); if (q.providerId) p.set('providerId', q.providerId); if (q.location) p.set('location', q.location); if (q.postalCode) p.set('postalCode', q.postalCode); if (q.minutes) p.set('minutes', String(q.minutes))
     return api<{ durationMinutes: number; slots: { startAt: string; endAt: string; providerIds: string[] }[] }>(`${S}/services/${id}/slots?${p}`)
   },
   serviceProviders: (id: string) => api<{ providers: ServiceProviderChoice[] }>(`${S}/services/${id}/providers`),
