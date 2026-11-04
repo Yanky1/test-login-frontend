@@ -45,8 +45,8 @@ describe('driver app', () => {
     mockMe(me([stop(), stop({ id: 's2', seq: 2, status: 'InTransit', to: { name: 'Bob', line1: '9 Oak Ave', line2: null, city: 'Brooklyn', region: 'NY', postalCode: '11202' } })]))
     mountDriver(new DriverQueue(mem(), new MemoryBlobs(), fakeSender().s))
     expect(await screen.findByRole('heading', { name: 'My deliveries' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /Stop 1, Out for delivery, 1 Main St/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Stop 2, In transit, 9 Oak Ave/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Stop 1.*1 Main St.*Out for delivery/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Stop 2.*9 Oak Ave.*In transit/ })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Stop 1/ }))
     expect(screen.getByRole('link', { name: 'Navigate' })).toHaveAttribute('href', expect.stringContaining('maps.google.com'))
     expect(screen.getByRole('link', { name: 'Call Jane' })).toHaveAttribute('href', 'tel:+15550001111')
@@ -57,7 +57,7 @@ describe('driver app', () => {
   it('shows no address or contact for a finished stop', async () => {
     mockMe(me([stop({ status: 'Delivered', detailsVisible: false, to: null, contact: null, navigateUrl: null })], {}, 'Completed'))
     mountDriver(new DriverQueue(mem(), new MemoryBlobs(), fakeSender().s))
-    await userEvent.click(await screen.findByRole('button', { name: /Stop 1, Delivered/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Stop 1.*Delivered/ }))
     expect(screen.getByText(/address and contact details are no longer shown/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Navigate' })).not.toBeInTheDocument(); expect(screen.queryByText('1 Main St')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delivered' })).not.toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('driver app', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm delivery' }))
     await waitFor(() => expect(calls.map((c) => c.op)).toEqual(['upload', 'event']))
     expect(calls[1].body).toMatchObject({ type: 'delivered', placement: 'left_at_door', proofIds: ['srv-1'] })
-    expect(await screen.findByRole('button', { name: /Stop 1, Delivered/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Stop 1.*Delivered/ })).toBeInTheDocument()
   })
 
   it('works offline: the failed attempt is queued, the stop shows it, the banner counts it, and it is sent when the network is back', async () => {
@@ -93,7 +93,7 @@ describe('driver app', () => {
     expect(await screen.findByText('Choose a reason.')).toBeInTheDocument()
     await userEvent.selectOptions(screen.getByLabelText('Reason'), 'no_one_home')
     await userEvent.click(screen.getByRole('button', { name: 'Save failed attempt' }))
-    expect(await screen.findByRole('button', { name: /Stop 1, Failed attempt/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Stop 1.*Failed attempt/ })).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('status', { name: '' }) ?? true).toBeTruthy())
     expect(q.pending()).toBe(1); expect(q.items()[0]).toMatchObject({ kind: 'event', body: { type: 'failed', reason: 'no_one_home' } })
     expect(screen.getByText(/1 waiting to send/)).toBeInTheDocument()
