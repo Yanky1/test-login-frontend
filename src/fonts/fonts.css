@@ -3,10 +3,8 @@
 @import '@fontsource/plus-jakarta-sans/latin-500.css';
 @import '@fontsource/plus-jakarta-sans/latin-600.css';
 @import '@fontsource/plus-jakarta-sans/latin-700.css';
-@import '@fontsource/playfair-display/latin-500.css';
 @import '@fontsource/playfair-display/latin-600.css';
 @import '@fontsource/playfair-display/latin-700.css';
-@import '@fontsource/playfair-display/latin-400-italic.css';
 /* Metric-matched fallbacks so the swap does not shift layout */
 @font-face { font-family: 'Plus Jakarta Sans Fallback'; src: local('Arial'); size-adjust: 104%; ascent-override: 98%; descent-override: 24%; line-gap-override: 0%; }
 @font-face { font-family: 'Playfair Display Fallback'; src: local('Georgia'); size-adjust: 96%; ascent-override: 100%; descent-override: 24%; line-gap-override: 0%; }

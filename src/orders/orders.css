@@ -1,5 +1,5 @@
 /* Orders + Messages. Builds on the products stylesheet (tabs, tables, cards, chips); only what is new lives here. */
-.nav-badge { margin-left: auto; min-width: 22px; padding: 0 7px; text-align: center; border-radius: var(--r-pill); background: var(--primary); color: #fff; font-size: .75rem; font-weight: 700; line-height: 22px; }
+.nav-badge { margin-left: auto; min-width: 22px; padding: 0 7px; text-align: center; border-radius: var(--r-pill); background: var(--primary); color: var(--primary-fg); font-size: .75rem; font-weight: 700; line-height: 22px; }
 .stats { display: grid; gap: var(--s2); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0 0 var(--s3); padding: 0; list-style: none; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s2); }
 .stat .v { display: block; font-size: var(--fs-xl); font-weight: 700; } .stat .l { color: var(--muted); font-size: var(--fs-sm); }

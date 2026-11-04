@@ -3,7 +3,7 @@ import { safeNext } from '../lib/safeNext'
 import { useAuth } from '../auth'
 import { tokenStore } from '../api'
 import { IdleGuard } from './IdleGuard'
-import { AppHeaderContext, Spinner, ThemeToggle } from './ui'
+import { AppHeaderContext, Logo, Spinner, ThemeToggle } from './ui'
 import { PasskeyOffer } from '../pages/PasskeyOffer'
 import { AccountSwitcher } from '../pages/teams/AccountSwitcher'
 import { BrandProvider, BrandSwitcher } from '../pages/teams/BrandContext'
@@ -39,7 +39,7 @@ function AppHeader() {
   const nav = useNavigate()
   return (
     <header className="app-header">
-      <Link to="/">Solvelt sellers</Link>
+      <Logo />
       <AccountSwitcher />
       <BrandSwitcher />
       <span className="spacer" />
