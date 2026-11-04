@@ -80,13 +80,17 @@ export const labelExt = (f: string) => (f === 'PNG' ? 'png' : f === 'ZPLII' ? 'z
 
 /** Opens the label in a new tab (the browser's viewer prints it; the file needs our bearer token, so it goes through a blob URL). ZPL can't be shown: it is downloaded. */
 export async function printLabel(l: Label): Promise<void> {
-  const blob = await shippingApi.fileBlob(l)
-  if (l.format === 'ZPLII') saveBlob(blob, `label-${l.trackingNumber}.zpl`)
-  else {
-    const url = URL.createObjectURL(blob)
-    window.open(url, '_blank', 'noopener')
+  if (l.format === 'ZPLII') { saveBlob(await shippingApi.fileBlob(l), `label-${l.trackingNumber}.zpl`); await shippingApi.printed(l.id).catch(() => undefined); return }
+  // The window opens SYNCHRONOUSLY inside the click (Safari and Firefox block a window opened after an await), then goes to the blob once it is fetched.
+  // `noopener` would make window.open return null, so the opener is cut by hand instead.
+  const w = window.open('about:blank', '_blank')
+  if (!w) throw new Error('popup_blocked')   // nothing opened: do not record the label as printed
+  w.opener = null
+  try {
+    const url = URL.createObjectURL(await shippingApi.fileBlob(l))
+    w.location.href = url
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  }
+  } catch (e) { w.close(); throw e }
   await shippingApi.printed(l.id).catch(() => undefined)
 }
 export async function downloadLabel(l: Label): Promise<void> { saveBlob(await shippingApi.fileBlob(l), `label-${l.trackingNumber}.${labelExt(l.format)}`) }

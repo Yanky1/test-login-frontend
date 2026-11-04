@@ -18,3 +18,8 @@ export const CONTENTS = [['merchandise', 'Merchandise'], ['gift', 'Gift'], ['sam
 export const newKey = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()) + Math.random())
 export const mm = (n: number) => `${n} mm`
 export const grams = (g: number) => (g >= 1000 ? `${(g / 1000).toFixed(g % 1000 === 0 ? 0 : 2)} kg` : `${g} g`)
+
+/** Dates in the ACCOUNT's time zone (the one the calendar uses), not the browser's; falls back to the browser zone only when the order carries none. */
+const zoned = (tz: string | undefined, o: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions => { if (!tz) return o; try { new Intl.DateTimeFormat(undefined, { timeZone: tz }); return { ...o, timeZone: tz } } catch { return o } }
+export const dtZ = (iso: string | null | undefined, tz?: string) => (iso ? new Date(iso).toLocaleString(undefined, zoned(tz, { dateStyle: 'medium', timeStyle: 'short' })) : '')
+export const dayZ = (iso: string | null | undefined, tz?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, zoned(tz, { dateStyle: 'medium' })) : '')

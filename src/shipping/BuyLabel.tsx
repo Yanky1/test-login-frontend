@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../api'
 import { Alert, Button, Skeleton } from '../components/ui'
 import { Link } from 'react-router-dom'
-import { money, dt, day } from '../orders/format'
+import { money } from '../orders/format'
 import { ordersApi, type OrderDetail, type PackingSlip } from '../orders/api'
 import { PackingSlips } from '../orders/PackingSlips'
 import { PIcon, SelectField, TextField } from '../products/ui'
 import { downloadLabel, printLabel, shippingApi, type Label, type Quote, type ShippingConfig } from './api'
-import { CONTENTS, newKey } from './format'
+import { CONTENTS, dayZ, dtZ, newKey } from './format'
+import { FocusedStatus } from './focus'
 import './shipping.css'
 
 const CUSTOM = '__custom'
@@ -75,7 +76,7 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
   const [customs, setCustoms] = useState({ contents: 'merchandise', nonDelivery: 'return', hs: '' })
   const [quote, setQuote] = useState<Quote | null>(null); const [rate, setRate] = useState('')
   const [busy, setBusy] = useState(false); const [buying, setBuying] = useState(false); const [error, setError] = useState(''); const [weightErr, setWeightErr] = useState('')
-  const [anyway, setAnyway] = useState(false); const [reason, setReason] = useState('')
+  const [anyway, setAnyway] = useState(false); const [reason, setReason] = useState(''); const [reasonErr, setReasonErr] = useState('')
   const [bought, setBought] = useState<Label | null>(null)
   const key = useRef(newKey())
   useEffect(() => {
@@ -90,7 +91,7 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
   const fromAddr = cfg?.addresses.find((a) => a.id === from)
   const international = !!fromAddr && fromAddr.country.toUpperCase() !== order.shippingAddress.country.toUpperCase()
   const usableAddrs = useMemo(() => (cfg?.addresses ?? []).filter((a) => a.brandId === null || a.brandId === order.brandId), [cfg, order.brandId])
-  const reset = () => { setQuote(null); setRate(''); setAnyway(false); setReason(''); key.current = newKey() }
+  const reset = () => { setQuote(null); setRate(''); setAnyway(false); setReason(''); setReasonErr(''); key.current = newKey() }
 
   const getRates = async () => {
     if (pkg.problem) { setError(pkg.problem); return }
@@ -107,7 +108,9 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
   const chosen = quote?.rates.find((r) => r.rateId === rate)
   const buy = async () => {
     if (!quote || !chosen) return
-    if (needsReason && (!anyway || reason.trim().length < 5)) { setError('Check the address, or tick "Ship anyway" and say why (at least 5 characters).'); return }
+    if (needsReason && !anyway) { setError('Check the address, or tick "Ship anyway" and say why.'); return }
+    if (needsReason && reason.trim().length < 5) { setReasonErr('Say why you are shipping to this address (at least 5 characters).'); return }
+    setReasonErr('')
     setBuying(true); setError('')
     try {
       const r = await shippingApi.buy(order.id, { quoteId: quote.quoteId, rateId: chosen.rateId, idempotencyKey: key.current, shipAnyway: needsReason ? { reason: reason.trim() } : undefined })
@@ -122,19 +125,19 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
 
   if (bought) {
     return (
-      <div className="label-done" role="status">
+      <FocusedStatus className="label-done">
         <Alert kind="success">Label bought for {money(bought.costCents, bought.currency)}. The order is marked as shipped{partial ? ' (partial shipment)' : ''}.</Alert>
-        <dl className="sum"><div><dt>Carrier</dt><dd>{bought.carrier}{bought.service ? ` · ${bought.service}` : ''}</dd></div><div><dt>Tracking number</dt><dd>{bought.trackingNumber}</dd></div>{bought.estimatedDelivery && <div><dt>Estimated delivery</dt><dd>{day(bought.estimatedDelivery)}</dd></div>}</dl>
+        <dl className="sum"><div><dt>Carrier</dt><dd>{bought.carrier}{bought.service ? ` · ${bought.service}` : ''}</dd></div><div><dt>Tracking number</dt><dd>{bought.trackingNumber}</dd></div>{bought.estimatedDelivery && <div><dt>Estimated delivery</dt><dd>{dayZ(bought.estimatedDelivery, order.accountTimeZone)}</dd></div>}</dl>
         <LabelActions label={bought} order={order} />
         <p className="sub">Changed your mind? You can void an unused label from the order page; the cost is credited back when the carrier confirms.</p>
         <div className="actions dlg-actions"><Button type="button" variant="primary" onClick={() => void ordersApi.get(order.id).then(onFinished)}>Done</Button></div>
-      </div>
+      </FocusedStatus>
     )
   }
   if (loadErr) return <Alert>{loadErr}</Alert>
   if (!cfg) return <div aria-busy="true" aria-label="Loading shipping settings"><Skeleton lines={3} /></div>
   if (usableAddrs.length === 0) return (
-    <div><Alert kind="info">Add a ship-from address in <Link to="/settings/shipping">Settings → Shipping</Link> to buy labels here. Until then you can <button type="button" className="linklike" onClick={onManual}>enter a tracking number yourself</button>.</Alert></div>
+    <div><Alert kind="info">Add a ship-from address in <Link to="/settings/shipping">Settings → Shipping</Link> to buy labels here. Until then you can enter a tracking number yourself.</Alert><div className="actions"><Button type="button" onClick={onManual}>Enter a tracking number yourself</Button></div></div>
   )
 
   return (
@@ -148,7 +151,7 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
       {fromAddr && fromAddr.validation !== 'valid' && <Alert kind="info">This ship-from address isn't verified yet. Labels can still be bought, but check it in Settings → Shipping.</Alert>}
       {pkg.fields(cfg, weightErr)}
       {international && <CustomsFields value={customs} onChange={(v) => { setCustoms(v); reset() }} />}
-      <div className="actions"><Button type="button" variant="primary" loading={busy} onClick={() => void getRates()}>{quote ? 'Refresh rates' : 'Get shipping rates'}</Button></div>
+      <div className="actions"><Button type="button" variant="primary" loading={busy} disabled={buying} onClick={() => void getRates()}>{quote ? 'Refresh rates' : 'Get shipping rates'}</Button></div>
       <div aria-live="polite"><Alert>{error}</Alert></div>
 
       {quote && (
@@ -157,18 +160,18 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
             <div className="alert info address-warn" role="alert">
               <strong>{quote.addressStatus === 'invalid' ? 'We couldn’t find this address.' : 'We couldn’t fully verify this address.'}</strong> {quote.addressMessage}
               <div className="field check"><label><input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} /> Ship anyway</label></div>
-              {anyway && <TextField label="Why are you shipping to this address?" value={reason} onChange={(e) => setReason(e.target.value)} hint="For example: the buyer confirmed it by message. This is saved with the label." />}
+              {anyway && <TextField label="Why are you shipping to this address?" required aria-required="true" value={reason} onChange={(e) => { setReason(e.target.value); setReasonErr('') }} error={reasonErr} hint="For example: the buyer confirmed it by message. This is saved with the label." />}
             </div>
           )}
           <fieldset className="rates"><legend>Choose a shipping service</legend>
-            <p className="sub">Deliver by {day(quote.deliverBy)}. Prices are what the carrier charges you; they are taken from your seller balance.</p>
+            <p className="sub">Deliver by {dayZ(quote.deliverBy, order.accountTimeZone)}. Prices are what the carrier charges you; they are taken from your seller balance.</p>
             <ul className="plain">
               {quote.rates.map((r) => (
                 <li key={r.rateId} className={r.rateId === rate ? 'on' : ''}>
                   <label>
                     <input type="radio" name="rate" value={r.rateId} checked={r.rateId === rate} onChange={() => setRate(r.rateId)} />
                     <span className="rate-main"><strong>{r.carrier} {r.service}</strong>
-                      <span className="sub">{r.estimatedDelivery ? `Estimated delivery ${day(r.estimatedDelivery)}` : r.estimatedDays ? `About ${r.estimatedDays} days` : 'Delivery time not given'}{r.meetsDeliverBy ? ' · arrives in time' : ' · after the deliver-by date'}</span></span>
+                      <span className="sub">{r.estimatedDelivery ? `Estimated delivery ${dayZ(r.estimatedDelivery, order.accountTimeZone)}` : r.estimatedDays ? `About ${r.estimatedDays} days` : 'Delivery time not given'}{r.meetsDeliverBy ? ' · arrives in time' : ' · after the deliver-by date'}</span></span>
                     <span className="rate-end">{r.recommended && <span className="chip ok">Recommended</span>}<strong>{money(r.amountCents, r.currency)}</strong></span>
                   </label>
                 </li>
@@ -176,7 +179,7 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
             </ul>
             {!quote.rates.some((r) => r.recommended) && <p className="sub">None of these arrives by the deliver-by date, so none is recommended.</p>}
           </fieldset>
-          <p className="sub">{partial ? 'This is a partial shipment. ' : ''}Quote valid until {dt(quote.expiresAt)}.</p>
+          <p className="sub">{partial ? 'This is a partial shipment. ' : ''}Quote valid until {dtZ(quote.expiresAt, order.accountTimeZone)}.</p>
           <div className="actions dlg-actions">
             <Button type="button" variant="primary" loading={buying} disabled={!chosen || buying} onClick={() => void buy()}>{chosen ? `Buy label · ${money(chosen.amountCents, chosen.currency)}` : 'Buy label'}</Button>
           </div>

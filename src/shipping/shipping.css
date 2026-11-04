@@ -24,14 +24,13 @@
 .address-warn .field { margin-top: var(--s2); }
 .label-done { display: grid; gap: var(--s3); }
 .label-actions { display: grid; gap: var(--s2); }
-.linklike { background: none; border: 0; padding: 0; color: var(--primary); text-decoration: underline; cursor: pointer; font: inherit; min-height: 24px; }
 
 .trk { border-top: 1px solid var(--border); padding: var(--s3) 0; }
 .trk:first-of-type { border-top: 0; }
 .trk-head { display: flex; gap: var(--s3); justify-content: space-between; align-items: center; flex-wrap: wrap; }
 .track-tl .t-dot.ok { background: var(--ok); }
 .track-tl .t-dot.bad { background: var(--err); }
-.track-tl .t-dot.warn { background: var(--accent); }
+.track-tl .t-dot.warn { background: var(--warn); }
 .label-row { display: flex; gap: var(--s3); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-top: var(--s3); padding: var(--s3); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md, 8px); }
 .alert.attn { border: 1px solid var(--err); border-radius: var(--r-md, 8px); padding: var(--s3); margin-bottom: var(--s3); }
 .bulk-res li { padding: var(--s1) 0; }

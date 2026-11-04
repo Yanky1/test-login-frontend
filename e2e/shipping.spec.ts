@@ -50,9 +50,10 @@ test('configure shipping, buy a label, print it, follow tracking to delivered (a
   await expect(dlg.getByText(/^Label bought for/)).toBeVisible()
   const tn = (await dlg.locator('dd').filter({ hasText: /^\d{10,}$/ }).first().textContent())!.trim()
   // the label must open through a blob URL (the file needs our bearer token, so it is never a public URL); the popup's own URL is browser-dependent (headless Chromium downloads PDFs), so record what the app passes to window.open
-  await page.evaluate(() => { const open = window.open.bind(window); (window as unknown as { __opened: string[] }).__opened = []; window.open = (u, ...rest) => { (window as unknown as { __opened: string[] }).__opened.push(String(u)); return open(u, ...rest) } })
+  await page.evaluate(() => { const make = URL.createObjectURL.bind(URL); (window as unknown as { __blobs: string[] }).__blobs = []; URL.createObjectURL = (b: Blob | MediaSource) => { const u = make(b); (window as unknown as { __blobs: string[] }).__blobs.push(u); return u } })   // the popup's own URL is browser-dependent: record the blob it is sent to
   const [popup] = await Promise.all([page.waitForEvent('popup'), dlg.getByRole('button', { name: 'Print label' }).click()])
-  expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened[0])).toMatch(/^blob:/); await popup.close()
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __blobs: string[] }).__blobs[0])).toMatch(/^blob:/)   // the window opens at once, the file follows
+  await popup.close()
   await expectNoSeriousA11y(page)
   await dlg.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByText('Shipped', { exact: true }).first()).toBeVisible()
