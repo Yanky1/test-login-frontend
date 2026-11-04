@@ -105,7 +105,7 @@ for (const [vp, size] of Object.entries(viewports)) {
         const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
         const bad = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
         expect(bad.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ') + ' ' + n.html.slice(0, 160) + ' ' + n.any.map((a) => a.message).join(';')).join(' | ')}`)).toEqual([])
-        if (SHOTS && theme === 'light') await page.screenshot({ path: `${SHOTS}/${s.name}-${vp}.png`, fullPage: !s.name.startsWith('calendar-') || s.name === 'calendar-list' })
+        if (SHOTS && (theme === 'light' || s.name.startsWith('calendar-'))) await page.screenshot({ path: `${SHOTS}/${s.name}-${vp}${theme === 'dark' ? '-dark' : ''}.png`, fullPage: !s.name.startsWith('calendar-') || s.name === 'calendar-list' })
       })
     }
   }
