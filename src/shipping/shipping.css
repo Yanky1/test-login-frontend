@@ -16,8 +16,10 @@
 .rates { border: 1px solid var(--border); border-radius: var(--r-md, 8px); padding: var(--s3); }
 .rates legend { padding: 0 var(--s2); font-weight: 600; }
 .rates li + li { margin-top: var(--s2); }
-.rates label { display: flex; gap: var(--s3); align-items: center; padding: var(--s2) var(--s3); border: 1px solid var(--border); border-radius: var(--r-md, 8px); cursor: pointer; min-height: 44px; flex-wrap: wrap; }
-.rates li.on label { border-color: var(--primary); background: var(--surface-2); }
+.rates li > label { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--s3); align-items: center; padding: var(--s2) var(--s3); border: 1px solid var(--border); border-radius: var(--r-md, 8px); cursor: pointer; min-height: 44px; }
+.rate-main { display: grid; gap: 2px; min-width: 0; }
+.rate-end { display: grid; justify-items: end; gap: var(--s1); text-align: right; }
+.rates li.on > label { border-color: var(--primary); background: var(--surface-2); }
 .rates input[type='radio'] { width: 1.25rem; height: 1.25rem; }
 .address-warn .field { margin-top: var(--s2); }
 .label-done { display: grid; gap: var(--s3); }
@@ -30,12 +32,14 @@
 .track-tl .t-dot.ok { background: var(--ok); }
 .track-tl .t-dot.bad { background: var(--err); }
 .track-tl .t-dot.warn { background: var(--accent); }
-.label-row { display: flex; gap: var(--s3); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-top: var(--s3); padding: var(--s3); background: var(--surface-2); border-radius: var(--r-md, 8px); }
+.label-row { display: flex; gap: var(--s3); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-top: var(--s3); padding: var(--s3); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md, 8px); }
 .alert.attn { border: 1px solid var(--err); border-radius: var(--r-md, 8px); padding: var(--s3); margin-bottom: var(--s3); }
 .bulk-res li { padding: var(--s1) 0; }
 .trk-chip { white-space: nowrap; }
 
 @media (max-width: 720px) {
   .speed-row { grid-template-columns: 1fr; }
-  .rates label { align-items: flex-start; }
+  .rates li > label { grid-template-columns: auto minmax(0, 1fr); }
+  .rate-end { grid-column: 2; justify-items: start; text-align: left; grid-auto-flow: column; justify-content: start; align-items: center; }
 }
+.ship-settings .pcard { padding: var(--s4); }

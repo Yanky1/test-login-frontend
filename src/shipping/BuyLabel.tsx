@@ -8,6 +8,7 @@ import { PackingSlips } from '../orders/PackingSlips'
 import { PIcon, SelectField, TextField } from '../products/ui'
 import { downloadLabel, printLabel, shippingApi, type Label, type Quote, type ShippingConfig } from './api'
 import { CONTENTS, newKey } from './format'
+import './shipping.css'
 
 const CUSTOM = '__custom'
 const err = (e: unknown, fallback = 'Something went wrong. Try again.') => (e instanceof ApiError ? e.message2 : fallback)
@@ -166,10 +167,9 @@ export default function BuyLabel({ order, lines, partial, onFinished, reload, on
                 <li key={r.rateId} className={r.rateId === rate ? 'on' : ''}>
                   <label>
                     <input type="radio" name="rate" value={r.rateId} checked={r.rateId === rate} onChange={() => setRate(r.rateId)} />
-                    <span className="grow"><strong>{r.carrier} {r.service}</strong>
-                      <span className="sub"> {r.estimatedDelivery ? `Estimated delivery ${day(r.estimatedDelivery)}` : r.estimatedDays ? `About ${r.estimatedDays} days` : 'Delivery time not given'}{r.meetsDeliverBy ? ' · arrives in time' : ' · after the deliver-by date'}</span></span>
-                    {r.recommended && <span className="chip ok">Recommended</span>}
-                    <span className="num"><strong>{money(r.amountCents, r.currency)}</strong></span>
+                    <span className="rate-main"><strong>{r.carrier} {r.service}</strong>
+                      <span className="sub">{r.estimatedDelivery ? `Estimated delivery ${day(r.estimatedDelivery)}` : r.estimatedDays ? `About ${r.estimatedDays} days` : 'Delivery time not given'}{r.meetsDeliverBy ? ' · arrives in time' : ' · after the deliver-by date'}</span></span>
+                    <span className="rate-end">{r.recommended && <span className="chip ok">Recommended</span>}<strong>{money(r.amountCents, r.currency)}</strong></span>
                   </label>
                 </li>
               ))}
