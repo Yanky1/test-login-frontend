@@ -1,6 +1,6 @@
 import { test, expect, expectNoSeriousA11y } from './helpers'
 import { makePng } from './png'
-import { available, bearer, buyerEvent, mgr, orderAction, product, seller, signIn, simulate } from './ordersKit'
+import { available, bearer, buyerEvent, mgr, orderAction, product, seller, signIn, simulate, upsNumber } from './ordersKit'
 
 test('simulator order: accept, ship part with tracking, ship the rest, mark delivered (axe on every screen)', async ({ page, request }) => {
   const s = await seller(request)
@@ -29,11 +29,12 @@ test('simulator order: accept, ship part with tracking, ship the rest, mark deli
   await dlg.getByLabel('Tracking number').fill('12345')
   await dlg.getByRole('button', { name: 'Ship these items' }).click()
   await expect(dlg.getByText("That doesn't look like a UPS tracking number.")).toBeVisible()
-  await dlg.getByLabel('Tracking number').fill('1Z999AA10123456784')
+  const tn = upsNumber()
+  await dlg.getByLabel('Tracking number').fill(tn)
   await dlg.getByRole('button', { name: 'Ship these items' }).click()
   await expect(page.getByText('Shipment saved.')).toBeVisible()
   await expect(page.getByText('Partly shipped').first()).toBeVisible()
-  await expect(page.getByRole('link', { name: /1Z999AA10123456784/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: new RegExp(tn) })).toBeVisible()
 
   await page.getByRole('button', { name: 'Ship order' }).click()                              // everything that is left
   const rest = page.getByRole('dialog', { name: /^Ship order SO-/ })
@@ -72,7 +73,7 @@ test('return: approve, mark received, partial refund with a confirmation', async
   await product(request, s.token, 'Return mug'); await product(request, s.token, 'Return napkins')
   const [o] = await simulate(request, s.token, 'multi')
   for (const a of ['accept']) await orderAction(request, s.token, o.id, a)
-  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' })
+  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber() })
   await orderAction(request, s.token, o.id, 'deliver')
   await buyerEvent(request, s.token, o.id, 'return_request')
   await signIn(page, s.email, `/orders/${o.id}`)
@@ -119,7 +120,7 @@ test('a Manager of brand X cannot see brand Y\'s order; a Viewer cannot act', as
   await expect(page.getByRole('button', { name: 'Accept order' }).first()).toBeVisible()      // works the orders of their brand
   // The refund check must run on an order that CAN be refunded (shipped), otherwise it is vacuous: the Owner sees the button, the Manager doesn't.
   await orderAction(request, s.token, ox.id, 'accept')
-  await orderAction(request, s.token, ox.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' })
+  await orderAction(request, s.token, ox.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber() })
   await orderAction(request, s.token, ox.id, 'deliver')
   await page.reload()
   await expect(page.getByRole('heading', { name: /^Order SO-/, level: 1 })).toBeVisible()
@@ -194,7 +195,8 @@ test('notification settings and the CSV tracking upload dialog are accessible', 
   await page.goto('/orders')
   await page.getByRole('button', { name: /Upload tracking CSV/ }).click()
   const dlg = page.getByRole('dialog', { name: 'Mark orders as shipped from a CSV' })
-  await dlg.getByLabel('CSV file').setInputFiles({ name: 'trk.csv', mimeType: 'text/csv', buffer: Buffer.from(`order_number,carrier,tracking_number\n${o.number},UPS,1Z999AA10123456784\n${o.number},UPS,bad\n`) })
+  const csvTn = upsNumber()
+  await dlg.getByLabel('CSV file').setInputFiles({ name: 'trk.csv', mimeType: 'text/csv', buffer: Buffer.from(`order_number,carrier,tracking_number\n${o.number},UPS,${csvTn}\n${o.number},UPS,bad\n`) })
   await expect(dlg.getByText(/1 of 2 rows are ready/)).toBeVisible()
   await expect(dlg.getByText("That doesn't look like a UPS tracking number.")).toBeVisible()
   await expectNoSeriousA11y(page)

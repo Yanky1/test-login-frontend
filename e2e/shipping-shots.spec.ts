@@ -1,6 +1,6 @@
 import { test, expect } from './helpers'
 import type { Page } from '@playwright/test'
-import { buyerEvent, orderAction, product, seller, signIn, simulate } from './ordersKit'
+import { buyerEvent, orderAction, product, seller, signIn, simulate, upsNumber } from './ordersKit'
 import { acceptedOrder, buyLabel, shippingSetup, track } from './shippingKit'
 
 const SHOTS = process.env.SHOTS_DIR // set to capture the screenshots, e.g. SHOTS_DIR=docs/screenshots
@@ -64,7 +64,7 @@ test('screenshots of the shipping pages (desktop + mobile)', async ({ page, requ
     await d.getByRole('button', { name: 'Done' }).click()
   }
   const [ro] = await simulate(request, s.token, 'multi')
-  await orderAction(request, s.token, ro.id, 'accept'); await orderAction(request, s.token, ro.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' }); await orderAction(request, s.token, ro.id, 'deliver'); await buyerEvent(request, s.token, ro.id, 'return_request')
+  await orderAction(request, s.token, ro.id, 'accept'); await orderAction(request, s.token, ro.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber() }); await orderAction(request, s.token, ro.id, 'deliver'); await buyerEvent(request, s.token, ro.id, 'return_request')
   await page.setViewportSize(VIEWS[0][1]); await page.goto(`/orders/${ro.id}`); await page.getByRole('button', { name: 'Approve return' }).click(); await expect(page.getByText('Return approved.')).toBeVisible()
   for (const [view, size] of [...VIEWS].reverse()) {   // mobile first: buying the label (desktop) removes the button
     await page.setViewportSize(size); await page.goto(`/orders/${ro.id}`)

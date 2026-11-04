@@ -1,5 +1,5 @@
 import { expect, expectNoSeriousA11y, test } from './helpers'
-import { bearer, mgr, orderAction, product, seller, signIn, simulate } from './ordersKit'
+import { bearer, mgr, orderAction, product, seller, signIn, simulate, upsNumber } from './ordersKit'
 
 const money = (c: number) => (c < 0 ? '-' : '') + '$' + (Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -9,7 +9,7 @@ test('payments: onboarding, order -> delivery -> release -> transfer, refund red
   await product(request, s.token, 'Payments mug')
   const [o] = await simulate(request, s.token, 'single')
   await orderAction(request, s.token, o.id, 'accept')
-  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' })
+  await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber() })
   await orderAction(request, s.token, o.id, 'deliver')
   const net = ((await (await request.get(`/api/v1/seller/orders/${o.id}`, { headers: bearer(s.token) })).json()).money.netCents) as number
   expect(net).toBeGreaterThan(0)

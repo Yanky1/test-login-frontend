@@ -1,5 +1,5 @@
 import { test, expect, expectNoSeriousA11y } from './helpers'
-import { buyerEvent, mgr, orderAction, product, seller, signIn, simulate } from './ordersKit'
+import { buyerEvent, mgr, orderAction, product, seller, signIn, simulate, upsNumber } from './ordersKit'
 import { acceptedOrder, buyLabel, runMaintenance, shippingSetup, track } from './shippingKit'
 
 test('configure shipping, buy a label, print it, follow tracking to delivered (axe on every screen)', async ({ page, request }) => {
@@ -117,7 +117,7 @@ test('return label on an approved return, tracked to arrival, never received aut
   await product(request, s.token, 'Return label mug'); await product(request, s.token, 'Return label napkins')
   await shippingSetup(request, s.token)
   const [o] = await simulate(request, s.token, 'multi')
-  await orderAction(request, s.token, o.id, 'accept'); await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: '1Z999AA10123456784' }); await orderAction(request, s.token, o.id, 'deliver')
+  await orderAction(request, s.token, o.id, 'accept'); await orderAction(request, s.token, o.id, 'ship', { carrier: 'UPS', trackingNumber: upsNumber() }); await orderAction(request, s.token, o.id, 'deliver')
   await buyerEvent(request, s.token, o.id, 'return_request')
   await signIn(page, s.email, `/orders/${o.id}`)
   await page.getByRole('button', { name: 'Approve return' }).click()
