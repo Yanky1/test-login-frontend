@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { AreaField, Dialog, SelectField, TextField } from '../products/ui'
-import { addDays, localDate, minutesOfDay, pad, parseYmd, zonedToUtc } from './time'
+import { servicesApi } from './api'
+import { addDays, dayStartUtc, localDate, minutesOfDay, pad, parseYmd, zonedToUtc } from './time'
 
 export const errText = (e: unknown) => (e instanceof ApiError ? (Object.values(e.fieldErrors())[0] ?? e.message2) : 'Something went wrong. Try again.')
 
@@ -35,7 +36,30 @@ function useSubmit(onClose: () => void) {
 }
 
 /** Pick a date and a time in the PROVIDER's zone (the zone is always stated, so there is no guessing). */
-export function TimeDialog({ title, tz, initial, confirm, hint, onSubmit, onClose }: { title: string; tz: string; initial?: string; confirm: string; hint?: ReactNode; onSubmit: (iso: string) => Promise<unknown>; onClose: () => void }) {
+export interface SlotQuery { serviceId: string; providerId?: string; location?: string; postalCode?: string | null; minutes?: number }
+
+/** The free start times of one local day, from the same engine the marketplace uses; picking one fills the time field (typing a time stays possible). */
+export function SlotChoices({ query, date, tz, selected, onPick }: { query: SlotQuery; date: string; tz: string; selected: string; onPick: (hhmm: string) => void }) {
+  const [state, setState] = useState<{ times: string[] } | 'loading' | 'failed'>('loading')
+  useEffect(() => {
+    let alive = true; setState('loading')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return
+    servicesApi.slots(query.serviceId, { from: dayStartUtc(date, tz).toISOString(), to: dayStartUtc(addDays(date, 1), tz).toISOString(), providerId: query.providerId, location: query.location, postalCode: query.postalCode, minutes: query.minutes })
+      .then((r) => alive && setState({ times: r.slots.map((s) => { const m = minutesOfDay(s.startAt, tz); return `${pad(Math.floor(m / 60))}:${pad(m % 60)}` }) }))
+      .catch(() => alive && setState('failed'))
+    return () => { alive = false }
+  }, [query.serviceId, query.providerId, query.location, query.postalCode, query.minutes, date, tz])
+  if (state === 'loading') return <p className="hint" role="status">Looking for free times…</p>
+  if (state === 'failed') return <p className="hint" role="status">Couldn't load the free times. You can still type a time.</p>
+  if (state.times.length === 0) return <p className="hint" role="status">No free times on this day. Try another date, or type a time.</p>
+  return (
+    <div role="group" aria-label="Free start times on this day" className="slot-choices">
+      {state.times.map((t) => <button key={t} type="button" className={`btn${t === selected ? ' primary' : ''}`} aria-pressed={t === selected} onClick={() => onPick(t)}>{t}</button>)}
+    </div>
+  )
+}
+
+export function TimeDialog({ title, tz, initial, confirm, hint, slotQuery, onSubmit, onClose }: { title: string; tz: string; initial?: string; confirm: string; hint?: ReactNode; slotQuery?: SlotQuery; onSubmit: (iso: string) => Promise<unknown>; onClose: () => void }) {
   const base = initial ?? new Date(Date.now() + 2 * 86400000).toISOString()
   const [date, setDate] = useState(localDate(base, tz))
   const m = minutesOfDay(base, tz)
@@ -49,6 +73,7 @@ export function TimeDialog({ title, tz, initial, confirm, hint, onSubmit, onClos
         <TextField id="td-date" label="Date" type="date" value={date} min={localDate(new Date(), tz)} max={addDays(localDate(new Date(), tz), 400)} onChange={(e) => setDate(e.target.value)} />
         <TextField id="td-time" label="Start time" type="time" value={time} step={300} onChange={(e) => setTime(e.target.value)} />
       </div>
+      {slotQuery && <SlotChoices query={slotQuery} date={date} tz={tz} selected={time} onPick={setTime} />}
       {hint && <p className="hint">{hint}</p>}
     </Shell>
   )
