@@ -65,7 +65,15 @@ export const driverApi = {
   location: (lat: number, lng: number) => api('/driver/location', { body: { lat, lng } }),
 }
 
-export const newId = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-0000-4000-8000-000000000000`.slice(0, 36))
+/** RFC 4122 v4 UUID from getRandomValues: crypto.randomUUID() needs a secure context and newer browsers, but the server requires a real GUID for every client id. */
+export function newId(): string {
+  const b = new Uint8Array(16)
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(b)
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256)
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
 
 export const STATUS_LABEL: Record<LocalStatus, string> = {
   Unassigned: 'Not assigned', Assigned: 'Assigned', InTransit: 'In transit', OutForDelivery: 'Out for delivery', Delivered: 'Delivered', Failed: 'Failed attempt', Returned: 'Returned to store', Cancelled: 'Cancelled',

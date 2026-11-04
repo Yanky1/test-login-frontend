@@ -20,6 +20,9 @@ const asRole = (role: string) => signedIn(login(role))
 const mountAs = (role: string, ui: React.ReactElement, path: string) => mount(ui, path, path, login(role))
 const mem = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } }
 
+/** A tiny JPEG with an EXIF (APP1) block: SOI, APP1 "Exif\0\0GPS", SOS, data, EOI. */
+const JPEG_WITH_GPS = new Uint8Array([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x0b, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00, 0x47, 0x50, 0x53, 0xff, 0xda, 0x00, 0x02, 0xaa, 0xbb, 0xff, 0xd9])
+
 const stop = (o: Partial<StopDto> = {}): StopDto => ({
   id: 's1', seq: 1, status: 'OutForDelivery', trackingStatus: 'out_for_delivery', code: 'LD-1', window: { start: '2026-11-04T12:00:00Z', end: '2026-11-04T14:00:00Z' }, eta: null, attempts: 0, version: 2, detailsVisible: true,
   to: { name: 'Jane', line1: '1 Main St', line2: null, city: 'Brooklyn', region: 'NY', postalCode: '11201' },
@@ -75,7 +78,7 @@ describe('driver app', () => {
     expect(await screen.findByText('Take a photo of the delivery first.')).toBeInTheDocument()
     expect(calls).toHaveLength(0)
     await userEvent.click(screen.getByLabelText('Left at the door'))
-    fireEvent.change(screen.getByLabelText(/Photo/), { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } })
+    fireEvent.change(screen.getByLabelText(/Photo/), { target: { files: [new File([JPEG_WITH_GPS], 'p.jpg', { type: 'image/jpeg' })] } })
     await userEvent.click(screen.getByRole('button', { name: 'Confirm delivery' }))
     await waitFor(() => expect(calls.map((c) => c.op)).toEqual(['upload', 'event']))
     expect(calls[1].body).toMatchObject({ type: 'delivered', placement: 'left_at_door', proofIds: ['srv-1'] })
