@@ -2,10 +2,13 @@ import { test, expect } from './helpers'
 import type { Page } from '@playwright/test'
 import { bearer, orderAction, product, seller, signIn, simulate } from './ordersKit'
 
-const SHOTS = process.env.SHOTS_DIR // set to capture the screenshots, e.g. SHOTS_DIR=docs/screenshots
+const SHOTS = process.env.SHOTS_DIR
+const DARK = process.env.SHOT_THEME === 'dark' // SHOT_THEME=dark captures the dark variants (files get a -dark suffix)
+ // set to capture the screenshots, e.g. SHOTS_DIR=docs/screenshots
 const VIEWS = [['desktop', { width: 1440, height: 900 }], ['mobile', { width: 390, height: 844 }]] as const
 
 test('screenshots of the Payments pages (desktop + mobile)', async ({ page, request }) => {
+  if (DARK) await page.emulateMedia({ colorScheme: 'dark' })
   test.skip(!SHOTS, 'set SHOTS_DIR to capture screenshots')
   test.setTimeout(180_000)
   const s = await seller(request)
@@ -17,7 +20,7 @@ test('screenshots of the Payments pages (desktop + mobile)', async ({ page, requ
     return o
   }
   await signIn(page, s.email, '/payments')
-  const shot = async (p: Page, name: string, view: string) => { await p.waitForTimeout(400); await p.screenshot({ path: `${SHOTS}/${name}-${view}.png`, fullPage: false }) }
+  const shot = async (p: Page, name: string, view: string) => { await p.waitForTimeout(400); await p.screenshot({ path: `${SHOTS}/${name}-${view}${DARK ? '-dark' : ''}.png`, fullPage: false }) }
 
   // 1. not set up yet
   for (const [view, size] of VIEWS) { await page.setViewportSize(size); await page.goto('/payments'); await expect(page.getByText('Not set up')).toBeVisible(); await shot(page, 'payments-onboarding', view) }

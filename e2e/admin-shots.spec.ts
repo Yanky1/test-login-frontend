@@ -4,10 +4,13 @@ import { insertDeadLetter, placeOrder, signedPost, staffMember, totp } from './a
 import { makePng } from './png'
 import type { Page } from '@playwright/test'
 
-const SHOTS = process.env.SHOTS_DIR // e.g. SHOTS_DIR=docs/screenshots
+const SHOTS = process.env.SHOTS_DIR
+const DARK = process.env.SHOT_THEME === 'dark' // SHOT_THEME=dark captures the dark variants (files get a -dark suffix)
+ // e.g. SHOTS_DIR=docs/screenshots
 const VIEWS = [['desktop', { width: 1440, height: 900 }], ['mobile', { width: 390, height: 844 }]] as const
 
 test('screenshots of the staff admin pages (desktop + mobile)', async ({ page, request }) => {
+  if (DARK) await page.emulateMedia({ colorScheme: 'dark' })
   test.skip(!SHOTS, 'set SHOTS_DIR to capture screenshots')
   test.setTimeout(240_000)
 
@@ -26,7 +29,7 @@ test('screenshots of the staff admin pages (desktop + mobile)', async ({ page, r
   const dead = insertDeadLetter()
   const sa = await staffMember(request, 'SuperAdmin')
 
-  const shot = async (p: Page, name: string, view: string) => { await p.waitForTimeout(500); await p.screenshot({ path: `${SHOTS}/admin-${name}-${view}.png`, fullPage: false }) }
+  const shot = async (p: Page, name: string, view: string) => { await p.waitForTimeout(500); await p.screenshot({ path: `${SHOTS}/admin-${name}-${view}${DARK ? '-dark' : ''}.png`, fullPage: false }) }
   const nav = (p: Page, name: string) => p.getByRole('navigation', { name: 'Staff areas' }).getByRole('link', { name, exact: true }).click()
 
   for (const [view, size] of VIEWS) {
