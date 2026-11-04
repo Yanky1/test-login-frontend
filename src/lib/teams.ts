@@ -1,7 +1,7 @@
 import type { Role } from '../api'
 
-export const ROLES: Role[] = ['Owner', 'Admin', 'Manager', 'Viewer']
-export const ROLE_RANK: Record<Role, number> = { Viewer: 0, Manager: 1, Admin: 2, Owner: 3 }
+export const ROLES: Role[] = ['Owner', 'Admin', 'Manager', 'Viewer', 'Driver']
+export const ROLE_RANK: Record<Role, number> = { Driver: -1, Viewer: 0, Manager: 1, Admin: 2, Owner: 3 }
 
 /** Plain-language role descriptions (shown in the invite and role dialogs). */
 export const ROLE_DESC: Record<Role, string> = {
@@ -9,6 +9,7 @@ export const ROLE_DESC: Record<Role, string> = {
   Admin: 'Everything except Owner-only actions. Invites and manages members (but not Owners) and brands.',
   Manager: 'Works on the brands they are given: products and questions. Cannot manage members or account details.',
   Viewer: 'Can look but not change anything, for the brands they are given.',
+  Driver: 'Delivers local orders with the driver app: sees only the stops of their own route, nothing else in the account.',
 }
 
 export type Perm = 'members.read' | 'members.manage' | 'brands.manage' | 'business.edit' | 'ownership.transfer' | 'account.close'
@@ -17,6 +18,7 @@ const MATRIX: Record<Role, Perm[]> = {
   Admin: ['members.read', 'members.manage', 'brands.manage'],
   Manager: [],
   Viewer: [],
+  Driver: [],
 }
 /** UI hint only: the server is the authority and re-checks every request. */
 export const can = (role: Role | null | undefined, p: Perm) => !!role && MATRIX[role].includes(p)
