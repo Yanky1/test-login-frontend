@@ -3,7 +3,7 @@ import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { AreaField, Dialog, SelectField, TextField } from '../products/ui'
 import { servicesApi } from './api'
-import { addDays, dayStartUtc, localDate, minutesOfDay, pad, parseYmd, zonedToUtc } from './time'
+import { addDays, dayStartUtc, localDate, minutesOfDay, pad, parseYmd, tzLabel, zonedToUtc } from './time'
 
 export const errText = (e: unknown) => (e instanceof ApiError ? (Object.values(e.fieldErrors())[0] ?? e.message2) : 'Something went wrong. Try again.')
 
@@ -36,25 +36,35 @@ function useSubmit(onClose: () => void) {
 }
 
 /** Pick a date and a time in the PROVIDER's zone (the zone is always stated, so there is no guessing). */
-export interface SlotQuery { serviceId: string; providerId?: string; location?: string; postalCode?: string | null; minutes?: number }
+export interface SlotQuery { serviceId: string; bookingId: string }
 
-/** The free start times of one local day, from the same engine the marketplace uses; picking one fills the time field (typing a time stays possible). */
-export function SlotChoices({ query, date, tz, selected, onPick }: { query: SlotQuery; date: string; tz: string; selected: string; onPick: (hhmm: string) => void }) {
-  const [state, setState] = useState<{ times: string[] } | 'loading' | 'failed'>('loading')
+/**
+ * The free start times of one local day for moving a booking, from the same engine the marketplace uses; picking one fills the time field (typing a time stays possible).
+ * Labels are wall-clock times; on the day the clocks go back two slots share a label, so the zone abbreviation is added to those and the exact instant is what gets picked.
+ */
+export function SlotChoices({ query, date, tz, selectedIso, onPick }: { query: SlotQuery; date: string; tz: string; selectedIso: string | null; onPick: (iso: string, hhmm: string) => void }) {
+  const [state, setState] = useState<{ slots: { iso: string; label: string }[] } | 'loading' | 'failed' | 'nodate'>('loading')
   useEffect(() => {
-    let alive = true; setState('loading')
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return
-    servicesApi.slots(query.serviceId, { from: dayStartUtc(date, tz).toISOString(), to: dayStartUtc(addDays(date, 1), tz).toISOString(), providerId: query.providerId, location: query.location, postalCode: query.postalCode, minutes: query.minutes })
-      .then((r) => alive && setState({ times: r.slots.map((s) => { const m = minutesOfDay(s.startAt, tz); return `${pad(Math.floor(m / 60))}:${pad(m % 60)}` }) }))
+    let alive = true
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { setState('nodate'); return }
+    setState('loading')
+    servicesApi.slots(query.serviceId, { bookingId: query.bookingId, from: dayStartUtc(date, tz).toISOString(), to: dayStartUtc(addDays(date, 1), tz).toISOString() })
+      .then((r) => {
+        if (!alive) return
+        const wall = r.slots.map((s) => { const m = minutesOfDay(s.startAt, tz); return { iso: new Date(s.startAt).toISOString(), hhmm: `${pad(Math.floor(m / 60))}:${pad(m % 60)}` } })
+        const count = new Map<string, number>(); for (const w of wall) count.set(w.hhmm, (count.get(w.hhmm) ?? 0) + 1)
+        setState({ slots: wall.map((w) => ({ iso: w.iso, label: (count.get(w.hhmm) ?? 0) > 1 ? `${w.hhmm} ${tzLabel(tz, new Date(w.iso))}` : w.hhmm })) })
+      })
       .catch(() => alive && setState('failed'))
     return () => { alive = false }
-  }, [query.serviceId, query.providerId, query.location, query.postalCode, query.minutes, date, tz])
+  }, [query.serviceId, query.bookingId, date, tz])
+  if (state === 'nodate') return <p className="hint" role="status">Choose a date to see the free times.</p>
   if (state === 'loading') return <p className="hint" role="status">Looking for free times…</p>
   if (state === 'failed') return <p className="hint" role="status">Couldn't load the free times. You can still type a time.</p>
-  if (state.times.length === 0) return <p className="hint" role="status">No free times on this day. Try another date, or type a time.</p>
+  if (state.slots.length === 0) return <p className="hint" role="status">No free times on this day. Try another date, or type a time.</p>
   return (
     <div role="group" aria-label="Free start times on this day" className="slot-choices">
-      {state.times.map((t) => <button key={t} type="button" className={`btn${t === selected ? ' primary' : ''}`} aria-pressed={t === selected} onClick={() => onPick(t)}>{t}</button>)}
+      {state.slots.map((s) => <button key={s.iso} type="button" className={`btn${s.iso === selectedIso ? ' primary' : ''}`} aria-pressed={s.iso === selectedIso} onClick={() => onPick(s.iso, s.label.slice(0, 5))}>{s.label}</button>)}
     </div>
   )
 }
@@ -64,16 +74,17 @@ export function TimeDialog({ title, tz, initial, confirm, hint, slotQuery, onSub
   const [date, setDate] = useState(localDate(base, tz))
   const m = minutesOfDay(base, tz)
   const [time, setTime] = useState(`${pad(Math.floor(m / 60))}:${pad(m % 60)}`)
+  const [exact, setExact] = useState<string | null>(null)   // the instant of a picked slot; typing a date or time drops it (an ambiguous clock time is not enough to say which one was meant)
   const s = useSubmit(onClose)
-  const iso = toIso(date, time, tz)
+  const iso = exact ?? toIso(date, time, tz)
   return (
     <Shell title={title} onClose={onClose} busy={s.busy} err={s.err} confirm={confirm} disabled={!iso} onConfirm={() => iso && void s.run(() => onSubmit(iso))}>
       <p className="tz-note">Time zone: {tz}</p>
       <div className="grid2">
-        <TextField id="td-date" label="Date" type="date" value={date} min={localDate(new Date(), tz)} max={addDays(localDate(new Date(), tz), 400)} onChange={(e) => setDate(e.target.value)} />
-        <TextField id="td-time" label="Start time" type="time" value={time} step={300} onChange={(e) => setTime(e.target.value)} />
+        <TextField id="td-date" label="Date" type="date" value={date} min={localDate(new Date(), tz)} max={addDays(localDate(new Date(), tz), 400)} onChange={(e) => { setDate(e.target.value); setExact(null) }} />
+        <TextField id="td-time" label="Start time" type="time" value={time} step={300} onChange={(e) => { setTime(e.target.value); setExact(null) }} />
       </div>
-      {slotQuery && <SlotChoices query={slotQuery} date={date} tz={tz} selected={time} onPick={setTime} />}
+      {slotQuery && <SlotChoices query={slotQuery} date={date} tz={tz} selectedIso={exact} onPick={(i, hhmm) => { setTime(hhmm); setExact(i) }} />}
       {hint && <p className="hint">{hint}</p>}
     </Shell>
   )
