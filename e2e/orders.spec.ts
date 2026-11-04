@@ -164,8 +164,9 @@ test('messages: a buyer message arrives, the seller replies with a saved reply a
   await expect(page.getByRole('list', { name: 'Messages' }).getByText('Thanks for your order, it ships tomorrow.')).toBeVisible()
   await expect(page.getByLabel('Your reply')).toHaveValue('')
   // the marketplace (dev sink) receives the reply with its attachment
-  await request.post('/api/dev/outbox/dispatch')
+  // one dispatch sends only the 50 oldest due messages (the specs share a database and leave many behind): dispatch inside the poll until the reply has been sent
   await expect.poll(async () => {
+    await request.post('/api/dev/outbox/dispatch')
     const evs = (await (await request.get('/api/dev/outbox')).json()) as { type?: string; Type?: string; body?: string; Body?: string }[]
     return evs.some((e) => (e.type ?? e.Type) === 'message.sent' && (e.body ?? e.Body ?? '').includes('it ships tomorrow') && (e.body ?? e.Body ?? '').includes('photo.png'))
   }).toBe(true)
