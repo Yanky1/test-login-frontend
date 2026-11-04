@@ -8,13 +8,15 @@ export interface OrderListItem {
   id: string; number: string; marketplaceOrderId: string; brandId: string; brandName: string; placedAt: string; status: OrderStatus; buyerName: string; currency: string
   totalCents: number; netCents: number; refundedCents: number; itemCount: number; itemsSummary: string; thumbnailLineId: string | null; shipByAt: string; deliverByAt: string
   late: boolean; oversold: boolean; cancelRequested: boolean; returnOpen: boolean; shippingSpeed: string; version: number; redacted: boolean; needsAction: boolean
+  needsAttention?: boolean; trackingStatus?: string | null
 }
 export interface OrderList { items: OrderListItem[]; total: number; page: number; pageSize: number }
-export interface OrderCounts { needsAction: number; pending: number; shipped: number; delivered: number; cancelled: number; returns: number; late: number; all: number }
+export interface OrderCounts { needsAction: number; pending: number; shipped: number; delivered: number; cancelled: number; returns: number; late: number; all: number; exceptions?: number }
 export interface MessageCounts { unread: number; needsReply: number; overdue: number; all: number }
 export interface Dashboard {
   todayOrders: number; toShip: number; late: number; returnsOpen: number; sales30Cents: number; orders30: number; daily: { date: string; orders: number; salesCents: number }[]
   lateShipmentRate: number; cancellationRate: number
+  shipping?: { labelsToPrint: number; exceptions: number }
   messages: { unread: number; needsReply: number; overdue: number; avgResponseHours: number | null; repliedInTimePct: number | null }
 }
 
@@ -23,7 +25,11 @@ export interface OrderLine {
   discountCents: number; taxCents: number; lineTotalCents: number; shippedQty: number; cancelledQty: number; refundedQty: number; returnedQty: number; unshippedQty: number
   reservedQty: number; stockShort: boolean
 }
-export interface Shipment { id: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; shippedAt: string; deliveredAt: string | null; lines: { lineId: string; quantity: number }[] }
+export interface Shipment {
+  id: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; shippedAt: string; deliveredAt: string | null; lines: { lineId: string; quantity: number }[]
+  method?: string; trackingStatus?: string; trackingStatusDetail?: string | null; eta?: string | null; labelId?: string | null; labelCostCents?: number | null; labelCurrency?: string | null
+}
+export interface ReturnShipmentDto { id: string; returnId: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; trackingStatus: string; eta: string | null; deliveredAt: string | null; labelId: string | null }
 export interface CancelRequestDto { id: string; requestedBy: string; status: 'Requested' | 'Approved' | 'Rejected'; reason: string; note: string | null; decisionNote: string | null; createdAt: string; resolvedAt: string | null }
 export interface ReturnDto {
   id: string; status: 'Requested' | 'Approved' | 'Rejected' | 'Received' | 'Refunded'; reason: string; buyerComment: string | null; decisionReason: string | null; restock: boolean; refundCents: number
@@ -32,7 +38,7 @@ export interface ReturnDto {
 export interface RefundDto { id: string; returnId: string | null; amountCents: number; shippingCents: number; reason: string; note: string | null; createdAt: string; lines: { lineId: string; quantity: number; amountCents: number }[] }
 export interface OrderActions {
   accept: boolean; hold: boolean; resume: boolean; ship: boolean; editTracking: boolean; markDelivered: boolean; cancel: boolean; cancelRemainder: boolean; refund: boolean
-  refundLimitCents: number | null; note: boolean; decideCancellation: boolean; decideReturn: boolean; receiveReturn: boolean
+  refundLimitCents: number | null; note: boolean; decideCancellation: boolean; decideReturn: boolean; receiveReturn: boolean; buyLabel?: boolean
 }
 export interface OrderDetail {
   id: string; number: string; marketplaceOrderId: string; brandId: string; brandName: string; placedAt: string; status: OrderStatus; heldFrom: string | null; currency: string; version: number
@@ -45,6 +51,7 @@ export interface OrderDetail {
   timeline: { id: string; type: string; actor: string; text: string | null; at: string }[]
   notes: { id: string; text: string; author: string; createdAt: string }[]
   conversationId: string | null; actions: OrderActions
+  needsAttention?: boolean; attentionReason?: string | null; returnShipments?: ReturnShipmentDto[]
   reasons: { cancel: string[]; refund: string[]; rejectReturn: string[]; carriers: string[] }
 }
 export interface TrackingPreview { applied: boolean; total: number; valid: number; results: { row: number; orderNumber: string; orderId: string | null; ok: boolean; error: string | null; applied: boolean }[] }
@@ -73,7 +80,7 @@ export interface ConversationDetail {
   me: string; assignees: { userId: string; name: string; isMe: boolean }[]
 }
 export interface MessageTemplate { id: string; title: string; body: string }
-export interface NotificationPrefs { newOrder: boolean; cancelRequest: boolean; returnRequest: boolean; buyerMessage: boolean; overdueReply: boolean }
+export interface NotificationPrefs { newOrder: boolean; cancelRequest: boolean; returnRequest: boolean; buyerMessage: boolean; overdueReply: boolean; shippingEmails?: boolean }
 
 const qs = (o: Record<string, string | number | boolean | undefined | null>) => {
   const p = new URLSearchParams()
