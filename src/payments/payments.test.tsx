@@ -36,12 +36,12 @@ describe('Payments page', () => {
     mockSummary(summary({ balances: [], onboarding: onb({ state: 'action_required', payoutsEnabled: false, nextSteps: ['Add the bank account where you want to be paid.'], payoutSettings: null }) }))
     const assign = vi.fn(); Object.defineProperty(window, 'location', { value: { ...window.location, assign }, writable: true })
     let called = 0
-    server.use(http.post(`${API}/seller/payments/onboarding`, () => { called++; return HttpResponse.json({ url: 'https://connect.stripe.test/setup/acct_1', expiresAt: '', onboarding: onb() }) }))
+    server.use(http.post(`${API}/seller/payments/onboarding`, () => { called++; return HttpResponse.json({ url: 'https://connect.stripe.com/setup/acct_1', expiresAt: '', onboarding: onb() }) }))
     mount(<PaymentsPage />, '/payments', '/payments', as('Owner'))
     expect(await screen.findByText('Add the bank account where you want to be paid.')).toBeInTheDocument()
     expect(screen.getByText('Action needed')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /continue payout setup/i }))
-    await waitFor(() => expect(assign).toHaveBeenCalledWith('https://connect.stripe.test/setup/acct_1'))
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('https://connect.stripe.com/setup/acct_1'))
     expect(called).toBe(1)
   })
 
