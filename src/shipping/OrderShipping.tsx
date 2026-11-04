@@ -8,6 +8,7 @@ import type { OrderDetail } from '../orders/api'
 import { CustomsFields, LabelActions, usePackage } from './BuyLabel'
 import { errDetail, shippingApi, type Label, type OrderTracking, type ShippingConfig, type TrackEvent } from './api'
 import { LABEL_STATUS, newKey, trackLabel, trackTone } from './format'
+import './shipping.css'
 
 const err = (e: unknown, fallback = 'Something went wrong. Try again.') => (e instanceof ApiError ? e.message2 : fallback)
 
