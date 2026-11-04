@@ -3,6 +3,8 @@ import { ApiError } from '../api'
 import { Alert, Button } from '../components/ui'
 import { AreaField, Dialog, PIcon, SelectField, TextField, Toggle } from '../products/ui'
 import { ordersApi, type OrderDetail, type ReturnDto, type CancelRequestDto } from './api'
+import BuyLabel from '../shipping/BuyLabel'
+import { TabList, tabPanelProps } from './tabs'
 import { fromCents, localDate, money, normalizeTracking, reasonLabel, toCents, trackingValid } from './format'
 
 interface Common { order: OrderDetail; onClose: () => void; onDone: (o: OrderDetail) => void; reload?: () => Promise<void> }
@@ -67,6 +69,7 @@ export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { n
   const [date, setDate] = useState(today)
   const [touched, setTouched] = useState(false)
   const { busy, errorNode, run } = useRun(onDone, reload)
+  const [tab, setTab] = useState<'label' | 'manual'>(order.actions.buyLabel ? 'label' : 'manual')
   const chosen = open.map((l) => ({ l, n: Number(qty[l.id] ?? 0) })).filter((x) => x.n > 0)
   const qtyErr = (l: (typeof open)[number]) => { const n = Number(qty[l.id]); return !Number.isInteger(n) || n < 0 || n > l.unshippedQty ? `Between 0 and ${l.unshippedQty}` : '' }
   const trackErr = !tracking.trim() ? 'Enter the tracking number.' : !trackingValid(carrier, tracking) ? `That doesn't look like a ${carrier} tracking number.` : ''
@@ -74,7 +77,9 @@ export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { n
   const lineErr = open.some((l) => qtyErr(l)) ? 'Fix the quantities.' : chosen.length === 0 ? 'Choose at least one item to ship.' : ''
   const partial = chosen.length < open.length || chosen.some((x) => x.n < x.l.unshippedQty)
   const submit = (e: FormEvent) => {
-    e.preventDefault(); setTouched(true)
+    e.preventDefault()
+    if (tab !== 'manual') return          // Enter inside the label tab must not submit the manual form
+    setTouched(true)
     if (trackErr || dateErr || lineErr) return
     void run(() => ordersApi.act(order.id, 'ship', {
       version: order.version, carrier, service: service.trim() || undefined, trackingNumber: normalizeTracking(tracking),
@@ -94,15 +99,26 @@ export function ShipDialog({ order, onClose, onDone, reload, now }: Common & { n
           {touched && lineErr && <p className="field-error" role="alert">{lineErr}</p>}
         </fieldset>
         {partial && !lineErr && <Alert kind="info">This is a partial shipment. The order stays open until everything has shipped.</Alert>}
-        <div className="pgrid2">
-          <SelectField label="Carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)}>{order.reasons.carriers.map((c) => <option key={c}>{c}</option>)}</SelectField>
-          <TextField label="Tracking number" value={tracking} autoComplete="off" onChange={(e) => setTracking(e.target.value)} error={tracking || touched ? trackErr : ''} hint="Letters and numbers only. We check the format for your carrier." />
-          <TextField label="Service" optional placeholder="e.g. Ground" maxLength={60} value={service} onChange={(e) => setService(e.target.value)} />
-          <TextField label="Ship date" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} error={touched ? dateErr : ''} />
+        <TabList label="How do you want to ship?" idPrefix="shiptab" value={tab} onChange={(id) => setTab(id as 'label' | 'manual')}
+          tabs={[{ id: 'label', label: 'Buy label' }, { id: 'manual', label: 'Enter tracking manually' }]} />
+        <div {...tabPanelProps('shiptab', tab)}>
+          {tab === 'label' ? (
+            lineErr ? <p className="sub">Choose the items for this parcel first.</p>
+              : <BuyLabel order={order} lines={chosen.map((x) => ({ lineId: x.l.id, quantity: x.n }))} partial={partial} reload={reload} onManual={() => setTab('manual')} onFinished={(n) => onDone(n)} />
+          ) : (
+            <>
+              <div className="pgrid2">
+                <SelectField label="Carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)}>{order.reasons.carriers.map((c) => <option key={c}>{c}</option>)}</SelectField>
+                <TextField label="Tracking number" value={tracking} autoComplete="off" onChange={(e) => setTracking(e.target.value)} error={tracking || touched ? trackErr : ''} hint="Letters and numbers only. We check the format for your carrier." />
+                <TextField label="Service" optional placeholder="e.g. Ground" maxLength={60} value={service} onChange={(e) => setService(e.target.value)} />
+                <TextField label="Ship date" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} error={touched ? dateErr : ''} />
+              </div>
+              <p className="sub"><PIcon name="box" /> Already bought the label with your carrier? Enter the tracking number here and we will follow the parcel for you.</p>
+              {errorNode}
+              <Actions><Button variant="primary" type="submit" loading={busy}>{partial ? 'Ship these items' : 'Mark as shipped'}</Button><Button variant="ghost" type="button" onClick={onClose}>Cancel</Button></Actions>
+            </>
+          )}
         </div>
-        <p className="sub"><PIcon name="box" /> Buying shipping labels in Solvelt is coming later. For now, buy the label with your carrier and enter the tracking number here.</p>
-        {errorNode}
-        <Actions><Button variant="primary" type="submit" loading={busy}>{partial ? 'Ship these items' : 'Mark as shipped'}</Button><Button variant="ghost" type="button" onClick={onClose}>Cancel</Button></Actions>
       </form>
     </Dialog>
   )

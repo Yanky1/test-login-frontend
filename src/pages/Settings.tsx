@@ -16,6 +16,7 @@ import { can } from '../lib/teams'
 const TeamPage = lazy(() => import('./teams/Team'))
 const BrandsPage = lazy(() => import('./teams/Brands'))
 const NotificationSettings = lazy(() => import('../orders/NotificationSettings'))
+const ShippingSettings = lazy(() => import('../shipping/ShippingSettings'))
 const AvailabilityPage = lazy(() => import('../services/AvailabilityPage'))
 const DeliverySettingsPage = lazy(() => import('../delivery/DeliverySettings'))
 
@@ -40,6 +41,7 @@ export default function SettingsPage() {
         <NavLink to="/settings/security">Security</NavLink>
         {teamTab && <NavLink to="/settings/team">Team</NavLink>}
         {brandsTab && <NavLink to="/settings/brands">Brands</NavLink>}
+        {brandsTab && <NavLink to="/settings/shipping">Shipping</NavLink>}
         {brandsTab && <NavLink to="/settings/notifications">Notifications</NavLink>}
         {brandsTab && <NavLink to="/settings/availability">Availability</NavLink>}
         {brandsTab && user?.role !== 'Driver' && <NavLink to="/settings/delivery">Local delivery</NavLink>}
@@ -47,6 +49,7 @@ export default function SettingsPage() {
       </nav>
       {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} />
         : tab === 'team' && teamTab ? <Suspense fallback={<Skeleton lines={4} />}><TeamPage hasPassword={me.hasPassword} twoFactorEnabled={me.twoFactorEnabled} /></Suspense>
+        : tab === 'shipping' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><ShippingSettings /></Suspense>
         : tab === 'notifications' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><NotificationSettings /></Suspense>
         : tab === 'availability' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><AvailabilityPage embedded /></Suspense>
         : tab === 'delivery' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><DeliverySettingsPage canEdit={user?.role === 'Owner' || user?.role === 'Admin'} /></Suspense>
