@@ -33,6 +33,8 @@ export const calendar = (o: Partial<CalendarData> = {}): CalendarData => ({
 })
 
 /** Common handlers of the scheduling screens; returns the recorded writes. */
+/** The query strings the slot-picker endpoint received (for assertions). */
+export const slotQueries: string[] = []
 export function mockSchedule(o: { providers?: ProviderList; calendar?: CalendarData; booking?: BookingDetail; availability?: Availability } = {}) {
   const calls: { method: string; url: string; body: unknown }[] = []
   const rec = async (request: Request) => { let body: unknown = null; try { body = await request.clone().json() } catch { /* no body */ } calls.push({ method: request.method, url: new URL(request.url).pathname.replace('/api/v1', ''), body }) }
@@ -48,6 +50,7 @@ export function mockSchedule(o: { providers?: ProviderList; calendar?: CalendarD
     http.put(`${API}/seller/providers/:id/availability`, async ({ request }) => { await rec(request); return HttpResponse.json({ ok: true }) }),
     http.get(`${API}/seller/providers/:id/blocks`, () => HttpResponse.json({ blocks: [] })),
     http.post(`${API}/seller/providers/:id/blocks`, async ({ request }) => { await rec(request); return HttpResponse.json({ block: { id: 'blk', providerId: ME, kind: 'busy', startAt: '2030-01-09T15:00:00Z', endAt: '2030-01-09T16:00:00Z', allDay: false, note: null }, affectedBookings: 0 }, { status: 201 }) }),
+    http.get(`${API}/seller/services/:id/slots`, ({ request }) => { const u = new URL(request.url); slotQueries.push(u.search); return HttpResponse.json({ durationMinutes: 120, slots: u.searchParams.get('from')?.startsWith('2030-01-10') ? [{ startAt: '2030-01-10T14:00:00Z', endAt: '2030-01-10T16:00:00Z', providerIds: [ME] }, { startAt: '2030-01-10T18:30:00Z', endAt: '2030-01-10T20:30:00Z', providerIds: [ME] }] : [] }) }),
     http.get(`${API}/seller/services/:id/providers`, () => HttpResponse.json({ providers: [{ membershipId: ME, email: 'owner@example.com', role: 'Owner', timeZone: NY, eligible: true }] })),
   )
   return calls
