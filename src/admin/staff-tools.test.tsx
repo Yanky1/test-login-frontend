@@ -416,7 +416,7 @@ describe('local delivery', () => {
 })
 
 describe('moderation additions', () => {
-  const row = (id: string, kind: string, summary: string) => ({ id, kind, targetId: 't-' + id, sellerId: kind.startsWith('review') ? '00000000-0000-0000-0000-000000000000' : 's-1', reason: summary, summary, reporterKind: 'buyer', status: 'Open', createdAt: '2026-11-01T10:00:00Z', resolution: null, vendor: kind.startsWith('review') ? null : 'Acme Co' })
+  const row = (id: string, kind: string, summary: string) => ({ id, kind, targetId: 't-' + id, sellerId: kind === 'review' ? '00000000-0000-0000-0000-000000000000' : 's-1', reason: summary, summary, reporterKind: 'buyer', status: 'Open', createdAt: '2026-11-01T10:00:00Z', resolution: null, vendor: kind === 'review' ? null : 'Acme Co' })
   const detail = (kind: string, extra: object = {}) => ({ ...row('m-1', kind, 'Reported text'), resolvedAt: null, resolutionNote: null, target: null, contentReports: [], ...extra })
   const decide = (action: string, cb: (b: unknown) => void, status = 200, resp: object = { resolved: true }) => http.post(`${A}/moderation/m-1/${action}`, async ({ request }) => { cb(await request.json()); return HttpResponse.json(resp, { status }) })
 
@@ -487,12 +487,34 @@ describe('moderation additions', () => {
     expect(screen.queryByRole('button', { name: 'Escalate: suspend the seller' })).toBeNull()
   })
 
-  it('a review reply report renders too', async () => {
-    server.use(http.get(`${A}/moderation/m-1`, () => HttpResponse.json(detail('review_reply', { target: { reviewId: 'rev-77', replyId: 'rp-1' } }))))
-    await signIn('ReadOnly', '/admin/moderation/m-1')
+  it('a review reply report shows the reply and the review it answers; it can be removed but not hidden, and its seller can be warned', async () => {
+    let body: unknown
+    server.use(http.get(`${A}/moderation/m-1`, () => HttpResponse.json(detail('review_reply', { target: { replyId: 'rp-1', replyText: 'We are sorry you felt that way', repliedAt: '2026-11-02T10:00:00Z', editedAt: null, removed: false, removedReason: null,
+      review: { reviewId: 'rev-77', rating: 2, text: 'Arrived late', buyerDisplayName: 'Sam B.', createdAt: '2026-11-01T10:00:00Z', state: 'published', productTitle: 'Linen napkin set' } } }))),
+      decide('remove-content', (b) => { body = b }))
+    const user = await signIn('Moderator', '/admin/moderation/m-1')
     expect(await screen.findByRole('heading', { name: 'Reported review reply' })).toBeInTheDocument()
-    expect(screen.getByText('rp-1')).toBeInTheDocument()
+    expect(screen.getByText('We are sorry you felt that way')).toBeInTheDocument()
+    expect(screen.getByText('Arrived late')).toBeInTheDocument()
+    expect(screen.getByText('Linen napkin set')).toBeInTheDocument()
+    expect(screen.getByText('2 out of 5')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Hide content' })).toBeNull()                       // the API refuses it (unsupported_decision)
+    expect(screen.getByRole('button', { name: 'Warn seller' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Escalate: suspend the seller' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove content' }))
+    await user.type(reasonBox(screen.getByRole('dialog')), 'The reply is abusive')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove content' }))
+    expect(await screen.findByText('The content was removed.')).toBeInTheDocument()
+    expect(body).toEqual({ reason: 'The reply is abusive' })
+  })
+
+  it('a review reply is read-only for a role that cannot act', async () => {
+    server.use(http.get(`${A}/moderation/m-1`, () => HttpResponse.json(detail('review_reply', { target: { replyId: 'rp-1', replyText: 'W*** are s***', repliedAt: '2026-11-02T10:00:00Z', removed: false } }))))
+    await signIn('ReadOnly', '/admin/moderation/m-1')
+    expect(await screen.findByText('W*** are s***')).toBeInTheDocument()
+    expect(screen.getByText('The text is masked for your role.')).toBeInTheDocument()
     expect(screen.getByText('Your role can read reports but not act on them.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove content' })).toBeNull()
   })
 
   it('a decision that fails for another reason keeps the dialog open with the server text', async () => {
