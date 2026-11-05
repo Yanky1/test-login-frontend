@@ -9,13 +9,13 @@ import type { Me, Permission, StaffRole } from './api'
 
 export const A = '*/api/v1/admin'
 
-const READ: Permission[] = ['DashboardView', 'ApplicationsView', 'SellersView', 'UsersView', 'ModerationView', 'LookupsView', 'IntegrationsView', 'AuditView', 'SettingsView']
+const READ: Permission[] = ['DashboardView', 'ApplicationsView', 'SellersView', 'UsersView', 'ModerationView', 'LookupsView', 'IntegrationsView', 'AuditView', 'SettingsView', 'PaymentsView', 'DeliveryView', 'ShippingView']
 /** Mirrors the backend permission matrix (docs/ADMIN.md); the server stays the authority, the UI only hides what a role cannot use. */
 export const PERMS: Record<StaffRole, Permission[]> = {
   ReadOnly: READ,
-  Support: [...READ, 'UsersAct', 'SellersResendVerification', 'LookupsReveal', 'IntegrationsAct'],
+  Support: [...READ, 'UsersAct', 'SellersResendVerification', 'LookupsReveal', 'IntegrationsAct', 'PaymentsHold', 'PaymentsRetry', 'ShippingRetry'],
   Moderator: [...READ, 'ModerationAct', 'ApplicationsDecide', 'ApplicationsAssign', 'SellersSuspend'],
-  SuperAdmin: [...READ, 'ApplicationsDecide', 'ApplicationsAssign', 'SellersSuspend', 'SellersClose', 'SellersResendVerification', 'SellersTransferOwnership', 'UsersAct', 'UsersDisable2fa', 'ModerationAct', 'LookupsReveal', 'IntegrationsAct', 'IntegrationsDiscard', 'AuditExport', 'SettingsEdit', 'StaffView', 'StaffManage'],
+  SuperAdmin: [...READ, 'ApplicationsDecide', 'ApplicationsAssign', 'SellersSuspend', 'SellersClose', 'SellersResendVerification', 'SellersTransferOwnership', 'UsersAct', 'UsersDisable2fa', 'ModerationAct', 'LookupsReveal', 'IntegrationsAct', 'IntegrationsDiscard', 'AuditExport', 'SettingsEdit', 'StaffView', 'StaffManage', 'PaymentsHold', 'PaymentsRetry', 'PaymentsAdjust', 'ShippingRetry'],
 }
 
 export const emptyDash = {

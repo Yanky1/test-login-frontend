@@ -274,3 +274,30 @@ Code: `src/reviews/**` (page, card, stars, api, `reviews.css`), nav entry in `sr
 | P-F9 | Viewer sees reviews and replies but no Reply, Edit or Delete (`useCanWrite`); the server answers 403 anyway | Same rule as Questions. |
 | P-F10 | Empty states: "No reviews yet" (nothing at all), "No reviews match these filters" (filters hide everything), "Nothing is hidden" (hidden tab) | Each says what to do or why it is empty. |
 | P-F11 | Paging is Previous / Next with "Page n of m" (20 per page); filters live in the URL (`rating`, `replied`, `product`, `view`, `page`) and changing one returns to page 1 | Links can be shared, the back button works. |
+
+## Admin screens for the staff tools (worker Q)
+
+Screens for staff APIs that already existed (backend `docs/PAYMENTS.md`, `SHIPPING.md`, `LOCAL-DELIVERY.md`, `ADMIN.md`). No backend change was needed: every field a screen shows is already in the read endpoints.
+
+### What was built
+- **Seller page tabs** (`/admin/sellers/:id/:tab?`): Overview, Payments, Shipping, Local delivery, each shown only when the role has `PaymentsView` / `ShippingView` / `DeliveryView`. The tab is part of the URL, so it can be linked.
+- **Payments** (`/admin/payments/:tab?`, nav item for `PaymentsView`): transfers (retry), payouts, accounts past due, reconciliation flags (run, resolve), unallocated disputes. The seller tab shows balances, Stripe status, hold history and the ledger (filters: type, dates, order id, booking id, order/booking number), with hold/release (`PaymentsHold`) and the manual adjustment (`PaymentsAdjust`).
+- **Shipping** (`/admin/shipping/:tab?`, nav item for `ShippingView`): refunds by state, exceptions, webhook failures; the seller tab lists shipments and labels (status filter). Label refund retry needs `ShippingRetry`.
+- **Local delivery** (seller tab only, no nav item: the API is per seller): settings, zones, windows, routes, deliveries, and break-glass proof access.
+- **Moderation**: every kind has a label (listing, question, message, booking message, contact warning, review, review reply); the detail page shows the marketplace reports behind the row; actions Dismiss, Hide content, Remove content, Warn seller, Escalate: suspend the seller.
+
+### Decisions
+- **Permissions in the UI** mirror the backend matrix (`Permission` type, `testkit` `PERMS`). The server stays the authority; the UI hides nav items, tabs and buttons a role cannot use. Vitest runs each role against each action.
+- **Confirm dialogs everywhere**: every write goes through the existing `ReasonDialog` (reason of at least 5 characters, then the audit log). `AdminProvider.run` shows the step-up prompt when the API answers `step_up_required` (the manual adjustment) and repeats the write.
+- **Money is never computed client-side.** The adjustment takes an integer in minor units (cents) so there is no conversion to get wrong; the dialog echoes it through `fmtMoney` ("credit $25.00") before the confirmation. Amounts shown come from the API as integer minor units. A `requestId` (UUID, one per dialog) makes a retry after the step-up idempotent.
+- **Proof of delivery** is shown only after the reveal call succeeded, lives only in component state (never in the URL, `localStorage` or a query cache) and is discarded when the staff member presses Hide, leaves the tab or the seller changes. The proof images use the API's signed links (60 minutes) with `referrerPolicy="no-referrer"`. The list and settings carry no names or addresses; the reveal needs `LookupsReveal` and its reason is audited by the server before anything is returned.
+- **"Already resolved"**: a decision that answers `409 already_resolved` closes the dialog, shows "Another moderator already resolved this report, so nothing was changed", and reloads the report so the winning decision is visible. Other errors stay in the dialog.
+- **Optional message for the reporter** (`reasonShownToUser`) is a separate field, never derived from the internal reason, and is sent only when filled in.
+- **Reports without a seller** (kind `review*`, or the all-zero seller id): Warn seller and Escalate are not offered (the API answers `409 no_seller`); Hide/Remove/Dismiss decide the report and the marketplace acts on the event. `review_reply` is rendered generically (label, summary, any scalar fields of `target`) so it works when it lands.
+- **Shared `.adm-kv` layout fix**: the global `dl` grid rule in `styles.css` made two-column key/value lists inside half-width panels unreadable; `.adm-kv` now pins one column.
+- **Icons**: Payments uses `wallet`, Shipping `download` (no truck icon exists; adding one was not worth a new asset).
+
+### Tests
+- `src/admin/staff-tools.test.tsx` (Vitest + MSW): navigation and tab visibility, the permission matrix per role for each action, hold/release, adjustment with step-up and idempotent retry, ledger filters, transfers, reconciliation, shipping lists and retry, delivery and the proof reveal (not requested before the reason, gone after Hide / leaving the tab), every moderation kind, already-resolved, error states.
+- `e2e/admin-staff-tools.spec.ts` (real backend, `Demo__Enabled=true`): Super admin with two-factor, seller tabs, hold + release, adjustment with the real step-up, shipping and delivery tabs, proof reveal when the demo data has one, platform lists, content report decided with hide-content, and axe (WCAG 2.2 AA, serious/critical) on every new page in light and in dark.
+- Screenshots (desktop and mobile): `SHOTS_DIR=docs/screenshots/admin-staff-tools npx playwright test e2e/admin-staff-tools-shots.spec.ts`; files are in `docs/screenshots/admin-staff-tools/`.

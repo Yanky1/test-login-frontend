@@ -18,11 +18,15 @@ const Integrations = lazy(() => import('./pages/Integrations'))
 const Audit = lazy(() => import('./pages/Audit'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Staff = lazy(() => import('./pages/Staff'))
+const Payments = lazy(() => import('./pages/Payments'))
+const Shipping = lazy(() => import('./pages/Shipping'))
 
 const NAV: { to: string; label: string; perm: Permission; icon: IconName; end?: boolean }[] = [
   { to: '/admin', label: 'Dashboard', perm: 'DashboardView', icon: 'star', end: true },
   { to: '/admin/applications', label: 'Applications', perm: 'ApplicationsView', icon: 'check' },
   { to: '/admin/sellers', label: 'Sellers', perm: 'SellersView', icon: 'store' },
+  { to: '/admin/payments', label: 'Payments', perm: 'PaymentsView', icon: 'wallet' },
+  { to: '/admin/shipping', label: 'Shipping', perm: 'ShippingView', icon: 'download' },
   { to: '/admin/users', label: 'Users', perm: 'UsersView', icon: 'user' },
   { to: '/admin/moderation', label: 'Moderation', perm: 'ModerationView', icon: 'shield' },
   { to: '/admin/lookups', label: 'Support lookups', perm: 'LookupsView', icon: 'mail' },
@@ -225,7 +229,9 @@ export default function AdminApp() {
         <Route element={<Layout />}>
           <Route index element={<Guard perm="DashboardView"><Dashboard /></Guard>} />
           <Route path="applications/:id?" element={<Guard perm="ApplicationsView"><Applications /></Guard>} />
-          <Route path="sellers/:id?" element={<Guard perm="SellersView"><Sellers /></Guard>} />
+          <Route path="sellers/:id?/:tab?" element={<Guard perm="SellersView"><Sellers /></Guard>} />
+          <Route path="payments/:tab?" element={<Guard perm="PaymentsView"><Payments /></Guard>} />
+          <Route path="shipping/:tab?" element={<Guard perm="ShippingView"><Shipping /></Guard>} />
           <Route path="users/:id?" element={<Guard perm="UsersView"><Users /></Guard>} />
           <Route path="moderation/:id?" element={<Guard perm="ModerationView"><Moderation /></Guard>} />
           <Route path="lookups/:kind?/:id?" element={<Guard perm="LookupsView"><Lookups /></Guard>} />

@@ -69,6 +69,7 @@ export type Permission =
   | 'SellersView' | 'SellersSuspend' | 'SellersClose' | 'SellersResendVerification' | 'SellersTransferOwnership'
   | 'UsersView' | 'UsersAct' | 'UsersDisable2fa' | 'ModerationView' | 'ModerationAct' | 'LookupsView' | 'LookupsReveal'
   | 'IntegrationsView' | 'IntegrationsAct' | 'IntegrationsDiscard' | 'AuditView' | 'AuditExport' | 'SettingsView' | 'SettingsEdit' | 'StaffView' | 'StaffManage'
+  | 'PaymentsView' | 'PaymentsHold' | 'PaymentsRetry' | 'PaymentsAdjust' | 'DeliveryView' | 'ShippingView' | 'ShippingRetry'
 
 export interface Me {
   userId: string; email: string; role: StaffRole; permissions: Permission[]

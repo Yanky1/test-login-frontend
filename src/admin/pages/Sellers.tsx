@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert } from '../../components/ui'
 import { adminApi, fmtDate, qs, type Page } from '../api'
-import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonDialog, ReasonAction, Table, useLoad } from '../components'
+import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonDialog, ReasonAction, Table, Tabs, useLoad } from '../components'
 import { Button, Field } from '../../components/ui'
+import { useAdmin } from '../AdminAuth'
+import { SellerPayments } from './Payments'
+import { SellerShipping } from './Shipping'
+import { SellerDelivery } from './Delivery'
 
 interface Row { id: string; vendorName: string | null; status: string; country: string | null; createdAt: string; ownerEmail: string | null }
 interface Detail {
@@ -18,8 +22,8 @@ interface Detail {
 const STATUSES = ['', 'PendingReview', 'NeedsInfo', 'Approved', 'Rejected', 'Suspended', 'Closed', 'Draft']
 
 export default function Sellers() {
-  const { id } = useParams()
-  return id ? <SellerDetail id={id} /> : <SellerList />
+  const { id, tab } = useParams()
+  return id ? <SellerDetail id={id} tab={tab} /> : <SellerList />
 }
 
 function SellerList() {
@@ -67,17 +71,26 @@ function TransferAction({ d, onDone }: { d: Detail; onDone: () => void }) {
   )
 }
 
-function SellerDetail({ id }: { id: string }) {
+function SellerDetail({ id, tab }: { id: string; tab?: string }) {
+  const { can } = useAdmin()
+  const nav = useNavigate()
   const { data: d, error, loading, reload } = useLoad(() => adminApi<Detail>(`/sellers/${id}`), [id])
   const [msg, setMsg] = useState<string | null>(null)
   if (loading && !d) return <Loading />
   if (error || !d) return <><PageHeader title="Seller account" /><ErrorNote error={error ?? 'Not found'} retry={reload} /><Link to="/admin/sellers">Back to sellers</Link></>
+  const tabs = [['overview', 'Overview'], ...(can('PaymentsView') ? [['payments', 'Payments'] as const] : []), ...(can('ShippingView') ? [['shipping', 'Shipping'] as const] : []), ...(can('DeliveryView') ? [['delivery', 'Local delivery'] as const] : [])] as const
+  const current = tabs.some(([t]) => t === tab) ? (tab as string) : 'overview'
   const post = (path: string) => (reason: string) => adminApi(`/sellers/${id}/${path}`, { body: { reason } })
   const done = (m: string) => () => { setMsg(m); reload() }
   return (
     <>
       <PageHeader title={d.vendorName ?? 'Seller account'} lead={d.ownerEmail ? `${d.ownerEmail}${d.ownerEmailVerified ? '' : ' (email not verified)'}` : undefined} actions={<Link className="btn" to="/admin/sellers">Back to sellers</Link>} />
       <Alert kind="success">{msg ?? ''}</Alert>
+      <Tabs label="Seller areas" tabs={tabs} current={current} onSelect={(t) => nav(`/admin/sellers/${id}${t === 'overview' ? '' : `/${t}`}`)}>
+      {current === 'payments' && <SellerPayments id={id} />}
+      {current === 'shipping' && <SellerShipping id={id} />}
+      {current === 'delivery' && <SellerDelivery id={id} />}
+      {current === 'overview' && <>
       <Panel title="Account" actions={<Badge value={d.status} />}>
         <KV items={[['Created', fmtDate(d.createdAt)], ['Submitted', fmtDate(d.submittedAt)], ['Country', d.country], ['Status note (shown to the seller)', d.statusNote || '—'],
           ['Listings', `${d.counts.listings} (${d.counts.activeListings} active)`], ['Orders', d.counts.orders], ['Bookings', d.counts.bookings]]} />
@@ -110,6 +123,8 @@ function SellerDetail({ id }: { id: string }) {
         )}
       </Panel>
       {(d.notes ?? []).length > 0 && <Panel title="Internal notes">{d.notes!.map((n) => <p key={n.id} className="adm-note"><time dateTime={n.at}>{fmtDate(n.at)}</time> {n.text}</p>)}</Panel>}
+      </>}
+      </Tabs>
     </>
   )
 }

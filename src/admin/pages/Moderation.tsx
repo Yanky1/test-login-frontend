@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { Button } from '../../components/ui'
 import { Link, useParams } from 'react-router-dom'
-import { Alert } from '../../components/ui'
-import { adminApi, fmtDate, qs, type Page } from '../api'
-import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonAction, Table, useLoad } from '../components'
+import { Alert, Field } from '../../components/ui'
+import { AdminError, adminApi, fmtDate, qs, type Page } from '../api'
+import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonAction, ReasonDialog, Table, useLoad } from '../components'
 import { useAdmin } from '../AdminAuth'
 
 interface Item { id: string; kind: string; targetId: string; sellerId: string; reason: string; summary: string; reporterKind: string; status: string; createdAt: string; resolution: string | null; vendor: string | null }
 interface Msg { id: string; direction: string; text: string; createdAt: string; contactWarning?: boolean; reported?: boolean }
-interface Detail extends Item { resolvedAt: string | null; resolutionNote: string | null; target: { conversationId?: string; bookingId?: string; productId?: string; subject?: string; messages?: Msg[] } | null }
-const KINDS: Record<string, string> = { message: 'Reported message', contact_warning: 'Contact details in a message', listing: 'Reported listing', booking_message: 'Reported booking message' }
+interface ContentReport { reportId: string; kind: string; targetId: string | null; reason: string | null; note: string | null; reporterRef: string | null; decision: string | null; decidedAt: string | null; createdAt: string }
+interface Detail extends Item { resolvedAt: string | null; resolutionNote: string | null; target: { conversationId?: string; bookingId?: string; productId?: string; reviewId?: string; subject?: string; messages?: Msg[]; [k: string]: unknown } | null; contentReports?: ContentReport[] }
+const KINDS: Record<string, string> = { message: 'Reported message', contact_warning: 'Contact details in a message', listing: 'Reported listing', booking_message: 'Reported booking message', question: 'Reported question', review: 'Reported review', review_reply: 'Reported review reply' }
 
 export default function Moderation() {
   const { id } = useParams()
@@ -20,7 +22,7 @@ function Queue() {
   const { data, error, loading, reload } = useLoad(() => adminApi<Page<Item>>('/moderation' + qs({ status, kind, page })), [status, kind, page])
   return (
     <>
-      <PageHeader title="Moderation" lead="Reported messages, contact-detail warnings and reported listings. Oldest first." />
+      <PageHeader title="Moderation" lead="Reported listings, questions, messages, reviews and review replies, and contact-detail warnings. Oldest first." />
       <Panel>
         <form className="adm-filters" aria-label="Filter the queue" onSubmit={(e) => e.preventDefault()}>
           <div className="field"><label htmlFor="m-status">Status</label>
@@ -66,27 +68,78 @@ function ListingView({ id, onChange }: { id: string; onChange: () => void }) {
   )
 }
 
+const DECISIONS = {
+  'dismiss': { label: 'Dismiss', ok: 'Report dismissed.', title: 'Dismiss this report', lead: 'The content stays and no one is warned.', confirm: 'Dismiss', shown: true },
+  'hide-content': { label: 'Hide content', ok: 'The content was hidden.', title: 'Hide the reported content', lead: 'A listing leaves the marketplace until staff unhide it. For a message or review the decision is recorded and the marketplace acts on it.', confirm: 'Hide content', shown: true, danger: true },
+  'remove-content': { label: 'Remove content', ok: 'The content was removed.', title: 'Remove the reported content', lead: 'A listing is archived and stays unlisted. For a message or review the decision is recorded and the marketplace removes it. This is the stronger action.', confirm: 'Remove content', shown: true, danger: true },
+  'warn-seller': { label: 'Warn seller', ok: 'The seller was warned by email.', title: 'Warn the seller', lead: 'The reason is emailed to the seller’s owners. The content stays.', reasonLabel: 'Warning text (sent to the seller)', confirm: 'Send warning', shown: true },
+  'escalate-suspend': { label: 'Escalate: suspend the seller', ok: 'The seller was suspended.', title: 'Suspend the seller', lead: 'The seller’s account is suspended and its members lose access. This resolves the report.', confirm: 'Suspend seller', shown: true, danger: true },
+} as const
+type DecisionKey = keyof typeof DECISIONS
+
+/** One decision on a report, behind a confirm dialog with a reason. When another moderator decided first the server answers `already_resolved`: nothing was changed, so say so and reload. */
+function Decide({ id, action, variant, disabled, onDone, onLost }: { id: string; action: DecisionKey; variant?: 'secondary' | 'destructive'; disabled?: boolean; onDone: (m: string) => void; onLost: () => void }) {
+  const d = DECISIONS[action]
+  const [open, setOpen] = useState(false)
+  const [shown, setShown] = useState('')
+  const reasonLabel = 'reasonLabel' in d ? d.reasonLabel : undefined
+  const extra: ReactNode = (
+    <Field label="Message for the person who reported it (optional, they are told this)" value={shown} maxLength={500} onChange={(e) => setShown(e.target.value)} hint="Leave empty to tell them nothing beyond the outcome. It is never copied from your internal reason." />
+  )
+  return (
+    <>
+      <Button variant={variant ?? (('danger' in d && d.danger) ? 'destructive' : 'secondary')} disabled={disabled} onClick={() => { setShown(''); setOpen(true) }}>{d.label}</Button>
+      {open && (
+        <ReasonDialog title={d.title} lead={d.lead} confirm={d.confirm} danger={'danger' in d && d.danger} reasonLabel={reasonLabel} extra={extra} onClose={() => setOpen(false)}
+          onSubmit={async (reason) => {
+            try { await adminApi(`/moderation/${id}/${action}`, { body: { reason, ...(shown.trim() ? { reasonShownToUser: shown.trim() } : {}) } }); onDone(d.ok) }
+            catch (x) { if (x instanceof AdminError && x.code === 'already_resolved') onLost(); else throw x }
+          }} />
+      )}
+    </>
+  )
+}
+
+const NO_SELLER = '00000000-0000-0000-0000-000000000000'
+
+/** Marketplace reports behind this row (one row can carry several), with their own decision. */
+function ContentReports({ items }: { items: ContentReport[] }) {
+  return (
+    <Panel title="Reports from the marketplace">
+      <Table caption="Marketplace reports" head={['Reported', 'Kind', 'Reason', 'Note', 'Reporter', 'Decision']} empty="No marketplace reports.">
+        {items.map((c) => <tr key={c.reportId}><td>{fmtDate(c.createdAt)}</td><th scope="row">{KINDS[c.kind] ?? c.kind}</th><td>{c.reason ?? '—'}</td><td className="adm-clip">{c.note ?? '—'}</td><td>{c.reporterRef ?? '—'}</td><td>{c.decision ? <Badge value={c.decision} tone="muted" /> : <Badge value="Open" tone="warn" />}</td></tr>)}
+      </Table>
+    </Panel>
+  )
+}
+
 function ReportDetail({ id }: { id: string }) {
   const { can, me } = useAdmin()
   const { data: d, error, loading, reload } = useLoad(() => adminApi<Detail>(`/moderation/${id}`), [id])
   const [msg, setMsg] = useState<string | null>(null)
+  const [lost, setLost] = useState(false)
   if (loading && !d) return <Loading />
   if (error || !d) return <><PageHeader title="Report" /><ErrorNote error={error ?? 'Not found'} retry={reload} /><Link to="/admin/moderation">Back to the queue</Link></>
-  const post = (p: string) => (reason: string) => adminApi(`/moderation/${id}/${p}`, { body: { reason } })
-  const done = (m: string) => () => { setMsg(m); reload() }
+  const done = (m: string) => { setMsg(m); setLost(false); reload() }
   const open = d.status === 'Open'
+  const hasSeller = !!d.sellerId && d.sellerId !== NO_SELLER && !d.kind.startsWith('review')
+  const known = ['conversationId', 'bookingId', 'productId', 'reviewId', 'subject', 'messages']
+  const extraTarget = Object.entries(d.target ?? {}).filter(([k, v]) => !known.includes(k) && (typeof v === 'string' || typeof v === 'number'))
   return (
     <>
       <PageHeader title={KINDS[d.kind] ?? d.kind} lead={`Reported ${fmtDate(d.createdAt)} by ${d.reporterKind}: ${d.reason}`} actions={<Link className="btn" to="/admin/moderation">Back to the queue</Link>} />
       <Alert kind="success">{msg ?? ''}</Alert>
+      {lost && <Alert kind="info">Another moderator already resolved this report, so nothing was changed. The decision they made is shown below.</Alert>}
       <Panel title="Decision" actions={<Badge value={d.status} />}>
         {!open && <p>{d.resolution ? `Resolved: ${d.resolution}. ` : ''}{d.resolutionNote}</p>}
-        <p className="adm-muted">Seller: <Link to={`/admin/sellers/${d.sellerId}`}>{d.vendor ?? d.sellerId}</Link></p>
+        <p className="adm-muted">{hasSeller ? <>Seller: <Link to={`/admin/sellers/${d.sellerId}`}>{d.vendor ?? d.sellerId}</Link></> : 'This report has no seller on this portal; the marketplace acts on the content.'}</p>
         <Can permission="ModerationAct">
           <div className="adm-actionrow">
-            <ReasonAction label="Dismiss" disabled={!open} onDone={done('Report dismissed.')} dialog={{ title: 'Dismiss this report', confirm: 'Dismiss', onSubmit: post('dismiss') }} />
-            <ReasonAction label="Warn seller" disabled={!open} onDone={done('The seller was warned by email.')} dialog={{ title: 'Warn the seller', lead: 'The reason is emailed to the seller’s owners.', reasonLabel: 'Warning text (sent to the seller)', confirm: 'Send warning', onSubmit: post('warn-seller') }} />
-            <ReasonAction label="Escalate: suspend the seller" variant="destructive" disabled={!open} onDone={done('The seller was suspended.')} dialog={{ title: 'Suspend the seller', lead: 'The seller’s account is suspended and its members lose access. This resolves the report.', confirm: 'Suspend seller', danger: true, onSubmit: post('escalate-suspend') }} />
+            <Decide id={id} action="dismiss" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />
+            <Decide id={id} action="hide-content" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />
+            <Decide id={id} action="remove-content" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />
+            {hasSeller && <Decide id={id} action="warn-seller" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />}
+            {hasSeller && <Decide id={id} action="escalate-suspend" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />}
           </div>
         </Can>
         {me && !can('ModerationAct') && <p className="adm-muted">Your role can read reports but not act on them.</p>}
@@ -99,6 +152,14 @@ function ReportDetail({ id }: { id: string }) {
           </ol>
         </Panel>
       )}
+      {d.kind.startsWith('review') && (
+        <Panel title={d.kind === 'review_reply' ? 'The review reply under report' : 'The review under report'}>
+          <p className="adm-muted">Reviews live on the marketplace: your decision is sent there and the marketplace hides or removes the content.</p>
+          <KV items={[['Review id', d.target?.reviewId ? <code key="r">{d.target.reviewId}</code> : '—'], ['What was reported', d.summary || d.reason], ...extraTarget.map(([k, v]) => [k, String(v)] as [string, ReactNode])]} />
+        </Panel>
+      )}
+      {!d.target?.messages && !d.kind.startsWith('review') && d.kind !== 'listing' && <Panel title="What was reported"><p>{d.summary || d.reason}</p></Panel>}
+      {(d.contentReports ?? []).length > 0 && <ContentReports items={d.contentReports!} />}
       {d.kind === 'listing' && <ListingView id={d.targetId} onChange={reload} />}
     </>
   )
