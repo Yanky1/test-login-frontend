@@ -41,7 +41,8 @@ test('a signed review is ingested, appears, and the seller replies, edits and de
   await expect(page.getByRole('heading', { name: 'Reviews', level: 1 })).toBeVisible()
   const card = page.getByRole('listitem').filter({ hasText: 'Lovely mug, arrived quickly.' })
   await expect(card).toBeVisible()
-  await expect(card.getByRole('img', { name: '4 out of 5 stars' })).toBeVisible()
+  await expect(card.getByText('4 out of 5 stars', { exact: true })).toBeVisible()
+  await expect(card.getByRole('img')).toHaveCount(0)                       // read once: the stars themselves are hidden from screen readers
   await expect(card.getByText('Jane B.', { exact: true })).toBeVisible()
   await expect(card.getByRole('link', { name: 'Speckled stoneware mug' })).toBeVisible()
   await expect(page.getByLabel('Average rating 4.0 out of 5')).toBeVisible()

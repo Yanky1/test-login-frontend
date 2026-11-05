@@ -66,7 +66,7 @@ function ReviewCard({ r, canWrite, onChanged, onError }: { r: Review; canWrite: 
     <li className="rv-card">
       <header>
         <div className="rv-rating">
-          <Stars rating={r.rating} />
+          <Stars rating={r.rating} decorative />
           <span className="rv-rating-text">{ratingText(r.rating)}</span>
         </div>
         <span className="rv-meta">
@@ -114,7 +114,7 @@ function Summary({ data, rating, onRating }: { data: ReviewList; rating: string;
     <section className="rv-summary" aria-label="Rating summary">
       <div className="rv-avg">
         <p className="rv-avg-num" aria-label={s.average == null ? 'No rating yet' : `Average rating ${s.average.toFixed(1)} out of 5`}>{s.average == null ? '–' : s.average.toFixed(1)}</p>
-        {s.average != null && <Stars rating={s.average} size="lg" />}
+        {s.average != null && <Stars rating={s.average} size="lg" decorative />}
         <p className="rv-avg-count">{s.count} {s.count === 1 ? 'review' : 'reviews'}</p>
       </div>
       <ul className="rv-bars" aria-label="Reviews by rating">
