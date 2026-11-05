@@ -195,6 +195,60 @@ describe('seller payments', () => {
     expect(bodies[0].requestId).toBe(bodies[1].requestId)                      // the retry is idempotent
   })
 
+  it('two different adjustments in a row use different request ids; a step-up retry of one attempt reuses its id', async () => {
+    sellerMocks()
+    const bodies: Record<string, unknown>[] = []
+    let stepped = false
+    server.use(
+      http.post(`${A}/auth/step-up`, () => { stepped = true; return new HttpResponse(null, { status: 204 }) }),
+      http.post(`${A}/payments/sellers/s-1/adjustments`, async ({ request }) => {
+        const b = (await request.json()) as Record<string, unknown>
+        bodies.push(b)
+        if (!stepped) return HttpResponse.json({ code: 'step_up_required' }, { status: 403 })
+        return HttpResponse.json({ recorded: true, journalId: 'j-' + bodies.length, owedCents: 1 })
+      }),
+    )
+    const user = await signIn('SuperAdmin', '/admin/sellers/s-1/payments')
+    const adjust = async (amount: string, why: string) => {
+      await user.click(await screen.findByRole('button', { name: 'Adjust balance' }))
+      const dlg = screen.getByRole('dialog', { name: 'Manual balance adjustment' })
+      await user.type(within(dlg).getByLabelText('Amount in minor units (cents)'), amount)
+      await user.type(reasonBox(dlg), why)
+      await user.click(within(dlg).getByRole('button', { name: 'Credit the seller' }))
+    }
+    await adjust('1000', 'First goodwill credit')
+    const step = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.type(within(step).getByLabelText('Authenticator code'), '123456')
+    await user.click(within(step).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(bodies).toHaveLength(2)
+    expect(bodies[0].requestId).toBe(bodies[1].requestId)                             // the step-up retry is the same attempt
+    await adjust('2000', 'Second goodwill credit')                                    // same mounted page, a different adjustment
+    await waitFor(() => expect(bodies).toHaveLength(3))
+    expect(bodies[2]).toMatchObject({ amountCents: 2000 })
+    expect(bodies[2].requestId).toBeTruthy()
+    expect(bodies[2].requestId).not.toBe(bodies[0].requestId)
+  })
+
+  it('a changed form after a failed try gets a new request id', async () => {
+    sellerMocks()
+    const ids: unknown[] = []
+    server.use(http.post(`${A}/payments/sellers/s-1/adjustments`, async ({ request }) => {
+      ids.push(((await request.json()) as { requestId: string }).requestId)
+      return ids.length === 1 ? HttpResponse.json({ title: 'Try later' }, { status: 500 }) : HttpResponse.json({ recorded: true, owedCents: 1 })
+    }))
+    const user = await signIn('SuperAdmin', '/admin/sellers/s-1/payments')
+    await user.click(await screen.findByRole('button', { name: 'Adjust balance' }))
+    const dlg = screen.getByRole('dialog')
+    await user.type(within(dlg).getByLabelText('Amount in minor units (cents)'), '500')
+    await user.type(reasonBox(dlg), 'Goodwill credit')
+    await user.click(within(dlg).getByRole('button', { name: 'Credit the seller' }))
+    expect(await within(dlg).findByText('Try later')).toBeInTheDocument()
+    await user.click(within(dlg).getByRole('button', { name: 'Credit the seller' }))     // same form, plain retry: same attempt
+    await waitFor(() => expect(ids).toHaveLength(2))
+    expect(ids[1]).toBe(ids[0])
+  })
+
   it('rejects a non-integer adjustment amount before calling the API', async () => {
     sellerMocks()
     const call = vi.fn(() => HttpResponse.json({ recorded: true }))
@@ -275,8 +329,12 @@ describe('payments page', () => {
     const user = await signIn('SuperAdmin', '/admin/payments/reconciliation')
     await user.click(await screen.findByRole('button', { name: 'Run reconciliation' }))
     let dlg = screen.getByRole('dialog', { name: 'Run reconciliation now' })
-    await user.type(reasonBox(dlg), 'Weekly check')
-    await user.click(within(dlg).getByRole('button', { name: 'Run reconciliation' }))
+    expect(within(dlg).queryByLabelText(/Reason/)).toBeNull()                         // the server records no reason for a run: a plain confirm
+    expect(posted).toEqual([])                                                        // nothing is sent before the confirmation
+    await user.click(within(dlg).getByRole('button', { name: 'Cancel' }))
+    expect(posted).toEqual([])
+    await user.click(screen.getByRole('button', { name: 'Run reconciliation' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Run reconciliation now' })).getByRole('button', { name: 'Run reconciliation' }))
     expect(await screen.findByText('Reconciliation ran.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Resolve' }))
     dlg = screen.getByRole('dialog', { name: 'Resolve this flag' })
@@ -363,6 +421,15 @@ describe('local delivery', () => {
     expect(screen.getByText('09:00')).toBeInTheDocument()
     expect(screen.getByText('SO-1001')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Access proof' })).toBeNull()
+  })
+
+  it('shows fees in the seller’s account currency, taken from its payments balances', async () => {
+    mocks()
+    server.use(http.get(`${A}/payments/sellers/s-1`, () => HttpResponse.json({ balances: [{ currency: 'EUR', pendingCents: 0, availableCents: 0, reservedCents: 0, inTransitCents: 0, paidOutCents: 0, owedCents: 0, negative: false }] })))
+    await signIn('ReadOnly', '/admin/sellers/s-1/delivery')
+    await screen.findByText('Brooklyn')
+    await waitFor(() => expect(screen.getAllByText(/€5\.00/).length).toBeGreaterThan(0))
+    expect(screen.queryByText('$5.00')).toBeNull()
   })
 
   it('proof of delivery is break-glass: nothing is requested until a reason is confirmed, the proof is shown after the reveal and gone after Hide', async () => {
