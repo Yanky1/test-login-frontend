@@ -32,7 +32,7 @@ export default defineConfig({
   snapshotPathTemplate: path.join('e2e/sweep/__screenshots__', '{projectName}', '{arg}{ext}'),
   retries: 0,
   workers: Number(process.env.SWEEP_WORKERS ?? 1),
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'sweep-out/playwright-report' }]],
+  reporter: [['list'], ['html', { open: 'never', outputFolder: process.env.SWEEP_REPORT_DIR ?? 'sweep-out/playwright-report' }]],
   outputDir: 'sweep-out/test-results',
   use: { baseURL: 'http://localhost:5173', reducedMotion: 'reduce', launchOptions: base.use?.launchOptions },
   projects: wanted ? all.filter((p) => wanted.includes(p.name)) : all,
