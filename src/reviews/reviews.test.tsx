@@ -40,8 +40,10 @@ describe('reviews page', () => {
     mockReviews()
     mount(<ReviewsPage />, '/reviews', '/reviews', acct('Owner'))
     const card = (await screen.findByText('Lovely mug, arrived quickly.')).closest('li')!
-    expect(within(card).getByRole('img', { name: '4 out of 5 stars' })).toBeInTheDocument()
-    expect(within(card).getByText('4 out of 5 stars')).toBeInTheDocument()       // also as visible text
+    // announced ONCE: the visible text is read, the drawn stars are hidden from screen readers
+    expect(within(card).getByText('4 out of 5 stars')).toBeInTheDocument()
+    expect(within(card).queryByRole('img')).toBeNull()
+    expect(card.querySelectorAll('.stars[aria-hidden="true"]')).toHaveLength(1)
     expect(within(card).getByText('Jane B.')).toBeInTheDocument()
     expect(within(card).getByRole('link', { name: 'Blue mug' })).toHaveAttribute('href', '/products/p1')
     expect(within(card).getByText(/Nov 1, 2026/)).toBeInTheDocument()

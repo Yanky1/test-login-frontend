@@ -19,7 +19,7 @@
 .rv-rating { display: flex; align-items: center; gap: var(--s1); } .rv-rating-text { font-weight: 600; }
 .rv-meta { color: var(--muted); font-size: var(--fs-sm); } .rv-meta strong { color: var(--fg); } .rv-edited { font-style: italic; }
 .rv-product { margin: var(--s1) 0 0; font-size: var(--fs-sm); } .rv-text { margin: var(--s1) 0; white-space: pre-wrap; overflow-wrap: anywhere; } .rv-none { color: var(--muted); font-style: italic; } .rv-reason { color: var(--muted); }
-.rv-reply { margin-top: var(--s2); padding: var(--s2); background: var(--surface-2); border-left: 3px solid var(--primary); border-radius: var(--r-sm); } .rv-reply h3 { margin: 0 0 var(--s1); font-size: var(--fs-md, 1rem); } .rv-reply p { margin: 0 0 var(--s1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rv-reply { margin-top: var(--s2); padding: var(--s2); background: var(--surface-2); border-left: 3px solid var(--primary); border-radius: var(--r-sm); } .rv-reply h3 { margin: 0 0 var(--s1); font-size: var(--fs-base); } .rv-reply p { margin: 0 0 var(--s1); white-space: pre-wrap; overflow-wrap: anywhere; }
 .rv-editor { margin-top: var(--s2); } .rv-editor textarea { width: 100%; } .rv-count { margin: 0 0 var(--s1); text-align: right; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .rv-acts { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
 .rv-pager { display: flex; justify-content: center; align-items: center; gap: var(--s2); margin-top: var(--s3); }
