@@ -73,7 +73,10 @@ jobs:
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: failure()
-        with: { name: sweep-traces-${{ matrix.project }}-${{ matrix.group }}, path: sweep-out/test-results, if-no-files-found: ignore }
+        with:
+          name: sweep-traces-${{ matrix.project }}-${{ matrix.group }}
+          path: sweep-out/test-results
+          if-no-files-found: ignore
   lighthouse:
     runs-on: ubuntu-latest
     continue-on-error: true
