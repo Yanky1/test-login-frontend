@@ -6,6 +6,7 @@ const e2eDir = path.resolve('.e2e')
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/sweep/**',   // the UI sweep has its own config (playwright.sweep.config.ts) and workflow (sweep.yml)
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
