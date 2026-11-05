@@ -8,6 +8,10 @@ interface Ctx {
   login: (email: string, password: string, code?: { totp?: string; recovery?: string }) => Promise<void>
   logout: () => Promise<void>
   stepUp: (code: string, recovery?: boolean) => Promise<void>
+  /** Test sites only: after the password step, open a session with two-factor skipped (needs the server's staffMfaSkipEnabled). */
+  skipMfa: (email: string, password: string) => Promise<void>
+  /** Test sites only: mark the current session as two-factor skipped, so step-up is satisfied. */
+  skipStepUp: () => Promise<void>
   /** Runs `fn`; when the server asks for a recent step-up it opens the dialog and retries once. */
   run: <T>(fn: () => Promise<T>) => Promise<T>
   endedReason: string | null
@@ -73,6 +77,17 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     await refreshMe()
   }, [refreshMe])
 
+  const skipMfa: Ctx['skipMfa'] = useCallback(async (email, password) => {
+    const r = await adminApi<LoginResult>('/auth/demo-mfa', { auth: false, body: { email, password } })
+    adminToken.set(r.accessToken)
+    setEndedReason(null); setSignedOut(false)
+    setMe(await adminApi<Me>('/auth/me'))
+  }, [])
+  const skipStepUp: Ctx['skipStepUp'] = useCallback(async () => {
+    await adminApi('/auth/demo-step-up', { body: {} })
+    await refreshMe()
+  }, [refreshMe])
+
   const run: Ctx['run'] = useCallback(async (fn) => {
     try { return await fn() } catch (e) {
       if (!(e instanceof AdminError) || e.code !== 'step_up_required') throw e
@@ -82,9 +97,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<Ctx>(() => ({
-    me, login, logout, stepUp, run, endedReason, signedOut, expiring,
+    me, login, logout, stepUp, skipMfa, skipStepUp, run, endedReason, signedOut, expiring,
     can: (p) => !!me?.permissions.includes(p),
-  }), [me, login, logout, stepUp, run, endedReason, signedOut, expiring])
+  }), [me, login, logout, stepUp, skipMfa, skipStepUp, run, endedReason, signedOut, expiring])
 
   return (
     <AdminCtx.Provider value={value}>

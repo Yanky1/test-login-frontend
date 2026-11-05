@@ -10,6 +10,8 @@ export interface PublicConfig {
   turnstileSiteKey: string
   /** Test mode: the server offers the demo-data tools (backend Demo:Enabled). Absent/false in production. */
   demoEnabled?: boolean
+  /** Test sites only: the server also lets staff skip two-factor for one session (backend Demo:Enabled AND Demo:AllowStaffMfaSkip). */
+  staffMfaSkipEnabled?: boolean
 }
 
 let cached: PublicConfig | null = null
@@ -27,3 +29,6 @@ export const resetPublicConfigCache = () => { cached = null }
 
 /** True only when the server says demo (test) mode is on. Until the config is known it is false, so nothing flashes in production. */
 export const useDemoEnabled = (): boolean => usePublicConfig()?.demoEnabled === true
+
+/** The staff "Skip two-factor (test mode)" button: only when the server says BOTH demo mode and the staff skip are on. */
+export const useStaffMfaSkip = (): boolean => { const c = usePublicConfig(); return c?.demoEnabled === true && c?.staffMfaSkipEnabled === true }

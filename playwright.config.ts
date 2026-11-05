@@ -59,6 +59,7 @@ export default defineConfig({
         RateLimit__ShippingPerMinute: '100000',
         Shipping__WebhookSecret: 'e2e-shipping-webhook-secret-0123456789',
         Shipping__RefundCheckMinutes: '0',   // the fake provider confirms a label refund on the next maintenance run
+        Demo__AllowStaffMfaSkip: 'true',   // TEST SITES ONLY: with Demo__Enabled it shows "Skip two-factor (test mode)" for staff (e2e/admin-mfa-skip.spec.ts)
         Demo__Enabled: 'true',   // test tools: TEST MODE badge, "Fill with demo data", "Approve this account (test mode)" (e2e/demo.spec.ts)
         Phone__Enabled: 'true',
         Phone__Provider: 'Sink',
