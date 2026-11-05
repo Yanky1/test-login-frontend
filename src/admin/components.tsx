@@ -3,6 +3,7 @@ import { Alert, Button, Field, Skeleton } from '../components/ui'
 import { Dialog } from '../components/Dialog'
 import { AdminError, ROLE_LABEL, type Permission, type StaffRole } from './api'
 import { useAdmin } from './AdminAuth'
+import { useStaffMfaSkip } from '../lib/publicConfig'
 
 export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
   const [data, setData] = useState<T | null>(null)
@@ -98,7 +99,8 @@ export function Can({ permission, children }: { permission: Permission; children
 
 /** Step-up re-authentication: the server asked for a recent authenticator code before a sensitive action. */
 export function StepUpDialog({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
-  const { stepUp } = useAdmin()
+  const { stepUp, skipStepUp } = useAdmin()
+  const canSkip = useStaffMfaSkip()
   const [code, setCode] = useState('')
   const [recovery, setRecovery] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -115,6 +117,12 @@ export function StepUpDialog({ onDone, onCancel }: { onDone: () => void; onCance
         <p>This action needs a fresh confirmation. Enter {recovery ? 'one of your recovery codes' : 'the 6-digit code from your authenticator app'}.</p>
         <Field label={recovery ? 'Recovery code' : 'Authenticator code'} inputMode={recovery ? 'text' : 'numeric'} autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} data-autofocus required />
         <Alert>{err}</Alert>
+        {canSkip && (
+          <div className="adm-skipmfa">
+            <p className="adm-muted">Test site only: this skips the code for this session. It is recorded in the audit log.</p>
+            <Button type="button" onClick={async () => { setBusy(true); setErr(null); try { await skipStepUp(); onDone() } catch (x) { setErr(x instanceof AdminError ? x.text : 'Something went wrong') } finally { setBusy(false) } }}>Skip two-factor (test mode)</Button>
+          </div>
+        )}
         <div className="adm-dialog-actions">
           <Button type="button" variant="ghost" onClick={() => { setRecovery(!recovery); setCode('') }}>{recovery ? 'Use authenticator code' : 'Use a recovery code'}</Button>
           <Button type="button" onClick={onCancel}>Cancel</Button>

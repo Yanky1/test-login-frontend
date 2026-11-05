@@ -74,6 +74,8 @@ export type Permission =
 export interface Me {
   userId: string; email: string; role: StaffRole; permissions: Permission[]
   sessionExpiresAt: string | null; idleMinutes: number; stepUpUntil: string | null
+  /** Test sites only: this session skipped two-factor (a banner is shown while it is active). */
+  mfaSkipped?: boolean
 }
 export interface LoginResult { accessToken: string; expiresIn: number; email: string; role: StaffRole; permissions: Permission[] }
 export interface Page<T> { total: number; page: number; pageSize: number; items: T[] }

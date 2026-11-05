@@ -6,6 +6,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AdminError, adminApi, type Permission } from './api'
 import { AdminProvider, useAdmin } from './AdminAuth'
 import { RoleBadge } from './components'
+import { useStaffMfaSkip } from '../lib/publicConfig'
 import './admin.css'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -62,6 +63,7 @@ function Layout() {
           </ul>
         </nav>
         <main className="adm-main" id="main">
+          {me.mfaSkipped && <p className="adm-testbanner" role="status">Two-factor skipped (test mode)</p>}
           {expiring && <p className="alert alert-error" role="alert">Your staff session ends in about a minute. Finish what you are doing, then sign in again.</p>}
           <ErrorBoundary><Suspense fallback={<div className="center"><Spinner /></div>}><Outlet /></Suspense></ErrorBoundary>
         </main>
@@ -85,7 +87,8 @@ const Guard = ({ perm, children }: { perm: Permission; children: React.ReactNode
 type Step = 'credentials' | 'code' | 'enrol' | 'enrolled'
 
 function SignIn() {
-  const { me, login, endedReason } = useAdmin()
+  const { me, login, skipMfa, endedReason } = useAdmin()
+  const canSkip = useStaffMfaSkip()
   const nav = useNavigate()
   const loc = useLocation()
   const [params] = useSearchParams()
@@ -116,6 +119,19 @@ function SignIn() {
       else setErr(step === 'code' ? 'That code isn’t right, or the sign-in details are wrong.' : 'Sign-in failed. Check your email and password.')
     } finally { setBusy(false) }
   }
+
+  const skip = async () => {
+    setBusy(true); setErr(null)
+    try { await skipMfa(email.trim(), password); nav(target, { replace: true }) }
+    catch (x) { setErr(x instanceof AdminError && x.status === 429 ? 'Too many attempts. Wait a minute and try again.' : 'Could not skip two-factor. Check your email and password.') }
+    finally { setBusy(false) }
+  }
+  const skipButton = canSkip ? (
+    <div className="adm-skipmfa">
+      <p className="adm-muted">Test site only: this skips two-factor for this session. It is recorded in the audit log.</p>
+      <Button type="button" onClick={() => void skip()} loading={busy}>Skip two-factor (test mode)</Button>
+    </div>
+  ) : null
 
   const startSetup = async () => {
     setBusy(true); setErr(null)
@@ -153,6 +169,7 @@ function SignIn() {
             )}
             <Alert>{err}</Alert>
             <Button type="submit" variant="primary" loading={busy}>{step === 'code' ? 'Verify and sign in' : 'Continue'}</Button>
+            {step === 'code' && skipButton}
           </form>
         )}
 
@@ -160,7 +177,7 @@ function SignIn() {
           <div>
             <p>This staff account has no second factor yet. Set one up with an authenticator app (Google Authenticator, 1Password, Authy, …).</p>
             {!setup ? (
-              <><Alert>{err}</Alert><Button variant="primary" loading={busy} onClick={startSetup}>Show my setup code</Button></>
+              <><Alert>{err}</Alert><Button variant="primary" loading={busy} onClick={startSetup}>Show my setup code</Button>{skipButton}</>
             ) : (
               <form onSubmit={finishSetup} noValidate>
                 <div className="qr" role="img" aria-label="QR code for your authenticator app" dangerouslySetInnerHTML={{ __html: renderSVG(setup.otpAuthUri, { border: 1 }) }} />

@@ -90,3 +90,7 @@
 .adm-preview { margin: var(--s1) 0; padding-left: var(--s3); } .adm-preview .off { color: var(--muted); }
 .adm .field textarea { width: 100%; font: inherit; padding: var(--s1); border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--fg); }
 @media print { .adm-top, .adm-nav { display: none; } }
+
+/* Test sites only: the permanent banner while a session skipped two-factor, and the skip button block */
+.adm-testbanner { margin: 0 0 var(--s2); padding: var(--s1) var(--s2); background: var(--gold-soft); color: var(--gold-ink); border: 1px solid var(--gold-line); border-radius: var(--r-md); font-weight: 600; text-align: center; }
+.adm-skipmfa { margin-top: var(--s2); padding-top: var(--s2); border-top: 1px dashed var(--gold-line); }
