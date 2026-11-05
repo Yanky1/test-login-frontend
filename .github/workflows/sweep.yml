@@ -39,8 +39,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      # Chromium in every job: the global setup (page discovery) always runs in it, whatever browser the project tests
       - run: npx playwright install --with-deps chromium
-        if: startsWith(matrix.project, 'chromium') || matrix.project == 'lighthouse'
       - run: npx playwright install --with-deps firefox
         if: startsWith(matrix.project, 'firefox')
       - run: npx playwright install --with-deps webkit
@@ -54,6 +54,7 @@ jobs:
           CI: "true"
           BACKEND_DIR: backend
           SWEEP_PROJECTS: ${{ matrix.project }}
+          SWEEP_MAX_CLICKS: "30"   # per page; keeps a job well under an hour
           SWEEP_ROLES: ${{ matrix.roles }}
           SWEEP_REPORT_DIR: sweep-out/playwright-report-${{ matrix.project }}-${{ matrix.group }}
       - uses: actions/upload-artifact@v4
