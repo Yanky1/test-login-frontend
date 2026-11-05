@@ -1,0 +1,90 @@
+name: UI sweep
+# Non-blocking on purpose (continue-on-error) until the owner approves the first baseline: a red sweep never blocks a merge.
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "Rewrite the visual baseline (e2e/sweep/__screenshots__) instead of comparing; download the sweep-baseline-* artifacts and commit them"
+        type: boolean
+        default: false
+      projects:
+        description: "Comma list of projects to run (default: all)"
+        type: string
+        default: ""
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium-320, chromium-375, chromium-768, chromium-1280, chromium-1920, firefox-375, firefox-1280, webkit-375, webkit-1280, chromium-1280-zoom200, lighthouse]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Yanky1/Yanky1-test-login-backend
+          path: backend
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        if: startsWith(matrix.project, 'chromium') || matrix.project == 'lighthouse'
+      - run: npx playwright install --with-deps firefox
+        if: startsWith(matrix.project, 'firefox')
+      - run: npx playwright install --with-deps webkit
+        if: startsWith(matrix.project, 'webkit')
+      - run: dotnet build backend/src/Solvelt.Api -c Debug
+      - name: Sweep ${{ matrix.project }}
+        id: sweep
+        if: github.event.inputs.projects == '' || contains(github.event.inputs.projects, matrix.project)
+        run: npx playwright test -c playwright.sweep.config.ts ${{ github.event.inputs.update_baseline == 'true' && '--update-snapshots=all' || '' }}
+        env:
+          CI: "true"
+          BACKEND_DIR: backend
+          SWEEP_PROJECTS: ${{ matrix.project }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sweep-${{ matrix.project }}
+          path: |
+            sweep-out/shots
+            sweep-out/data
+            sweep-out/playwright-report
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always() && github.event.inputs.update_baseline == 'true'
+        with:
+          name: sweep-baseline-${{ matrix.project }}
+          path: e2e/sweep/__screenshots__
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: sweep-traces-${{ matrix.project }}, path: sweep-out/test-results, if-no-files-found: ignore }
+  report:
+    needs: sweep
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: "sweep-*", path: parts }
+      - name: Merge parts, build gallery and summary
+        run: |
+          mkdir -p sweep-out
+          for d in parts/sweep-*; do case "$d" in *baseline*|*traces*) continue;; esac; cp -r "$d"/. sweep-out/ 2>/dev/null || true; done
+          node e2e/sweep/report.mjs sweep-out
+          cat sweep-out/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sweep-report
+          path: |
+            sweep-out/gallery
+            sweep-out/shots
+            sweep-out/summary.md
+            sweep-out/findings.json
+            sweep-out/playwright-report
