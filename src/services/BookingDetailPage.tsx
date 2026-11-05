@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -46,7 +47,7 @@ export default function BookingDetailPage() {
     <main className="pwrap" aria-labelledby="page-title">
       <header className="cal-bar">
         <Link to="/bookings" className="btn link back">← Bookings</Link>
-        <h1 id="page-title" tabIndex={-1} className="grow">{b.serviceTitle} <span className="meta">{b.number}</span></h1>
+        <h1 id="page-title" tabIndex={-1} className="grow">{b.serviceTitle} <span className="meta">{b.number}</span></h1>{b.demo && <DemoPill />}
         <BookingStatusChip status={b.status} />
       </header>
       <Alert kind={msg?.kind}>{msg?.text}</Alert>

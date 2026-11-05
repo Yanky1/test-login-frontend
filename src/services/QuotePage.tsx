@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -23,7 +24,7 @@ export default function QuotePage() {
   const open = (x.status === 'Requested' || x.status === 'Quoted') && canWrite
   return (
     <main className="pwrap" aria-labelledby="page-title">
-      <header className="cal-bar"><Link to="/bookings?tab=quotes" className="btn link back">← Quote requests</Link><h1 id="page-title" tabIndex={-1} className="grow">Quote for {x.serviceTitle}</h1><span className={`chip ${x.status === 'Requested' ? 'bks-Requested' : x.status === 'Accepted' ? 'bks-Confirmed' : 'bks-Completed'}`}>{x.status}</span></header>
+      <header className="cal-bar"><Link to="/bookings?tab=quotes" className="btn link back">← Quote requests</Link><h1 id="page-title" tabIndex={-1} className="grow">Quote for {x.serviceTitle}</h1>{x.demo && <DemoPill />}<span className={`chip ${x.status === 'Requested' ? 'bks-Requested' : x.status === 'Accepted' ? 'bks-Confirmed' : 'bks-Completed'}`}>{x.status}</span></header>
       <div className="bd-grid">
         <section className="pcard" aria-labelledby="q-req"><h2 id="q-req">The request</h2>
           <dl className="kv"><dt>From</dt><dd>{x.buyerName ?? 'Removed'}</dd><dt>Where</dt><dd>{LOCATION_LABEL[x.location]}{x.postalCode ? ` · ${x.postalCode}` : ''}</dd>

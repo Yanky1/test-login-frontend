@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { servicesApi } from '../services/api'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { DemoFillCard } from '../demo/DemoFillCard'
+import { onDemoChanged } from '../demo/api'
 import { useAuth } from '../auth'
 import { PIcon, type PIconName } from './ui'
 import { useBadgeCounts } from '../orders/live'
@@ -21,6 +23,8 @@ export default function SellerLayout() {
   const admin = user?.role === 'Owner' || user?.role === 'Admin' || user?.role == null
   const { orders, messages } = useBadgeCounts()
   const [badge, setBadge] = useState(0)
+  const [rev, setRev] = useState(0)    // demo data added or removed: the page below reloads its data
+  useEffect(() => onDemoChanged(() => setRev((r) => r + 1)), [])
   useEffect(() => {
     let alive = true
     const poll = () => servicesApi.counts().then((c) => alive && setBadge(c.needsAction)).catch(() => undefined)
@@ -66,7 +70,7 @@ export default function SellerLayout() {
         <p className="sidenav-h">Account</p>
         <ul>{account.filter((i) => i.show !== false).map(link)}</ul>
       </nav>
-      <div className="seller-main"><Outlet /></div>
+      <div className="seller-main">{(loc.pathname === '/products' || loc.pathname === '/orders') && <DemoFillCard />}<Fragment key={rev}><Outlet /></Fragment></div>
     </div>
   )
 }

@@ -1,4 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { DemoFillCard } from '../../demo/DemoFillCard'
+import { ApproveAccountButton, useDemoTools } from '../../demo/TestMode'
+import { isPendingStatus } from '../../demo/api'
 import { Icon } from '../../components/ui'
 import { StepFrame, useWizard } from './shared'
 
@@ -15,7 +18,9 @@ const HEADING: Record<string, string> = {
 }
 
 export default function PendingStep() {
-  const { app } = useWizard()
+  const { app, reload } = useWizard()
+  const nav = useNavigate()
+  const tools = useDemoTools()
   const idx = trackerIndex(app.status)
   const decided = app.status === 'Approved'
   const reviewing = app.status === 'PendingReview' || app.status === 'NeedsInfo' // still being looked at: drafts are allowed meanwhile
@@ -65,6 +70,14 @@ export default function PendingStep() {
           <p>Please contact Solvelt support to find out why and what happens next.</p>
         </div>
       )}
+      {tools && isPendingStatus(app.status) && (
+        <div className="next demo-pending-card">
+          <h2>Test tools</h2>
+          <p>The server is in test mode, so you can approve this account yourself instead of waiting for staff.</p>
+          <div className="row"><ApproveAccountButton onApproved={async () => { await reload(); nav('/products') }} /></div>
+        </div>
+      )}
+      {tools && isPendingStatus(app.status) && <div className="demo-pending-card"><DemoFillCard pending /></div>}
       <div className="row">
         <a className="btn" href={app.marketplaceUrl} target="_blank" rel="noreferrer">Visit marketplace</a>
         <Link className="btn" to="/guest">Guest mode</Link>

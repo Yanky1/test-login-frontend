@@ -9,6 +9,7 @@ import { AccountSwitcher } from '../pages/teams/AccountSwitcher'
 import { BrandProvider, BrandSwitcher } from '../pages/teams/BrandContext'
 import { AssistantProvider } from '../assistant/context'
 import { AssistantButton, AssistantPanel } from '../assistant/AssistantPanel'
+import { TestModeBadge } from '../demo/TestMode'
 import { Fragment, lazy } from 'react'
 const ChooseAccount = lazy(() => import('../pages/teams/ChooseAccount'))
 
@@ -45,6 +46,7 @@ function AppHeader() {
       <AccountSwitcher />
       <BrandSwitcher />
       <span className="spacer" />
+      <TestModeBadge />
       <AssistantButton />
       <span className="who">{user?.email}</span>
       <Link to="/settings/security">Settings</Link>

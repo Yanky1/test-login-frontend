@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -114,7 +115,7 @@ function Conversation({ id, onChanged }: { id: string; onChanged: () => void }) 
     <div className="conv-pane">
       <section className="pcard" aria-labelledby="conv-h">
         <header className="plist-head">
-          <div><h2 id="conv-h">{c.subject}</h2><p className="sub">{c.buyerName} · {c.kind === 'order' ? 'About an order' : 'Question about a product'} · {c.brandName}</p></div>
+          <div><h2 id="conv-h">{c.subject}{c.demo && <DemoPill />}</h2><p className="sub">{c.buyerName} · {c.kind === 'order' ? 'About an order' : 'Question about a product'} · {c.brandName}</p></div>
           <div className="chips-row">{c.flagged && <span className="chip bad">Reported by the buyer</span>}{c.overdue && <span className="chip bad">Reply overdue</span>}{c.needsReply && !c.overdue && <span className="chip warn">Needs reply</span>}{c.noReplyNeeded && <span className="chip">No reply needed</span>}</div>
         </header>
         <Alert>{error}</Alert>
@@ -214,7 +215,7 @@ export default function MessagesPage() {
                   <span className="row"><strong>{c.unread && <span className="dot-unread" aria-hidden="true" />}{c.buyerName}{c.unread && <span className="sr-only"> (unread)</span>}</strong><span className="sub">{dt(c.lastMessageAt)}</span></span>
                   <span className="sub">{c.kind === 'order' ? `Order ${c.orderNumber ?? ''}` : c.subject} · {c.brandName}</span>
                   <span className="prev">{c.preview}</span>
-                  <span className="chips-row">{c.overdue && <span className="chip bad">Overdue</span>}{c.needsReply && !c.overdue && <span className="chip warn">Needs reply</span>}{c.flagged && <span className="chip bad">Reported</span>}{c.assignedTo && <span className="chip">{c.assignedTo}</span>}</span>
+                  <span className="chips-row">{c.overdue && <span className="chip bad">Overdue</span>}{c.needsReply && !c.overdue && <span className="chip warn">Needs reply</span>}{c.flagged && <span className="chip bad">Reported</span>}{c.assignedTo && <span className="chip">{c.assignedTo}</span>}{c.demo && <DemoPill />}</span>
                 </Link>
               </li>
             ))}

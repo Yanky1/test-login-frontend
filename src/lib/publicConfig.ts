@@ -8,6 +8,8 @@ export interface PublicConfig {
   smsWording: string
   smsWordingVersion: string
   turnstileSiteKey: string
+  /** Test mode: the server offers the demo-data tools (backend Demo:Enabled). Absent/false in production. */
+  demoEnabled?: boolean
 }
 
 let cached: PublicConfig | null = null
@@ -22,3 +24,6 @@ export function usePublicConfig(): PublicConfig | null {
 }
 
 export const resetPublicConfigCache = () => { cached = null }
+
+/** True only when the server says demo (test) mode is on. Until the config is known it is false, so nothing flashes in production. */
+export const useDemoEnabled = (): boolean => usePublicConfig()?.demoEnabled === true
