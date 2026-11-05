@@ -9,7 +9,7 @@ import { useAdmin } from '../AdminAuth'
 interface Item { id: string; kind: string; targetId: string; sellerId: string; reason: string; summary: string; reporterKind: string; status: string; createdAt: string; resolution: string | null; vendor: string | null }
 interface Msg { id: string; direction: string; text: string; createdAt: string; contactWarning?: boolean; reported?: boolean }
 interface ContentReport { reportId: string; kind: string; targetId: string | null; reason: string | null; note: string | null; reporterRef: string | null; decision: string | null; decidedAt: string | null; createdAt: string }
-interface Detail extends Item { resolvedAt: string | null; resolutionNote: string | null; target: { conversationId?: string; bookingId?: string; productId?: string; reviewId?: string; subject?: string; messages?: Msg[]; [k: string]: unknown } | null; contentReports?: ContentReport[] }
+interface Detail extends Item { resolvedAt: string | null; resolutionNote: string | null; target: { conversationId?: string; bookingId?: string; productId?: string; reviewId?: string; subject?: string; messages?: Msg[]; replyId?: string; replyText?: string; repliedAt?: string; editedAt?: string | null; removed?: boolean; removedReason?: string | null; review?: { reviewId: string; rating: number; text: string | null; buyerDisplayName: string | null; createdAt: string; state: string; productTitle: string | null }; [k: string]: unknown } | null; contentReports?: ContentReport[] }
 const KINDS: Record<string, string> = { message: 'Reported message', contact_warning: 'Contact details in a message', listing: 'Reported listing', booking_message: 'Reported booking message', question: 'Reported question', review: 'Reported review', review_reply: 'Reported review reply' }
 
 export default function Moderation() {
@@ -122,8 +122,9 @@ function ReportDetail({ id }: { id: string }) {
   if (error || !d) return <><PageHeader title="Report" /><ErrorNote error={error ?? 'Not found'} retry={reload} /><Link to="/admin/moderation">Back to the queue</Link></>
   const done = (m: string) => { setMsg(m); setLost(false); reload() }
   const open = d.status === 'Open'
-  const hasSeller = !!d.sellerId && d.sellerId !== NO_SELLER && !d.kind.startsWith('review')
-  const known = ['conversationId', 'bookingId', 'productId', 'reviewId', 'subject', 'messages']
+  const hasSeller = !!d.sellerId && d.sellerId !== NO_SELLER && d.kind !== 'review'      // a review has no seller on this portal; a seller's reply to one does
+  const canHide = d.kind !== 'review_reply'                                             // the server answers 409 unsupported_decision: a reply cannot be hidden, only removed
+  const known = ['conversationId', 'bookingId', 'productId', 'reviewId', 'subject', 'messages', 'replyId', 'replyText', 'repliedAt', 'editedAt', 'removed', 'removedReason', 'review']
   const extraTarget = Object.entries(d.target ?? {}).filter(([k, v]) => !known.includes(k) && (typeof v === 'string' || typeof v === 'number'))
   return (
     <>
@@ -136,7 +137,7 @@ function ReportDetail({ id }: { id: string }) {
         <Can permission="ModerationAct">
           <div className="adm-actionrow">
             <Decide id={id} action="dismiss" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />
-            <Decide id={id} action="hide-content" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />
+            {canHide && <Decide id={id} action="hide-content" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />}
             <Decide id={id} action="remove-content" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />
             {hasSeller && <Decide id={id} action="warn-seller" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />}
             {hasSeller && <Decide id={id} action="escalate-suspend" disabled={!open} onDone={done} onLost={() => { setLost(true); reload() }} />}
@@ -152,7 +153,21 @@ function ReportDetail({ id }: { id: string }) {
           </ol>
         </Panel>
       )}
-      {d.kind.startsWith('review') && (
+      {d.kind === 'review_reply' && d.target?.replyId && (
+        <>
+          <Panel title="The reply under report" actions={d.target.removed ? <Badge value="Removed" tone="muted" /> : undefined}>
+            {!can('ModerationAct') && <p className="adm-muted">The text is masked for your role.</p>}
+            <p className="adm-note">{d.target.replyText}</p>
+            <KV items={[['Replied', fmtDate(d.target.repliedAt)], ['Edited', d.target.editedAt ? fmtDate(d.target.editedAt) : 'No'], ['Removal reason', d.target.removedReason ?? '—']]} />
+          </Panel>
+          {d.target.review && (
+            <Panel title="The review it answers" actions={<Badge value={d.target.review.state} tone="muted" />}>
+              <KV items={[['Rating', `${d.target.review.rating} out of 5`], ['Buyer', d.target.review.buyerDisplayName ?? '—'], ['Product', d.target.review.productTitle ?? '—'], ['Written', fmtDate(d.target.review.createdAt)], ['Review text', d.target.review.text ?? '—']]} />
+            </Panel>
+          )}
+        </>
+      )}
+      {(d.kind === 'review' || (d.kind === 'review_reply' && !d.target?.replyId)) && (
         <Panel title={d.kind === 'review_reply' ? 'The review reply under report' : 'The review under report'}>
           <p className="adm-muted">Reviews live on the marketplace: your decision is sent there and the marketplace hides or removes the content.</p>
           <KV items={[['Review id', d.target?.reviewId ? <code key="r">{d.target.reviewId}</code> : '—'], ['What was reported', d.summary || d.reason], ...extraTarget.map(([k, v]) => [k, String(v)] as [string, ReactNode])]} />
