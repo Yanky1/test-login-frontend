@@ -17,12 +17,12 @@ async function pendingSeller(request: APIRequestContext) {
   return { ...s, token }
 }
 
-const shot = async (page: Page, name: string) => {
+const shot = async (page: Page, name: string, fullPage = false) => {
   if (!SHOTS) return
   for (const [view, size] of VIEWS) {
     await page.setViewportSize(size)
     await page.waitForTimeout(400)
-    await page.screenshot({ path: `${SHOTS}/${name}-${view}.png`, fullPage: false })
+    await page.screenshot({ path: `${SHOTS}/${name}-${view}.png`, fullPage })
   }
   await page.setViewportSize({ width: 1280, height: 800 })
 }
@@ -40,7 +40,7 @@ test('demo data: pending account -> approve (test button) -> fill -> data on eve
   await expect(card.getByText(/appear in your lists after approval/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Approve this account (test mode)' })).toBeVisible()
   await expectNoSeriousA11y(page)
-  await shot(page, 'pending-approve-and-fill')
+  await shot(page, 'pending-approve-and-fill', true)
 
   // the confirm dialog is accessible and Cancel changes nothing
   await page.getByRole('button', { name: 'Approve this account (test mode)' }).click()
