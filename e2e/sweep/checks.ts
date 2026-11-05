@@ -17,6 +17,7 @@ export async function settle(page: Page) {
  * Layout checks, run in the page. Allow-lists (each with its reason):
  *  - scroll containers (overflow auto/scroll) may be wider than the viewport inside: that is how tables and carousels work;
  *  - .sr-only / .skip / aria-hidden / inert / visibility:hidden elements are not visible content;
+ *  - boxes of 2px or less are the visually-hidden (1x1 clip) pattern, not clipped text;
  *  - ellipsis (text-overflow) truncation is intentional, and the full text is in the title/aria-label or the page.
  */
 export async function layoutIssues(page: Page): Promise<Issue[]> {
@@ -55,7 +56,7 @@ export async function layoutIssues(page: Page): Promise<Issue[]> {
       if (!(e.textContent ?? '').trim() || e.children.length > 3) continue
       const hiddenX = cs.overflowX === 'hidden' || cs.overflowX === 'clip', hiddenY = cs.overflowY === 'hidden' || cs.overflowY === 'clip'
       const ellipsis = cs.textOverflow === 'ellipsis' || cs.webkitLineClamp !== 'none' && cs.webkitLineClamp !== ''
-      if (((hiddenX && e.scrollWidth > e.clientWidth + 1) || (hiddenY && e.scrollHeight > e.clientHeight + 1)) && !ellipsis && e.clientWidth > 0 && e.clientHeight > 0) clipped.push(`${name(e)} content ${e.scrollWidth}x${e.scrollHeight} in box ${e.clientWidth}x${e.clientHeight}`)
+      if (((hiddenX && e.scrollWidth > e.clientWidth + 1) || (hiddenY && e.scrollHeight > e.clientHeight + 1)) && !ellipsis && e.clientWidth > 2 && e.clientHeight > 2) clipped.push(`${name(e)} content ${e.scrollWidth}x${e.scrollHeight} in box ${e.clientWidth}x${e.clientHeight}`)
     }
     for (const c of cap(clipped)) out.push({ rule: 'text-clipped', message: c })
 
