@@ -109,9 +109,9 @@ describe('staff sign-in and two-factor', () => {
 
 describe('role-based shell', () => {
   it.each([
-    ['SuperAdmin', ['Dashboard', 'Applications', 'Sellers', 'Users', 'Moderation', 'Support lookups', 'Integrations', 'Audit log', 'Platform settings', 'Staff']],
-    ['Support', ['Dashboard', 'Applications', 'Sellers', 'Users', 'Moderation', 'Support lookups', 'Integrations', 'Audit log', 'Platform settings']],
-    ['ReadOnly', ['Dashboard', 'Applications', 'Sellers', 'Users', 'Moderation', 'Support lookups', 'Integrations', 'Audit log', 'Platform settings']],
+    ['SuperAdmin', ['Dashboard', 'Applications', 'Sellers', 'Payments', 'Shipping', 'Users', 'Moderation', 'Support lookups', 'Integrations', 'Audit log', 'Platform settings', 'Staff']],
+    ['Support', ['Dashboard', 'Applications', 'Sellers', 'Payments', 'Shipping', 'Users', 'Moderation', 'Support lookups', 'Integrations', 'Audit log', 'Platform settings']],
+    ['ReadOnly', ['Dashboard', 'Applications', 'Sellers', 'Payments', 'Shipping', 'Users', 'Moderation', 'Support lookups', 'Integrations', 'Audit log', 'Platform settings']],
   ] as const)('%s sees exactly its areas in the navigation', async (role, items) => {
     await signIn(role)
     const nav = screen.getByRole('navigation', { name: 'Staff areas' })

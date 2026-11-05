@@ -31,7 +31,7 @@
 .adm-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
 @media (min-width: 900px) { .adm-cols { grid-template-columns: 1fr 1fr; } }
 .adm-cols > .adm-panel, .adm-countbox { margin-bottom: 0; }
-.adm-kv { margin: 0; display: grid; gap: var(--s1); }
+.adm-kv { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
 .adm-kv > div { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: var(--s2); padding: var(--s-half) 0; border-bottom: 1px solid var(--surface-2); }
 .adm-kv > div { min-width: 0; } .adm-kv dt { color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; min-width: 0; } .adm-kv dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
 @media (max-width: 560px) { .adm-kv > div { grid-template-columns: 1fr; gap: 0; } }
