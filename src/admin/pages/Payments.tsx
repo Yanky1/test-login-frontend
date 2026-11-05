@@ -1,7 +1,9 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Alert, Field } from '../../components/ui'
-import { adminApi, fmtDate, fmtMoney, qs, type Page } from '../api'
+import { Alert, Button, Field } from '../../components/ui'
+import { Dialog } from '../../components/Dialog'
+import { useAdmin } from '../AdminAuth'
+import { AdminError, adminApi, fmtDate, fmtMoney, qs, type Page } from '../api'
 import { Badge, Can, ErrorNote, KV, Loading, PageHeader, Pager, Panel, ReasonAction, StatTile, Table, Tabs, useLoad } from '../components'
 
 /* ------------------------------------------------------------------------------------------------ one seller */
@@ -20,7 +22,10 @@ const word = (s: string) => s.replaceAll('_', ' ')
 
 function AdjustAction({ sellerId, currencies, onDone }: { sellerId: string; currencies: string[]; onDone: () => void }) {
   const [direction, setDirection] = useState('credit'); const [amount, setAmount] = useState(''); const [currency, setCurrency] = useState(currencies[0] ?? 'USD')
-  const [requestId] = useState(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())))
+  // One idempotency key per ATTEMPT: created at the first submit, kept across the step-up retry and a failed try, dropped once the server answered
+  // (recorded or already recorded) or the form changed, so the next adjustment never reuses an earlier key.
+  const attempt = useRef<string | null>(null)
+  const fresh = () => { attempt.current = null }
   const id = useId()
   const cents = /^\d+$/.test(amount.trim()) ? Number(amount.trim()) : null
   return (
@@ -31,16 +36,19 @@ function AdjustAction({ sellerId, currencies, onDone }: { sellerId: string; curr
       extra: (
         <>
           <div className="field"><label htmlFor={`${id}-dir`}>Direction</label>
-            <select id={`${id}-dir`} value={direction} onChange={(e) => setDirection(e.target.value)}><option value="credit">Credit (add to the seller)</option><option value="debit">Debit (take from the seller)</option></select></div>
-          <Field label="Amount in minor units (cents)" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} hint="A whole number, e.g. 2500 for 25.00." required />
-          <Field label="Currency (ISO code)" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={3} required />
+            <select id={`${id}-dir`} value={direction} onChange={(e) => { fresh(); setDirection(e.target.value) }}><option value="credit">Credit (add to the seller)</option><option value="debit">Debit (take from the seller)</option></select></div>
+          <Field label="Amount in minor units (cents)" inputMode="numeric" value={amount} onChange={(e) => { fresh(); setAmount(e.target.value) }} hint="A whole number, e.g. 2500 for 25.00." required />
+          <Field label="Currency (ISO code)" value={currency} onChange={(e) => { fresh(); setCurrency(e.target.value.toUpperCase()) }} maxLength={3} required />
         </>
       ),
       onSubmit: async (reason) => {
         if (cents === null || cents <= 0) throw new Error('Enter the amount as a positive whole number of minor units.')
         if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Use a 3-letter currency code such as USD.')
+        const requestId = (attempt.current ??= typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`)
         const r = await adminApi<{ recorded: boolean }>(`/payments/sellers/${sellerId}/adjustments`, { body: { direction, amountCents: cents, currency, reason, requestId } })
+        fresh()
         if (!r.recorded) throw new Error('This adjustment was already recorded.')
+        setAmount('')                                  // the next adjustment starts from an empty form
       },
     }} />
   )
@@ -204,6 +212,34 @@ function PastDueList() {
   )
 }
 
+/** A plain confirm for an action that takes no reason (the server records none): button, dialog, Confirm / Cancel. */
+function ConfirmAction({ label, title, lead, confirm, onConfirm, onDone }: { label: string; title: string; lead: string; confirm: string; onConfirm: () => Promise<unknown>; onDone: () => void }) {
+  const { run } = useAdmin()
+  const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null)
+  const id = useId()
+  const go = async () => {
+    setBusy(true); setErr(null)
+    try { await run(onConfirm); setOpen(false); onDone() }
+    catch (x) { setErr(x instanceof AdminError ? x.text : 'Something went wrong') }
+    finally { setBusy(false) }
+  }
+  return (
+    <>
+      <Button variant="primary" onClick={() => { setErr(null); setOpen(true) }}>{label}</Button>
+      {open && (
+        <Dialog id={`${id}-title`} title={title} onClose={() => setOpen(false)}>
+          <p>{lead}</p>
+          <Alert>{err}</Alert>
+          <div className="adm-dialog-actions">
+            <Button type="button" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="primary" loading={busy} data-autofocus onClick={() => void go()}>{confirm}</Button>
+          </div>
+        </Dialog>
+      )}
+    </>
+  )
+}
+
 function Reconciliation() {
   const [open, setOpen] = useState(true); const [page, setPage] = useState(1)
   const { data, error, loading, reload } = useLoad(() => adminApi<Page<Flag>>('/payments/reconciliation' + qs({ open: open ? '' : 'false', page })), [open, page])
@@ -211,8 +247,9 @@ function Reconciliation() {
   const detail = (f: Flag) => Object.entries(f).filter(([k, v]) => !['id', 'createdAt', 'resolvedAt', 'resolvedBy'].includes(k) && v !== null && v !== '').map(([k, v]) => `${k}: ${String(v)}`).join(' · ')
   return (
     <Panel title="Reconciliation flags" actions={<Can permission="PaymentsRetry">
-      <ReasonAction label="Run reconciliation" variant="primary" onDone={() => { setMsg('Reconciliation ran.'); reload() }}
-        dialog={{ title: 'Run reconciliation now', lead: 'Compares the ledger with Stripe and flags differences. It does not change any balance.', confirm: 'Run reconciliation', onSubmit: () => adminApi('/payments/reconciliation/run', { method: 'POST', body: {} }) }} />
+      <ConfirmAction label="Run reconciliation" title="Run reconciliation now" confirm="Run reconciliation" onDone={() => { setMsg('Reconciliation ran.'); reload() }}
+        lead="Compares the ledger with Stripe and flags differences. It does not change any balance."
+        onConfirm={() => adminApi('/payments/reconciliation/run', { method: 'POST', body: {} })} />
     </Can>}>
       <Alert kind="success">{msg ?? ''}</Alert>
       <form className="adm-filters" aria-label="Filter flags" onSubmit={(e) => e.preventDefault()}>

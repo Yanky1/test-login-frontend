@@ -27,7 +27,19 @@ function ProofView({ d, proof, onClose }: { d: Delivery; proof: Proof; onClose: 
   )
 }
 
+/** The delivery read carries no currency; the seller's account currency is the one on its payments balances (USD when that cannot be read). */
+function useAccountCurrency(id: string) {
+  const [cur, setCur] = useState('USD')
+  useEffect(() => {
+    let alive = true
+    adminApi<{ balances?: { currency: string }[] }>(`/payments/sellers/${id}`).then((r) => { if (alive && r.balances?.[0]?.currency) setCur(r.balances[0].currency) }, () => undefined)
+    return () => { alive = false }
+  }, [id])
+  return cur
+}
+
 export function SellerDelivery({ id }: { id: string }) {
+  const cur = useAccountCurrency(id)
   const { data: d, error, loading, reload } = useLoad(() => adminApi<Overview>(`/sellers/${id}/local-delivery`), [id])
   const [shown, setShown] = useState<{ delivery: Delivery; proof: Proof } | null>(null)
   useEffect(() => () => setShown(null), [])        // leaving the tab drops the revealed proof
@@ -42,7 +54,7 @@ export function SellerDelivery({ id }: { id: string }) {
             <h3>{s.brandId ? `Brand ${s.brandId.slice(0, 8)}…` : 'Account'} <Badge value={s.enabled ? 'On' : 'Off'} tone={s.enabled ? 'ok' : 'muted'} /></h3>
             <KV items={[['Time zone', s.timeZone], ['Same-day cut-off', s.sameDayCutoff], ['Minimum lead time', `${s.minLeadMinutes} minutes`], ['Booking horizon', `${s.maxDaysAhead} days`], ['Settings version', s.version]]} />
             <Table caption="Delivery zones" head={['Zone', 'Country', 'Radius', 'Postcodes', 'Fee', 'Free over', 'Minimum order', 'Active']} empty="No zones.">
-              {s.zones.map((z) => <tr key={z.id}><th scope="row">{z.name}</th><td>{z.country ?? '—'}</td><td>{z.radiusKm != null ? `${z.radiusKm} km` : '—'}</td><td className="adm-clip">{list(z.postcodes)}</td><td>{fmtMoney(z.feeCents)}</td><td>{fmtMoney(z.freeOverCents)}</td><td>{fmtMoney(z.minOrderCents)}</td><td>{z.active ? 'Yes' : 'No'}</td></tr>)}
+              {s.zones.map((z) => <tr key={z.id}><th scope="row">{z.name}</th><td>{z.country ?? '—'}</td><td>{z.radiusKm != null ? `${z.radiusKm} km` : '—'}</td><td className="adm-clip">{list(z.postcodes)}</td><td>{fmtMoney(z.feeCents, cur)}</td><td>{fmtMoney(z.freeOverCents, cur)}</td><td>{fmtMoney(z.minOrderCents, cur)}</td><td>{z.active ? 'Yes' : 'No'}</td></tr>)}
             </Table>
             <Table caption="Delivery windows" head={['From', 'To', 'Capacity', 'Days', 'Active']} empty="No windows.">
               {s.windows.map((w) => <tr key={w.id}><th scope="row">{w.start}</th><td>{w.end}</td><td>{w.capacity ?? '—'}</td><td>{list(w.days)}</td><td>{w.active ? 'Yes' : 'No'}</td></tr>)}
@@ -59,7 +71,7 @@ export function SellerDelivery({ id }: { id: string }) {
         <p className="adm-muted">No names or addresses are shown here. Proof of delivery is break-glass: it needs a reason and is recorded in the audit log.</p>
         <Table caption="Deliveries" head={['Order', 'Code', 'Status', 'Date', 'Attempts', 'Fee', 'Delivered', 'Proof']} empty="No deliveries.">
           {d.deliveries.map((x) => (
-            <tr key={x.id}><th scope="row">{x.number}</th><td>{x.code ?? '—'}</td><td><Badge value={x.status} tone={x.status === 'Delivered' ? 'ok' : /fail|return/i.test(x.status) ? 'err' : 'warn'} /></td><td>{x.date ?? '—'}</td><td>{x.attempts}</td><td>{fmtMoney(x.feeCents)}</td><td>{fmtDate(x.deliveredAt)}</td>
+            <tr key={x.id}><th scope="row">{x.number}</th><td>{x.code ?? '—'}</td><td><Badge value={x.status} tone={x.status === 'Delivered' ? 'ok' : /fail|return/i.test(x.status) ? 'err' : 'warn'} /></td><td>{x.date ?? '—'}</td><td>{x.attempts}</td><td>{fmtMoney(x.feeCents, cur)}</td><td>{fmtDate(x.deliveredAt)}</td>
               <td><Can permission="LookupsReveal"><ReasonAction label="Access proof" variant="destructive" dialog={{
                 title: `Access the proof of delivery for ${x.number}`, confirm: 'Reveal proof', danger: true, reasonLabel: 'Reason, with the ticket reference',
                 lead: 'Break-glass: shows the delivery photo, signature and recipient. Use only for a real support case. Your reason is recorded in the audit log before anything is shown.',
