@@ -158,6 +158,11 @@ test('quote required: request appears in Quote requests, the seller sends a quot
   expect(mq).toBe(1)
   const accept = await request.post(`/api/v1/seller/dev/quotes/${mqid}/accept`, { headers: bearer(s.token), data: { start: detail.quote.slots[0] } })
   expect(accept.status()).toBe(201)
+  // accepting a quote creates a HOLD (backend N8 follow-up): the marketplace confirms it after payment, and only then is the booking Confirmed
+  const hold = (await accept.json()).booking as { marketplaceBookingId: string; status: string }
+  expect(hold.status).toBe('Hold')
+  const confirm = await simEvent(request, s.token, hold.marketplaceBookingId, { type: 'confirm_hold' })
+  expect(confirm.ok(), await confirm.text()).toBeTruthy()
   await page.reload()
   await expect(page.getByRole('link', { name: 'Open the booking' })).toBeVisible()
   await page.goto('/bookings?tab=upcoming'); await expect(page.getByRole('row', { name: /Fence repair/ })).toContainText('Confirmed')
