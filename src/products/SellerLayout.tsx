@@ -35,6 +35,7 @@ export default function SellerLayout() {
     { to: '/messages', label: 'Messages', icon: 'msg', badge: messages?.unread, badgeLabel: 'unread' },
     { to: '/products', label: 'Products', icon: 'box', end: true }, { to: '/products/import', label: 'Bulk upload', icon: 'upload' },
     { to: '/questions', label: 'Questions', icon: 'msg' },
+    { to: '/reviews', label: 'Reviews', icon: 'star' },
     { to: '/delivery', label: 'Local delivery', icon: 'box' },
     { to: '/payments', label: 'Payments', icon: 'wallet', show: user?.role === 'Owner' || user?.role === 'Admin' },
   ]
