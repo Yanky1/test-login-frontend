@@ -1,7 +1,7 @@
 name: UI sweep
 # Non-blocking on purpose (continue-on-error) until the owner approves the first baseline: a red sweep never blocks a merge.
 on:
-  push: { branches: [main] }
+  push: { branches: [main, feature/ui-sweep] }   # feature/ui-sweep: TEMPORARY, removed before the merge (first baseline run)
   workflow_dispatch:
     inputs:
       update_baseline:
@@ -20,7 +20,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [chromium-320, chromium-375, chromium-768, chromium-1280, chromium-1920, firefox-375, firefox-1280, webkit-375, webkit-1280, chromium-1280-zoom200, lighthouse]
+        project: [chromium-320, chromium-375, chromium-768, chromium-1280, chromium-1920, firefox-375, firefox-1280, webkit-375, webkit-1280, chromium-1280-zoom200]
+        # role groups keep every job well under the time limit (the clickables check reloads the page after each click)
+        group: [seller-owner, seller-team, signed-out-pending-driver, staff]
+        include:
+          - { group: seller-owner, roles: owner }
+          - { group: seller-team, roles: "admin,manager,viewer" }
+          - { group: signed-out-pending-driver, roles: "anon,pending,driver" }
+          - { group: staff, roles: "superadmin,support,moderator,readonly" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -39,34 +46,56 @@ jobs:
       - run: npx playwright install --with-deps webkit
         if: startsWith(matrix.project, 'webkit')
       - run: dotnet build backend/src/Solvelt.Api -c Debug
-      - name: Sweep ${{ matrix.project }}
+      - name: Sweep ${{ matrix.project }} / ${{ matrix.group }}
         id: sweep
         if: github.event.inputs.projects == '' || contains(github.event.inputs.projects, matrix.project)
-        run: npx playwright test -c playwright.sweep.config.ts ${{ github.event.inputs.update_baseline == 'true' && '--update-snapshots=all' || '' }}
+        run: npx playwright test -c playwright.sweep.config.ts ${{ github.event.inputs.(github.event.inputs.update_baseline == 'true' || contains(github.event.head_commit.message, '[sweep-baseline]')) && '--update-snapshots=all' || '' }}
         env:
           CI: "true"
           BACKEND_DIR: backend
           SWEEP_PROJECTS: ${{ matrix.project }}
+          SWEEP_ROLES: ${{ matrix.roles }}
+          SWEEP_REPORT_DIR: sweep-out/playwright-report-${{ matrix.project }}-${{ matrix.group }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: sweep-${{ matrix.project }}
+          name: sweep-${{ matrix.project }}-${{ matrix.group }}
           path: |
             sweep-out/shots
             sweep-out/data
-            sweep-out/playwright-report
+            sweep-out/playwright-report-*
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
-        if: always() && github.event.inputs.update_baseline == 'true'
+        if: always() && (github.event.inputs.update_baseline == 'true' || contains(github.event.head_commit.message, '[sweep-baseline]'))
         with:
-          name: sweep-baseline-${{ matrix.project }}
+          name: sweep-baseline-${{ matrix.project }}-${{ matrix.group }}
           path: e2e/sweep/__screenshots__
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: failure()
-        with: { name: sweep-traces-${{ matrix.project }}, path: sweep-out/test-results, if-no-files-found: ignore }
+        with: { name: sweep-traces-${{ matrix.project }}-${{ matrix.group }}, path: sweep-out/test-results, if-no-files-found: ignore }
+  lighthouse:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { repository: Yanky1/Yanky1-test-login-backend, path: backend }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: dotnet build backend/src/Solvelt.Api -c Debug
+      - run: npx playwright test -c playwright.sweep.config.ts
+        env: { CI: "true", BACKEND_DIR: backend, SWEEP_PROJECTS: lighthouse, SWEEP_ROLES: "anon,owner,pending,superadmin" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: sweep-lighthouse, path: sweep-out/data, if-no-files-found: ignore }
   report:
-    needs: sweep
+    needs: [sweep, lighthouse]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -87,4 +116,4 @@ jobs:
             sweep-out/shots
             sweep-out/summary.md
             sweep-out/findings.json
-            sweep-out/playwright-report
+            sweep-out/playwright-report-*
