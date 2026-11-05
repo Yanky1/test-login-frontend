@@ -13,12 +13,14 @@ import { PhoneCards } from './PhoneSettings'
 import { Alert, Field, Icon, PasswordField, SettingCard, Shell, Skeleton, StrengthMeter } from '../components/ui'
 import { lazy, Suspense } from 'react'
 import { can } from '../lib/teams'
+import { useDemoTools } from '../demo/TestMode'
 const TeamPage = lazy(() => import('./teams/Team'))
 const BrandsPage = lazy(() => import('./teams/Brands'))
 const NotificationSettings = lazy(() => import('../orders/NotificationSettings'))
 const ShippingSettings = lazy(() => import('../shipping/ShippingSettings'))
 const AvailabilityPage = lazy(() => import('../services/AvailabilityPage'))
 const DeliverySettingsPage = lazy(() => import('../delivery/DeliverySettings'))
+const TestTools = lazy(() => import('../demo/TestTools'))
 
 interface Me { email: string; emailConfirmed: boolean; hasPassword: boolean; twoFactorEnabled: boolean; passkeyCount: number; logins: string[]; sellerStatus: string | null; vendorName: string | null }
 
@@ -29,6 +31,7 @@ export default function SettingsPage() {
   const tab = driver ? 'security' : tabParam      // a Driver only has the sign-in and security settings
   const teamTab = !!user?.activeAccountId && can(user.role, 'members.read')
   const brandsTab = !!user?.activeAccountId
+  const toolsTab = useDemoTools() && !driver   // test mode only, Owner only
   const [me, setMe] = useState<Me | null>(null)
   const reload = useCallback(async () => setMe(await api<Me>('/account/me')), [])
   useEffect(() => { reload().catch(() => undefined) }, [reload]) // a failure is surfaced by the global handlers (401 / lost account)
@@ -47,6 +50,7 @@ export default function SettingsPage() {
         {brandsTab && !driver && <NavLink to="/settings/notifications">Notifications</NavLink>}
         {brandsTab && !driver && <NavLink to="/settings/availability">Availability</NavLink>}
         {brandsTab && !driver && <NavLink to="/settings/delivery">Local delivery</NavLink>}
+        {toolsTab && <NavLink to="/settings/test-tools">Test tools</NavLink>}
         {driver ? <Link to="/driver">Back to the driver app</Link> : <Link to="/">Back to application</Link>}
       </nav>
       {!me ? <Skeleton lines={4} /> : tab === 'security' ? <Security me={me} reload={reload} />
@@ -55,6 +59,7 @@ export default function SettingsPage() {
         : tab === 'notifications' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><NotificationSettings /></Suspense>
         : tab === 'availability' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><AvailabilityPage embedded /></Suspense>
         : tab === 'delivery' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><DeliverySettingsPage canEdit={user?.role === 'Owner' || user?.role === 'Admin'} /></Suspense>
+        : tab === 'test-tools' && toolsTab ? <Suspense fallback={<Skeleton lines={4} />}><TestTools /></Suspense>
         : tab === 'brands' && brandsTab ? <Suspense fallback={<Skeleton lines={4} />}><BrandsPage /></Suspense>
         : <Profile me={me} />}
     </main></Shell>

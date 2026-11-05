@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -102,7 +103,7 @@ function Editor({ initial }: { initial: ProductDetail }) {
       <header className="ed-bar">
         <div className="ed-title">
           <Link to="/products" className="btn link back">← Products</Link>
-          <h1 id="page-title" tabIndex={-1}>{form.title || (isService ? 'New service' : 'New product')}</h1>{isService && <span className="chip svc-chip">Service</span>}
+          <h1 id="page-title" tabIndex={-1}>{form.title || (isService ? 'New service' : 'New product')}</h1>{isService && <span className="chip svc-chip">Service</span>}{detail.demo && <DemoPill />}
           <StatusChip status={detail.status} />
         </div>
         <div className="ed-actions">

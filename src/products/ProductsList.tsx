@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -154,7 +155,7 @@ export default function ProductsListPage() {
                   {items.map((i) => (
                     <tr key={i.id}>
                       <td>{canWrite && <input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} />}</td>
-                      <td><div className="pcell"><AuthImage src={i.thumbnailUrl} alt="" className="pthumb" /><div><Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link><div className="sub">{i.sku ? `SKU ${i.sku}` : 'No SKU'}{i.brandName && brands.length > 1 && !brandId ? ` · ${i.brandName}` : ''}{i.hasVariants ? ` · ${i.variantCount} variations` : ''}</div></div></div></td>
+                      <td><div className="pcell"><AuthImage src={i.thumbnailUrl} alt="" className="pthumb" /><div><Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link>{i.demo && <DemoPill />}<div className="sub">{i.sku ? `SKU ${i.sku}` : 'No SKU'}{i.brandName && brands.length > 1 && !brandId ? ` · ${i.brandName}` : ''}{i.hasVariants ? ` · ${i.variantCount} variations` : ''}</div></div></div></td>
                       {i.type === 'Service'
                         ? <><td>{servicePrice(i)}</td><td><span className="chip svc-chip">Service</span> {i.durationMinutes ? durationLabel(i.durationMinutes) : ''}</td></>
                         : <><td><QuickEdit readOnly={!canWrite} item={i} field="price" onSaved={patchItem} onError={(m) => setNotice({ kind: 'error', text: m })} />{i.onSale && <div className="sub ok-text">Sale {money(i.currentPrice)}</div>}</td>
@@ -173,7 +174,7 @@ export default function ProductsListPage() {
                   {canWrite && <label className="selbox"><input type="checkbox" aria-label={`Select ${i.title}`} checked={sel.has(i.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} /></label>}
                   <AuthImage src={i.thumbnailUrl} alt="" className="pthumb" />
                   <div className="pc-body">
-                    <Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link>
+                    <Link to={`/products/${i.id}`} className="ptitle">{i.title}</Link>{i.demo && <DemoPill />}
                     <div className="sub">{i.sku ? `SKU ${i.sku}` : 'No SKU'}</div>
                     <div className="pc-meta"><StatusChip status={i.status} /><QualityBadge score={i.qualityScore} /></div>
                     <div className="pc-meta">{i.type === 'Service' ? <><span>{servicePrice(i)}</span><span>Service{i.durationMinutes ? ` · ${durationLabel(i.durationMinutes)}` : ''}</span></> : <><span>{money(i.currentPrice ?? i.price) || 'No price'}</span><span>{i.quantity} in stock</span></>}</div>

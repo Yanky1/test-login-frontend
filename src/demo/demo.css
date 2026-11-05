@@ -1,0 +1,12 @@
+/* Demo data (test mode). Design tokens only: no hard-coded colours. */
+.chip.demo { background: var(--gold-soft); color: var(--gold-ink); border-color: var(--gold-line); font-size: .6875rem; padding: 0 8px; margin-left: var(--s1); vertical-align: middle; }
+.chip.test-mode { background: var(--gold-soft); color: var(--gold-ink); border-color: var(--gold-line); letter-spacing: .08em; text-transform: uppercase; }
+.demo-card { background: var(--surface); border: 1px dashed var(--gold-line); border-radius: var(--r-md); padding: var(--s3); margin: 0 0 var(--s3); }
+.demo-card h2 { font-size: var(--fs-lg); margin: 0 0 var(--s1); display: flex; gap: var(--s1); align-items: center; flex-wrap: wrap; }
+.demo-card p { margin: 0 0 var(--s2); color: var(--fg); }
+.demo-note { color: var(--muted); }
+.demo-actions { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+.demo-progress { display: inline-flex; gap: var(--s1); align-items: center; color: var(--muted); }
+.demo-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s1) var(--s2); margin: 0 0 var(--s2); padding: 0; list-style: none; }
+.demo-counts li { background: var(--surface-2); border-radius: var(--r-sm); padding: var(--s1) var(--s2); }
+.demo-pending-card { margin-top: var(--s3); text-align: left; }

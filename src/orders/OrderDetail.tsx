@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -70,7 +71,7 @@ export default function OrderDetailPage() {
       <p className="crumb"><Link to="/orders">← All orders</Link></p>
       <header className="order-head">
         <div>
-          <h1 id="page-title" tabIndex={-1}>Order {o.number}</h1>
+          <h1 id="page-title" tabIndex={-1}>Order {o.number}</h1>{o.demo && <DemoPill />}
           <p className="sub">Placed {dtZ(o.placedAt, o.accountTimeZone)} · {o.brandName} · Solvelt order {o.marketplaceOrderId}</p>
           <div className="chips-row">
             <span className={`chip ${statusTone(o.status)}`}>{statusLabel(o.status, o.money)}</span>

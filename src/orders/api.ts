@@ -5,6 +5,7 @@ export type OrderStatus = 'New' | 'Accepted' | 'PartiallyShipped' | 'Shipped' | 
   | 'ReturnRequested' | 'ReturnApproved' | 'ReturnRejected' | 'ReturnReceived' | 'Refunded'
 
 export interface OrderListItem {
+  demo?: boolean
   id: string; number: string; marketplaceOrderId: string; brandId: string; brandName: string; placedAt: string; status: OrderStatus; buyerName: string; currency: string
   totalCents: number; netCents: number; refundedCents: number; itemCount: number; itemsSummary: string; thumbnailLineId: string | null; shipByAt: string; deliverByAt: string
   late: boolean; oversold: boolean; cancelRequested: boolean; returnOpen: boolean; shippingSpeed: string; version: number; redacted: boolean; needsAction: boolean
@@ -41,6 +42,7 @@ export interface OrderActions {
   refundLimitCents: number | null; note: boolean; decideCancellation: boolean; decideReturn: boolean; receiveReturn: boolean; buyLabel?: boolean
 }
 export interface OrderDetail {
+  demo?: boolean
   id: string; number: string; marketplaceOrderId: string; brandId: string; brandName: string; placedAt: string; status: OrderStatus; heldFrom: string | null; currency: string; version: number
   late: boolean; oversold: boolean; cancelRequested: boolean; returnOpen: boolean; redacted: boolean; shipByAt: string; deliverByAt: string; shippingMethod: string; shippingSpeed: string
   giftMessage: string | null; cancelReason: string | null; cancelledBy: string | null; shippedLate: boolean; stockMismatch: boolean
@@ -63,6 +65,7 @@ export interface PackingSlip {
 }
 
 export interface ConversationItem {
+  demo?: boolean
   id: string; kind: 'order' | 'product'; subject: string; buyerName: string; brandId: string; brandName: string; orderId: string | null; orderNumber: string | null; productId: string | null
   productTitle: string | null; assignedUserId: string | null; assignedTo: string | null; noReplyNeeded: boolean; flagged: boolean; flagReason: string | null; unread: boolean; needsReply: boolean
   awaitingReplySince: string | null; overdue: boolean; dueAt: string | null; lastMessageAt: string; messageCount: number; redacted: boolean; preview: string | null

@@ -39,6 +39,7 @@ export interface CalendarData {
 }
 
 export interface BookingListItem {
+  demo?: boolean
   id: string; number: string; status: BookingStatus; serviceId: string; serviceTitle: string; brandId: string; providerId: string; location: LocationKind
   startAt: string; endAt: string; totalCents: number; approvalDeadline: string | null; rescheduleRequested: boolean; isMine: boolean; buyerName: string | null
 }
@@ -47,6 +48,7 @@ export interface BookingCounts { requests: number; today: number; upcoming: numb
 
 export interface BookingActions { approve: boolean; decline: boolean; propose: boolean; reschedule: boolean; cancel: boolean; start: boolean; complete: boolean; noShow: boolean; reassign: boolean; decideReschedule: boolean }
 export interface BookingDetail {
+  demo?: boolean
   id: string; number: string; status: BookingStatus; version: number; serviceId: string; serviceTitle: string; brandId: string; providerId: string; providerEmail: string | null
   providerTimeZone: string; isMine: boolean; location: LocationKind; startAt: string; endAt: string; durationMinutes: number
   approvalDeadline: string | null; proposedStartAt: string | null; rescheduleRequestedStartAt: string | null; rescheduleCount: number
@@ -63,6 +65,7 @@ export interface BookingMessage { id: string; direction: 'buyer' | 'seller'; tex
 
 export type QuoteStatus = 'Requested' | 'Quoted' | 'Accepted' | 'Declined' | 'Expired' | 'Withdrawn'
 export interface QuoteDto {
+  demo?: boolean
   id: string; status: QuoteStatus; serviceId: string; serviceTitle: string; brandId: string; location: LocationKind
   buyerName: string | null; details: string | null; postalCode: string | null; preferredTimes: string[] | null; address: Record<string, string> | null; phone: string | null
   quote: { priceCents: number; durationMinutes: number; slots: string[]; providerId: string; expiresAt: string; note: string | null; quotedAt: string } | null

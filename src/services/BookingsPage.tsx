@@ -1,3 +1,4 @@
+import { DemoPill } from '../demo/DemoPill'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api'
@@ -61,7 +62,7 @@ export default function BookingsPage() {
               {list.items.map((b) => (
                 <tr key={b.id}>
                   <td>{fmtDateTime(b.startAt, tz)}{b.rescheduleRequested && <div className="meta warn-text">Wants a new time</div>}</td>
-                  <td>{b.serviceTitle}<div className="meta">{b.number} · {LOCATION_LABEL[b.location]}</div></td>
+                  <td>{b.serviceTitle}{b.demo && <DemoPill />}<div className="meta">{b.number} · {LOCATION_LABEL[b.location]}</div></td>
                   <td>{b.buyerName ?? '-'}</td>
                   <td><BookingStatusChip status={b.status} />{b.approvalDeadline && b.status === 'Requested' && <div className="meta">Answer by {fmtDateTime(b.approvalDeadline, tz)}</div>}</td>
                   <td>{money(b.totalCents)}</td>
@@ -77,7 +78,7 @@ export default function BookingsPage() {
           <table className="btable"><caption className="sr-only">Quote requests</caption>
             <thead><tr><th scope="col">Received</th><th scope="col">Service</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Open</span></th></tr></thead>
             <tbody>{quotes.items.map((x) => (
-              <tr key={x.id}><td>{fmtDateTime(x.createdAt, tz)}</td><td>{x.serviceTitle}<div className="meta">{x.location === 'customer' ? x.postalCode ?? '' : LOCATION_LABEL[x.location]}</div></td><td>{x.buyerName ?? '-'}</td>
+              <tr key={x.id}><td>{fmtDateTime(x.createdAt, tz)}</td><td>{x.serviceTitle}{x.demo && <DemoPill />}<div className="meta">{x.location === 'customer' ? x.postalCode ?? '' : LOCATION_LABEL[x.location]}</div></td><td>{x.buyerName ?? '-'}</td>
                 <td><span className={`chip ${x.status === 'Requested' ? 'bks-Requested' : x.status === 'Accepted' ? 'bks-Confirmed' : 'bks-Completed'}`}>{x.status === 'Requested' ? 'Needs a quote' : x.status === 'Quoted' ? 'Quote sent' : x.status}</span></td>
                 <td><Link className="btn link" to={`/bookings/quotes/${x.id}`}>{x.status === 'Requested' ? 'Send a quote' : 'Open'}<span className="sr-only"> for {x.serviceTitle}</span></Link></td></tr>
             ))}</tbody>
