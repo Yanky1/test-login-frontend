@@ -14,6 +14,7 @@ const ProductsListPage = lazy(() => import('./products/ProductsList'))
 const NewProductPage = lazy(() => import('./products/NewProduct'))
 const ProductEditorPage = lazy(() => import('./products/ProductEditor'))
 const QuestionsPage = lazy(() => import('./products/Questions'))
+const ReviewsPage = lazy(() => import('./reviews/Reviews'))
 const CsvPage = lazy(() => import('./products/CsvPage'))
 const SellerLayout = lazy(() => import('./products/SellerLayout'))
 const OrdersListPage = lazy(() => import('./orders/OrdersList'))
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/products/import" element={<CsvPage />} />
             <Route path="/products/:id" element={<ProductEditorPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
+            <Route path="/reviews" element={<ReviewsPage />} />
             <Route path="/payments" element={<RequirePayments><PaymentsPage /></RequirePayments>} />
             <Route path="/delivery" element={<DispatchBoard />} />
             <Route path="/calendar" element={<CalendarPage />} />
