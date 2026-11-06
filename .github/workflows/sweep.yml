@@ -22,10 +22,12 @@ jobs:
       matrix:
         project: [chromium-320, chromium-375, chromium-768, chromium-1280, chromium-1920, firefox-375, firefox-1280, webkit-375, webkit-1280, chromium-1280-zoom200]
         # role groups keep every job well under the time limit (the clickables check reloads the page after each click)
-        group: [seller-owner, seller-team, signed-out-pending-driver, staff]
+        group: [seller-owner, seller-admin, seller-manager, seller-viewer, signed-out-pending-driver, staff]
         include:
           - { group: seller-owner, roles: owner }
-          - { group: seller-team, roles: "admin,manager,viewer" }
+          - { group: seller-admin, roles: admin }
+          - { group: seller-manager, roles: manager }
+          - { group: seller-viewer, roles: viewer }
           - { group: signed-out-pending-driver, roles: "anon,pending,driver" }
           - { group: staff, roles: "superadmin,support,moderator,readonly" }
     steps:

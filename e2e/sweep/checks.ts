@@ -4,12 +4,12 @@ import type { Page } from '@playwright/test'
 export interface Issue { rule: string; message: string }
 
 /**
- * A page is ready when the network is quiet (or only the app's own live-update stream is still open: capped at 4 s, because some pages
+ * A page is ready when the network is quiet (or only the app's own live-update stream is still open: capped at 2 s, because some pages
  * keep a connection open for ever), no spinner is showing and no animation is running. No fixed sleeps.
  */
 export async function settle(page: Page) {
-  await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => undefined)
-  await page.locator('.spinner, [aria-busy=true]').first().waitFor({ state: 'hidden', timeout: 4000 }).catch(() => undefined)
+  await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => undefined)
+  await page.locator('.spinner, [aria-busy=true]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => undefined)
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity)).catch(() => undefined)
 }
 
