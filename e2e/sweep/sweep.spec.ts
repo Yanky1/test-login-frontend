@@ -17,6 +17,7 @@ const DESTRUCTIVE = /\b(delete|close (my |this |the )?account|void|refund|suspen
 const VISUAL = new Set(['chromium-375', 'chromium-1280'])
 /** 4xx that are the product answering a bad input on purpose (validation / conflict); everything else, and every 5xx, is a finding. */
 const EXPECTED_4XX = new Set([400, 409, 422])
+const STAFF = new Set<Role>(['superadmin', 'support', 'moderator', 'readonly'])
 
 const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h }
 
@@ -32,6 +33,7 @@ for (const role of ROLES) for (const theme of THEMES) {
     await setTheme(context, theme); await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
     await context.clock.setFixedTime(new Date('2026-06-15T10:00:00Z'))   // fixed "now": dates in the UI do not move between runs (seeded rows keep their own timestamps, which are masked in the visual compare)
     await signInContext(context, role, state.accounts[role])
+    if (browserName === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write'])   // "Copy ..." buttons need it to show their confirmation
 
     const findings: Finding[] = [], stats = new Map<string, Stat>(), gallery: { route: string; shot: string }[] = [], skipped: { route: string; label: string }[] = []
     const stat = (check: Check, route: string, items = 0) => { const s = stats.get(check) ?? { check, role, project, theme, pages: 0, items: 0 }; s.pages++; s.items += items; stats.set(check, s) }
@@ -47,7 +49,7 @@ for (const role of ROLES) for (const theme of THEMES) {
       const s = r.status(), u = new URL(r.url())
       if (!u.pathname.startsWith('/api/') || s < 400) return
       if (s >= 500) log.push({ rule: 'http-5xx', message: `${r.request().method()} ${u.pathname} -> ${s}` })
-      else if (!EXPECTED_4XX.has(s) && !(role === 'anon' && s === 401 && /\/auth\/refresh$/.test(u.pathname))) log.push({ rule: 'http-4xx', message: `${r.request().method()} ${u.pathname} -> ${s}` })   // signed out: the refresh probe answers 401 by design
+      else if (!EXPECTED_4XX.has(s) && !(s === 401 && (/\/auth\/refresh$/.test(u.pathname) && (role === 'anon' || STAFF.has(role))) ) && !(s === 401 && /\/auth\/login$/.test(u.pathname))) log.push({ rule: 'http-4xx', message: `${r.request().method()} ${u.pathname} -> ${s}` })   // signed out: the refresh probe answers 401 by design
     })
     const flush = (check: Check = 'network') => { for (const l of log) add(/console|page-error/.test(l.rule) ? 'console' : check, l); log = [] }
 
@@ -89,19 +91,19 @@ for (const role of ROLES) for (const theme of THEMES) {
   })
 }
 
-interface Cand { i: number; label: string; href: string | null; tag: string }
+interface Cand { i: number; label: string; href: string | null; tag: string; active: boolean }
 
 /** Click every visible, enabled button and link once; restore the page (reload) between clicks. */
 async function clickAll(page: Page, route: string, add: (c: Check, i: Issue, shot?: string) => void, skip: (label: string) => void, takeLog: () => Issue[], api: () => number, count: () => void, context: import('@playwright/test').BrowserContext) {
   const list = async (): Promise<Cand[]> => page.evaluate(() => {
     document.querySelectorAll('[data-sweep-click]').forEach((e) => e.removeAttribute('data-sweep-click'))
-    const out: { i: number; label: string; href: string | null; tag: string }[] = []
+    const out: { i: number; label: string; href: string | null; tag: string; active: boolean }[] = []
     document.querySelectorAll('a[href], button, [role=button], [role=tab], summary').forEach((e) => {
       const el = e as HTMLElement, r = el.getBoundingClientRect()
       let hid = false; for (let p: Element | null = el; p; p = p.parentElement) { const c = getComputedStyle(p); if (c.display === 'none' || c.visibility === 'hidden' || p.hasAttribute('inert') || p.getAttribute('aria-hidden') === 'true') hid = true }
       if (hid || r.width === 0 || r.height === 0 || (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('skip')) return
       const i = out.length; el.setAttribute('data-sweep-click', String(i))
-      out.push({ i, label: (el.getAttribute('aria-label') ?? el.textContent ?? el.getAttribute('title') ?? '').trim().replace(/\s+/g, ' ').slice(0, 80), href: el.getAttribute('href'), tag: el.tagName.toLowerCase() })
+      out.push({ i, label: (el.getAttribute('aria-label') ?? el.textContent ?? el.getAttribute('title') ?? '').trim().replace(/\s+/g, ' ').slice(0, 80), href: el.getAttribute('href'), tag: el.tagName.toLowerCase(), active: ['aria-pressed', 'aria-selected', 'aria-current'].some((a) => { const v = el.getAttribute(a); return v !== null && v !== 'false' }) })
     })
     return out
   })
@@ -128,7 +130,8 @@ async function clickAll(page: Page, route: string, add: (c: Check, i: Issue, sho
       context.off('page', onPopup); page.off('download', onDl)
       const after = { url: page.url(), dom: await dom(), api: api(), dialogs: await page.locator(dialogSel).count() }
       const happened = popup || download || after.url !== before.url || after.dom !== before.dom || after.api > before.api || after.dialogs !== before.dialogs
-      if (!happened) add('clickables', { rule: 'click-no-effect', message: `"${c.label}" (${c.tag}) did nothing: no navigation, dialog, state change or request` })
+      const samePage = c.tag === 'a' && !!c.href && new URL(c.href, before.url).pathname === new URL(before.url).pathname   // a link to the page you are on, or an already-selected tab/filter: nothing is supposed to change
+      if (!happened && !samePage && !c.active) add('clickables', { rule: 'click-no-effect', message: `"${c.label}" (${c.tag}) did nothing: no navigation, dialog, state change or request` })
       for (const l of takeLog()) add(/console|page-error/.test(l.rule) ? 'console' : 'network', { rule: l.rule, message: `after clicking "${c.label}": ${l.message}` })
       count()
       if (after.dialogs > before.dialogs) {
