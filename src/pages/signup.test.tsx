@@ -85,3 +85,21 @@ describe('signup account step', () => {
     await waitFor(() => expect(screen.getByText('That password is too common.')).toBeInTheDocument())
   })
 })
+
+describe('signup "Sign up with Google" follows the server public-config', () => {
+  const publicConfig = (googleEnabled: boolean | undefined) => server.use(http.get(`${API}/public-config`, () => HttpResponse.json({
+    marketplaceUrl: 'https://m.example', termsVersion: '1', sellerAgreementVersion: '1', smsWordingVersion: '1', smsWording: 'x', turnstileSiteKey: 'stub', googleEnabled,
+  })))
+  it('shows the button when Google sign-in is enabled', async () => {
+    publicConfig(true)
+    renderAt(ui, '/signup')
+    expect(await screen.findByRole('button', { name: /Sign up with Google/ })).toBeInTheDocument()
+  })
+  it('hides the button when Google sign-in is not enabled', async () => {
+    publicConfig(false)
+    renderAt(ui, '/signup')
+    await screen.findByLabelText('Email')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(screen.queryByRole('button', { name: /Sign up with Google/ })).not.toBeInTheDocument()
+  })
+})
