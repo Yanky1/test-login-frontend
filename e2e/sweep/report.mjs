@@ -7,6 +7,7 @@ const out = process.argv[2] ?? 'sweep-out'
 const dir = path.join(out, 'data')
 const runs = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'lighthouse.json').map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))) : []
 const lh = fs.existsSync(path.join(dir, 'lighthouse.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'lighthouse.json'), 'utf8')) : []
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 const findings = runs.flatMap((r) => r.findings)
 const CHECKS = ['clickables', 'layout', 'a11y', 'keyboard', 'visual', 'console', 'network', 'speed']
@@ -34,7 +35,7 @@ for (const c of CHECKS) {
   lines.push(`| ${c} | ${checked} | ${findings.filter((f) => f.check === c).length + (c === 'speed' ? lh.reduce((n, l) => n + (l.findings?.length ?? 0), 0) : 0)} |`)
 }
 const groups = new Map()
-for (const f of findings) { const k = `${f.check}|${f.rule}|${f.route}|${f.role}|${f.message.replace(/\d+/g, 'N').slice(0, 90)}`; const g = groups.get(k) ?? { f, n: 0, at: new Set() }; g.n++; g.at.add(`${f.project}/${f.theme}`); groups.set(k, g) }
+for (const f0 of findings) { const f = { ...f0, route: f0.route.replace(UUID, ':id'), message: f0.message.replace(UUID, ':id') }; const k = `${f.check}|${f.rule}|${f.route}|${f.role}|${f.message.replace(/\d+/g, 'N').slice(0, 90)}`; const g = groups.get(k) ?? { f, n: 0, at: new Set() }; g.n++; g.at.add(`${f.project}/${f.theme}`); groups.set(k, g) }
 const top = [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 40)
 lines.push('', '## Top failures (grouped; duplicates across viewports/themes collapsed)', '', '| # | check | rule | page | role | seen at | error | screenshot |', '|--:|---|---|---|---|---|---|---|')
 top.forEach((g, i) => lines.push(`| ${i + 1} | ${g.f.check} | ${g.f.rule} | \`${g.f.route}\` | ${g.f.role} | ${[...g.at].slice(0, 3).join(', ')}${g.at.size > 3 ? ` +${g.at.size - 3}` : ''} | ${g.f.message.replace(/\|/g, '/').slice(0, 160)} | ${g.f.shot ? `\`${g.f.shot}\` (artifact)` : ''} |`))
@@ -45,3 +46,6 @@ if (lh.length) { lines.push('', '## Lighthouse (desktop preset)', '', '| page | 
 fs.writeFileSync(path.join(out, 'summary.md'), lines.join('\n') + '\n')
 fs.writeFileSync(path.join(out, 'findings.json'), JSON.stringify([...groups.values()].map((g) => ({ ...g.f, occurrences: g.n, at: [...g.at] })), null, 1))
 console.log(lines.slice(0, 16).join('\n'))
+console.log('=== FINDING GROUPS (check|rule|route|role|occurrences|seen at|message) ===')
+for (const g of [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 120)) console.log([g.f.check, g.f.rule, g.f.route, g.f.role, g.n, [...g.at].slice(0, 2).join(','), g.f.message.slice(0, 110)].join('|'))
+console.log('=== END FINDINGS ===')

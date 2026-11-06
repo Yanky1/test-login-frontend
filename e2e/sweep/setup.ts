@@ -62,7 +62,7 @@ export default async function setup(config: FullConfig) {
       const final = here.pathname + (here.pathname.startsWith('/admin') || here.pathname.startsWith('/settings') ? '' : '')
       if (!matchRoute(here.pathname, defs) || finals.has(final)) continue
       const m = matchRoute(here.pathname, defs)!
-      const cap = m.param === 'tab' ? 14 : 2
+      const cap = m.param === 'tab' ? 14 : 1   // one detail page per id pattern: ids are random per run, one record keeps the baseline deterministic
       if (!finals.has(final)) {
         if ((perPattern.get(m.pattern) ?? 0) >= cap) continue
         perPattern.set(m.pattern, (perPattern.get(m.pattern) ?? 0) + 1); finals.add(final)

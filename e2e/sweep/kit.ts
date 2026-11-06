@@ -23,4 +23,6 @@ export interface Finding {
   shot?: string
 }
 export interface Stat { check: Check; role: Role; project: string; theme: string; pages: number; items: number }
-export const slug = (route: string) => (route === '/' ? 'home' : route.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-').replace(/-+$/, '')) || 'home'
+/** Record ids are random per run, so file names and groups use "id" instead: the baseline must be the same file next run. */
+export const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+export const slug = (route: string) => (route === '/' ? 'home' : route.replace(UUID, 'id').replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-').replace(/-+$/, '')) || 'home'
