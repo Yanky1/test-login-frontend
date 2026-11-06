@@ -101,7 +101,7 @@ async function clickAll(page: Page, route: string, add: (c: Check, i: Issue, sho
     document.querySelectorAll('a[href], button, [role=button], [role=tab], summary').forEach((e) => {
       const el = e as HTMLElement, r = el.getBoundingClientRect()
       let hid = false; for (let p: Element | null = el; p; p = p.parentElement) { const c = getComputedStyle(p); if (c.display === 'none' || c.visibility === 'hidden' || p.hasAttribute('inert') || p.getAttribute('aria-hidden') === 'true') hid = true }
-      if (hid || r.width === 0 || r.height === 0 || (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('skip')) return
+      if (hid || !el.checkVisibility({ contentVisibilityAuto: true }) || r.width === 0 || r.height === 0 || (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('skip')) return
       const i = out.length; el.setAttribute('data-sweep-click', String(i))
       out.push({ i, label: (el.getAttribute('aria-label') ?? el.textContent ?? el.getAttribute('title') ?? '').trim().replace(/\s+/g, ' ').slice(0, 80), href: el.getAttribute('href'), tag: el.tagName.toLowerCase(), active: ['aria-pressed', 'aria-selected', 'aria-current'].some((a) => { const v = el.getAttribute(a); return v !== null && v !== 'false' }) })
     })

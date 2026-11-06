@@ -30,7 +30,7 @@ export async function layoutIssues(page: Page): Promise<Issue[]> {
         const cs = getComputedStyle(n)
         if (cs.display === 'none' || cs.visibility === 'hidden' || n.getAttribute('aria-hidden') === 'true' || n.hasAttribute('inert') || n.classList.contains('sr-only') || n.classList.contains('skip')) return true
       }
-      return false
+      return !e.checkVisibility({ contentVisibilityAuto: true })   // content of a closed <details> is not rendered
     }
     const inScroller = (e: Element) => { for (let n = e.parentElement; n && n !== document.body; n = n.parentElement) { const o = getComputedStyle(n).overflowX; if (o === 'auto' || o === 'scroll' || o === 'hidden' || o === 'clip') return true } return false }
     const all = [...document.body.querySelectorAll('*')].filter((e) => !['SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'PATH', 'USE', 'DEFS', 'LINE', 'CIRCLE', 'RECT', 'G'].includes(e.tagName.toUpperCase()) && !hidden(e))
@@ -116,7 +116,7 @@ export async function keyboardIssues(page: Page, firefoxLike: boolean): Promise<
       const el = e as HTMLElement
       const cs = getComputedStyle(el), r = el.getBoundingClientRect()
       let hid = false; for (let p: Element | null = el; p; p = p.parentElement) { const c = getComputedStyle(p); if (c.display === 'none' || c.visibility === 'hidden' || p.hasAttribute('inert') || p.getAttribute('aria-hidden') === 'true') hid = true }
-      if (hid || r.width === 0 || r.height === 0 || (el as HTMLButtonElement).disabled || el.tabIndex < 0 || cs.pointerEvents === 'none' || el.classList.contains('skip')) return
+      if (hid || !el.checkVisibility({ contentVisibilityAuto: true }) || r.width === 0 || r.height === 0 || (el as HTMLButtonElement).disabled || el.tabIndex < 0 || cs.pointerEvents === 'none' || el.classList.contains('skip')) return
       if (el instanceof HTMLInputElement && el.type === 'radio') { if (seenRadio.has(el.name)) return; seenRadio.add(el.name) }
       const id = `sw${n++}`; el.setAttribute('data-sweep-id', id)
       const lbl = el.getAttribute('aria-label') ?? el.labels?.[0]?.textContent ?? el.textContent ?? el.getAttribute('name') ?? ''
