@@ -127,7 +127,10 @@ export async function keyboardIssues(page: Page, firefoxLike: boolean): Promise<
   const reached = new Set<string>(), noRing = new Set<string>(), radioNames = new Map<string, string>()
   void radioNames
   await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo(0, 0) })
-  for (let i = 0; i < Math.min(ids.length + 15, 400); i++) {
+  // Date and time inputs take several Tab stops each (day / month / year segments), so the budget is a multiple of the element count;
+  // the loop stops as soon as focus wraps around to the first element or leaves the page.
+  let first: string | null = null
+  for (let i = 0; i < Math.min(ids.length * 5 + 20, 1200); i++) {
     await page.keyboard.press('Tab')
     const info = await page.evaluate(() => {
       const el = document.activeElement as HTMLElement | null
@@ -137,7 +140,8 @@ export async function keyboardIssues(page: Page, firefoxLike: boolean): Promise<
       const grp = el instanceof HTMLInputElement && el.type === 'radio' ? el.name : null
       return { id: el.getAttribute('data-sweep-id') ?? (grp ? `radio:${grp}` : null), ring }
     })
-    if (!info?.id) continue
+    if (!info?.id) { if (reached.size) break; else continue }   // focus left the page (browser UI): the cycle is complete
+    if (first === null) first = info.id; else if (info.id === first && reached.size > 1) break   // wrapped around
     reached.add(info.id); if (!info.ring) noRing.add(info.id)
   }
   const label = (id: string) => ids.find((x) => x.id === id)?.label ?? id
