@@ -90,6 +90,8 @@ input[type=text], input[type=email], input[type=password], input[type=tel], inpu
 input:hover, select:hover { border-color: var(--fg); }
 input::placeholder, textarea::placeholder { color: var(--muted-2); opacity: 1; }
 input:focus-visible, select:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 35%, transparent); }
+/* time/date pickers: an explicit outline (the box-shadow ring alone is not reliably painted around the native control) */
+input[type=time]:focus-visible, input[type=date]:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 input[aria-invalid=true] { border-color: var(--err); }
 input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--primary); flex: none; }
 .radio { display: inline-flex; gap: var(--s1); align-items: center; margin-right: var(--s3); font-weight: 400; min-height: 24px; }

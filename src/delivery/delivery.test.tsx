@@ -9,6 +9,7 @@ import type React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { RequireAuth } from '../components/RequireAuth'
 import DriverApp from './driver'
+import SettingsPage from '../pages/Settings'
 import DispatchBoard from './DispatchBoard'
 import DeliverySettingsPage from './DeliverySettings'
 import { DriverQueue, MemoryBlobs, type Sender } from './queue'
@@ -142,6 +143,39 @@ describe('role guard', () => {
     asRole('Manager')
     renderAt(<Routes><Route element={<RequireAuth />}><Route path="/orders" element={<div>orders list</div>} /><Route path="/driver" element={<div>driver home</div>} /></Route></Routes>, '/orders')
     expect(await screen.findByText('orders list')).toBeInTheDocument()
+  })
+  /** Records every request a role should not be making; each answers 403 like the real DriverGuard / role checks. */
+  const forbid = (paths: string[]) => {
+    const hit: string[] = []
+    server.use(...paths.map((p) => http.get(`${API}${p}`, () => { hit.push(p); return HttpResponse.json({ status: 403 }, { status: 403 }) })))
+    return hit
+  }
+  it('a Driver on /driver never calls assistant, brands or account/phone', async () => {
+    const hit = forbid(['/assistant/config', '/brands', '/account/phone'])
+    mockMe(me([]))
+    asRole('Driver')
+    renderAt(<Routes><Route element={<RequireAuth />}><Route path="/driver" element={<DriverApp />} /></Route></Routes>, '/driver')
+    await screen.findByText('Active')
+    await new Promise((r) => setTimeout(r, 150))
+    expect(hit).toEqual([])
+  })
+  it('a Driver on /settings/security never calls assistant, brands or account/phone', async () => {
+    const hit = forbid(['/assistant/config', '/brands', '/account/phone'])
+    server.use(http.get(`${API}/account/me`, () => HttpResponse.json({ email: 'd@example.com', emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 0, logins: [], sellerStatus: null, vendorName: null })))
+    server.use(http.get(`${API}/account/passkeys`, () => HttpResponse.json([])), http.get(`${API}/account/sessions`, () => HttpResponse.json([])))
+    asRole('Driver')
+    renderAt(<Routes><Route element={<RequireAuth />}><Route path="/settings/:tab?" element={<SettingsPage />} /></Route></Routes>, '/settings/security')
+    await screen.findByText('Linked logins')
+    await new Promise((r) => setTimeout(r, 150))
+    expect(hit).toEqual([])
+    expect(screen.queryByText('Phone number')).not.toBeInTheDocument()
+  })
+  it('a Viewer who opens /driver is sent home without calling /driver/me', async () => {
+    const hit = forbid(['/driver/me'])
+    asRole('Viewer')
+    renderAt(<Routes><Route element={<RequireAuth />}><Route path="/driver" element={<DriverApp />} /><Route path="/" element={<div>seller home</div>} /></Route></Routes>, '/driver')
+    expect(await screen.findByText('seller home')).toBeInTheDocument()
+    expect(hit).toEqual([])
   })
 })
 

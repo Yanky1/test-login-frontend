@@ -12,6 +12,8 @@ export interface PublicConfig {
   demoEnabled?: boolean
   /** Test sites only: the server also lets staff skip two-factor for one session (backend Demo:Enabled AND Demo:AllowStaffMfaSkip). */
   staffMfaSkipEnabled?: boolean
+  /** Google sign-in is configured on the server (backend App Google client id set). Absent/false: the Google buttons are hidden. */
+  googleEnabled?: boolean
 }
 
 let cached: PublicConfig | null = null
@@ -32,3 +34,6 @@ export const useDemoEnabled = (): boolean => usePublicConfig()?.demoEnabled === 
 
 /** The staff "Skip two-factor (test mode)" button: only when the server says BOTH demo mode and the staff skip are on. */
 export const useStaffMfaSkip = (): boolean => { const c = usePublicConfig(); return c?.demoEnabled === true && c?.staffMfaSkipEnabled === true }
+
+/** Google buttons only when the server says Google sign-in is configured (otherwise /auth/external/google/start answers 404). */
+export const useGoogleEnabled = (): boolean => usePublicConfig()?.googleEnabled === true

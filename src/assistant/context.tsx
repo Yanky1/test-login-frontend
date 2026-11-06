@@ -57,10 +57,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let live = true
     // not before the session and the active account are settled (a request without an account is a 403 that would bounce the account picker)
-    if (status !== 'authed' || (user?.accounts && !user.activeAccountId)) { setConfig(null); return }
+    if (status !== 'authed' || user?.role === 'Driver' || (user?.accounts && !user.activeAccountId)) { setConfig(null); return } // a Driver may not use the assistant (403)
     assistantApi.config().then((c) => { if (live) setConfig(c) }).catch(() => { if (live) setConfig(null) })
     return () => { live = false; abort.current?.abort() }
-  }, [account, status]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [account, status, user?.role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reloadConversations = useCallback(async () => {
     try { setConversations((await assistantApi.conversations()).items) } catch { /* the list is a convenience */ }

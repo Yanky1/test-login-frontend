@@ -13,12 +13,13 @@ const key = (account: string) => `solvelt-brand:${account}`
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const account = user?.activeAccountId ?? null
+  const driver = user?.role === 'Driver' // a Driver may not list brands (403): the driver app has no brand filter
   const [brands, setBrands] = useState<Brand[]>([])
   const [selected, setSel] = useState('all')
   const reload = useCallback(async () => {
-    if (!account) { setBrands([]); return }
+    if (!account || driver) { setBrands([]); return }
     try { setBrands(await api<Brand[]>('/brands')) } catch { setBrands([]) }
-  }, [account])
+  }, [account, driver])
   useEffect(() => {
     void reload()
     try { setSel(sessionStorage.getItem(key(account ?? '')) ?? 'all') } catch { setSel('all') }

@@ -352,3 +352,18 @@ describe('verify step (public: no session until the mailbox is proven)', () => {
     expect(sessionStorage.getItem('pendingEmail')).toBeNull()
   })
 })
+
+describe('team members and the pending screen', () => {
+  it.each(['Manager', 'Viewer'])('a %s who opens /signup/pending (server returns no application) sees a message instead of crashing', async (role) => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    signedIn({ activeAccountId: 'a1', accounts: [{ sellerId: 'a1', vendorName: 'Acme', role, accountStatus: 'Approved', brandCount: 1 }] })
+    server.use(
+      http.get(`${API}/seller/application`, () => HttpResponse.json({ sellerId: 'a1', status: 'Approved' })),
+      http.get(`${API}/seller/field-config`, () => HttpResponse.json(fieldConfig)),
+    )
+    renderAt(wizardRoutes, '/signup/pending')
+    expect(await screen.findByText('This account has no seller application.')).toBeInTheDocument()
+    expect(errors.mock.calls.flat().join(' ')).not.toContain('vendorName')
+    errors.mockRestore()
+  })
+})

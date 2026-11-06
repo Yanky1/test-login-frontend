@@ -119,3 +119,18 @@ test('320px wide: calendar, availability, bookings and the booking detail do not
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
   }
 })
+
+test('time inputs show a visible focus indicator (WCAG 2.4.7 / 2.4.11)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await mock(page)
+  await page.goto('/settings/availability')
+  const time = page.getByLabel('Monday opens')
+  await expect(time).toBeVisible()
+  await page.keyboard.press('Tab')
+  await time.focus()
+  await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab')   // keyboard focus, so :focus-visible matches
+  await expect(time).toBeFocused()
+  const style = await time.evaluate((el) => { const s = getComputedStyle(el); return { outlineStyle: s.outlineStyle, outlineWidth: parseFloat(s.outlineWidth) } })
+  expect(style.outlineStyle).not.toBe('none')
+  expect(style.outlineWidth).toBeGreaterThanOrEqual(2)
+})

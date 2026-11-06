@@ -9,7 +9,7 @@ import { safeNext } from '../lib/safeNext'
 import { conditionalUiAvailable, getCredential, passkeysSupported } from '../lib/passkeys'
 import { Alert, Card, Field, Icon, PasswordField } from '../components/ui'
 import { Turnstile } from '../components/Turnstile'
-import { usePublicConfig } from '../lib/publicConfig'
+import { useGoogleEnabled, usePublicConfig } from '../lib/publicConfig'
 
 const schema = z.object({
   email: z.string().trim().min(1, 'Enter your email').email('Enter a valid email address'),
@@ -45,6 +45,7 @@ export default function LoginPage() {
   const [params] = useSearchParams()
   const next = safeNext(params.get('next'))
   const pub = usePublicConfig()
+  const googleOn = useGoogleEnabled()
   const siteKey = config.turnstileSiteKey ?? pub?.turnstileSiteKey ?? ''
   const { register, handleSubmit, formState: { errors, isSubmitting }, getValues } = useForm<Form>({ resolver: zodResolver(schema), mode: 'onBlur' })
   const [msg, setMsg] = useState<string | null>(null)
@@ -117,7 +118,7 @@ export default function LoginPage() {
       {providerError && <Alert>{errorText[providerError] ?? 'Sign-in failed'}</Alert>}
       <div className="social">
         {passkeysSupported() && <button className="btn block" type="button" onClick={() => void passkeyLogin(false)}><Icon name="key" /> Sign in with a passkey</button>}
-        <a className="btn block" href={googleUrl}><Icon name="google" /> Continue with Google</a>
+        {googleOn && <a className="btn block" href={googleUrl}><Icon name="google" /> Continue with Google</a>}
         {config.features.apple && <a className="btn block" href={appleUrl}><Icon name="apple" /> Continue with Apple</a>}
       </div>
       <div className="divider">or continue with email</div>
