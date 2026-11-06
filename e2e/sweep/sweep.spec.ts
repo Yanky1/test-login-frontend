@@ -26,7 +26,8 @@ for (const role of ROLES) for (const theme of THEMES) {
     const project = info.project.name
     const vp = page.viewportSize()!.width * (project.endsWith('zoom200') ? 2 : 1)
     const state = readState()
-    const routes = (state.routes[role] ?? []).slice(0, MAX_ROUTES)
+    const filter = process.env.SWEEP_ROUTE_FILTER ? new RegExp(process.env.SWEEP_ROUTE_FILTER) : null   // local debugging only
+    const routes = (state.routes[role] ?? []).filter((r) => !filter || filter.test(r)).slice(0, MAX_ROUTES)
     test.skip(routes.length === 0, `no pages found for ${role}`)
     await setTheme(context, theme); await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
     await context.clock.setFixedTime(new Date('2026-06-15T10:00:00Z'))   // fixed "now": dates in the UI do not move between runs (seeded rows keep their own timestamps, which are masked in the visual compare)
