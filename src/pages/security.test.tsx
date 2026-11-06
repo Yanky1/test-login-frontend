@@ -76,3 +76,27 @@ describe('change email step-up for passwordless accounts', () => {
     expect(bodies[1]).toMatchObject({ newEmail: 'new@example.com', stepUpCode: '654321' })
   })
 })
+
+describe('Link Google button follows the server public-config', () => {
+  const ui = (<Routes><Route element={<RequireAuth />}><Route path="/settings/:tab?" element={<SettingsPage />} /></Route></Routes>)
+  const setup = (googleEnabled: boolean | undefined) => {
+    signedIn()
+    server.use(
+      http.get(`${API}/public-config`, () => HttpResponse.json({ marketplaceUrl: 'https://m.example', termsVersion: '1', sellerAgreementVersion: '1', smsWordingVersion: '1', smsWording: 'x', turnstileSiteKey: 'stub', googleEnabled })),
+      http.get(`${API}/account/me`, () => HttpResponse.json({ email: 'seller@example.com', emailConfirmed: true, hasPassword: true, twoFactorEnabled: false, passkeyCount: 0, logins: [], sellerStatus: 'Draft', vendorName: null })),
+      http.get(`${API}/account/passkeys`, () => HttpResponse.json([])),
+      http.get(`${API}/account/sessions`, () => HttpResponse.json([])),
+    )
+    renderAt(ui, '/settings/security')
+  }
+  it('shows "Link Google" only when Google is enabled', async () => {
+    setup(true)
+    expect(await screen.findByRole('link', { name: /Link Google/ })).toBeInTheDocument()
+  })
+  it('hides "Link Google" when Google is not enabled', async () => {
+    setup(false)
+    await screen.findByText('Linked logins')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(screen.queryByRole('link', { name: /Link Google/ })).not.toBeInTheDocument()
+  })
+})

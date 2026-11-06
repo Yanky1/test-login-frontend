@@ -120,3 +120,7 @@ fieldset.option, fieldset.attr-group, fieldset.shipopts, fieldset.dims, fieldset
   .sidenav { display: block; position: sticky; top: 0; align-self: start; min-height: calc(100vh - 56px); }
   .side-bar-mobile { display: none; }
 }
+
+/* WCAG 2.5.8: list links and the checklist "suggestions" summary are at least 24 px tall */
+.ptitle { display: inline-flex; align-items: center; min-height: 24px; }
+.checklist details.ck-more > summary { min-height: 24px; display: flex; align-items: center; cursor: pointer; }

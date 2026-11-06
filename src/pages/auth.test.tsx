@@ -118,11 +118,31 @@ describe('login errors, lockout hints and captcha', () => {
     expect(await screen.findByText('home')).toBeInTheDocument()
   })
 
+  const publicConfig = (extra: Record<string, unknown>) => server.use(http.get(`${API}/public-config`, () => HttpResponse.json({
+    marketplaceUrl: 'https://market.example', termsVersion: '1', sellerAgreementVersion: '1', smsWordingVersion: '1', smsWording: 'x', turnstileSiteKey: 'stub', ...extra,
+  })))
+
   it('uses the right autocomplete attributes and offers a passkey / Google button', async () => {
+    publicConfig({ googleEnabled: true })
     renderAt(app, '/login')
     expect(await screen.findByLabelText('Email')).toHaveAttribute('autocomplete', 'username webauthn')
     expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password')
-    expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute('href', expect.stringContaining('/api/v1/auth/external/google/start'))
+    expect(await screen.findByRole('link', { name: 'Continue with Google' })).toHaveAttribute('href', expect.stringContaining('/api/v1/auth/external/google/start'))
+  })
+
+  it('hides "Continue with Google" when the server says Google sign-in is not configured', async () => {
+    publicConfig({ googleEnabled: false })
+    renderAt(app, '/login')
+    await screen.findByLabelText('Email')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(screen.queryByRole('link', { name: 'Continue with Google' })).not.toBeInTheDocument()
+  })
+
+  it('hides "Continue with Google" when public-config has no google flag at all (older server)', async () => {
+    renderAt(app, '/login')
+    await screen.findByLabelText('Email')
+    await new Promise((r) => setTimeout(r, 100))
+    expect(screen.queryByRole('link', { name: 'Continue with Google' })).not.toBeInTheDocument()
   })
 
   it('shows the inactivity notice after an automatic logout', async () => {

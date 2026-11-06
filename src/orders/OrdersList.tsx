@@ -158,7 +158,7 @@ export default function OrdersListPage() {
                 {items.map((o) => (
                   <tr key={o.id}>
                     <td><input type="checkbox" aria-label={`Select order ${o.number}`} checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
-                    <td><Link to={`/orders/${o.id}`} className="ptitle">{o.number}</Link>{o.demo && <DemoPill />}<div className="sub">{day(o.placedAt)}{brandId === '' && o.brandName ? ` · ${o.brandName}` : ''}</div></td>
+                    <td><div className="ptitle-row"><Link to={`/orders/${o.id}`} className="ptitle">{o.number}</Link>{o.demo && <DemoPill />}</div><div className="sub">{day(o.placedAt)}{brandId === '' && o.brandName ? ` · ${o.brandName}` : ''}</div></td>
                     <td><div className="pcell"><Thumb o={o} /><div>{o.itemsSummary}<div className="sub">{o.itemCount} item{o.itemCount === 1 ? '' : 's'}</div></div></div></td>
                     <td>{o.buyerName}</td><td>{money(o.totalCents, o.currency)}</td><td><ShipBy o={o} /></td><td><Flags o={o} /></td>
                   </tr>
@@ -170,7 +170,7 @@ export default function OrdersListPage() {
             {items.map((o) => (
               <li key={o.id} className="pcard">
                 <div className="pcell"><input type="checkbox" aria-label={`Select order ${o.number}`} checked={sel.has(o.id)} onChange={() => toggle(o.id)} /><Thumb o={o} />
-                  <div className="pc-body"><Link to={`/orders/${o.id}`} className="ptitle">{o.number}</Link>{o.demo && <DemoPill />}<div className="sub">{o.itemsSummary}</div><div className="sub">{o.buyerName} · {day(o.placedAt)} · {money(o.totalCents, o.currency)}</div></div></div>
+                  <div className="pc-body"><div className="ptitle-row"><Link to={`/orders/${o.id}`} className="ptitle">{o.number}</Link>{o.demo && <DemoPill />}</div><div className="sub">{o.itemsSummary}</div><div className="sub">{o.buyerName} · {day(o.placedAt)} · {money(o.totalCents, o.currency)}</div></div></div>
                 <div className="pc-meta"><Flags o={o} /><ShipBy o={o} /></div>
               </li>
             ))}

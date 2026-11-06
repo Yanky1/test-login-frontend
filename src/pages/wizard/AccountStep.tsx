@@ -11,6 +11,7 @@ import { passwordChecks, passwordValid } from '../../lib/password'
 import { createCredential, passkeysSupported } from '../../lib/passkeys'
 import { Alert, Field, Icon, PasswordField, StrengthMeter } from '../../components/ui'
 import { StepFrame } from './shared'
+import { useGoogleEnabled } from '../../lib/publicConfig'
 
 const schema = z.object({
   email: z.string().trim().min(1, 'Enter your email').email('Enter a valid email address').max(254),
@@ -21,6 +22,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export default function AccountStep() {
+  const googleOn = useGoogleEnabled()
   const { status, user } = useAuth()
   const nav = useNavigate()
   const { register, handleSubmit, watch, setValue, setError, trigger, getValues, formState: { errors, isSubmitting } } = useForm<Form>({
@@ -105,9 +107,9 @@ export default function AccountStep() {
         <Alert>{msg}</Alert>
         <button className="btn primary block" disabled={isSubmitting} aria-busy={isSubmitting || undefined}>Create account</button>
       </form>
-      <div className="divider">or sign up with</div>
+      {(googleOn || passkeysSupported()) && <div className="divider">or sign up with</div>}
       {passkeysSupported() && <button type="button" className="btn block" onClick={() => void passkey()}><Icon name="key" /> Sign up with a passkey</button>}
-      <button type="button" className="btn block" onClick={() => void google()}><Icon name="google" /> Sign up with Google</button>
+      {googleOn && <button type="button" className="btn block" onClick={() => void google()}><Icon name="google" /> Sign up with Google</button>}
       <p className="links">Already have an account? <Link to="/login">Sign in</Link></p>
     </StepFrame>
   )

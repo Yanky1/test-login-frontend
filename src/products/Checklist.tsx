@@ -24,7 +24,7 @@ export function Checklist({ issues, score, canPublish }: { issues: Issue[]; scor
       {canPublish ? <p className="ok-text" role="status">All required items are done. You can activate this listing.</p> : <p role="status">Finish these to publish:</p>}
       {req.length > 0 && <ul aria-label="Required">{req.map((i) => <li key={i.key}><button type="button" className="btn link" onClick={() => focusIssue(i)}><span aria-hidden="true">⚠</span> {i.message}</button></li>)}</ul>}
       {rec.length > 0 && (
-        <details>
+        <details className="ck-more">
           <summary>{rec.length} suggestion{rec.length === 1 ? '' : 's'} to improve your listing</summary>
           <ul aria-label="Suggestions">{rec.map((i) => <li key={i.key}><button type="button" className="btn link" onClick={() => focusIssue(i)}>{i.message}</button></li>)}</ul>
         </details>

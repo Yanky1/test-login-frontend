@@ -96,3 +96,13 @@ test('320px wide: the catalog, the editor and the buyer preview do not scroll si
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
   }
 })
+
+test('the "suggestions" summary is a 24x24 CSS px target at least (WCAG 2.5.8)', async ({ page }) => {
+  await page.setViewportSize(viewports.desktop)
+  await mock(page)
+  await page.goto('/products/p1')
+  const summary = page.getByText(/suggestions? to improve your listing/)
+  await expect(summary).toBeVisible()
+  const box = await summary.boundingBox()
+  expect(box!.height).toBeGreaterThanOrEqual(24)
+})

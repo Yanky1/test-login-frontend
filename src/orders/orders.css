@@ -54,3 +54,10 @@ address { font-style: normal; margin: 0 0 var(--s1); } .gift-note { background: 
   .no-print { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) { .order-page *, .msg-layout * { animation: none !important; transition: none !important; } }
+
+/* Order number + "Demo data" pill sit side by side (flex, wrapping on narrow screens) instead of overlapping as inline boxes. */
+.ptitle-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-half) var(--s1); }
+.ptitle-row .chip.demo { margin-left: 0; }
+/* WCAG 2.5.8: the row/select-all checkboxes are at least 24x24 CSS px */
+.ptable input[type=checkbox], .pcell input[type=checkbox] { width: 24px; height: 24px; }
+@media (min-width: 768px) { .ptitle-row { flex-wrap: nowrap; } } /* the table cell grows to fit number + pill on one line */

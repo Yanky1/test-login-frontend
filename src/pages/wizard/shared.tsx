@@ -92,6 +92,7 @@ export function WizardLayout() {
     try {
       const [a, f] = await Promise.all([api<Application>('/seller/application'), api<FieldConfig[]>('/seller/field-config')])
       if (!alive.current) return // unmounted while the request was in flight
+      if (!a?.business) { setError(404); return } // no application to show (never render the wizard without one)
       setApp({ ...a, status: normalizeStatus(a.status) as Application['status'] }); setFields(f)
     } catch (e) { if (alive.current) setError(e instanceof ApiError ? e.status : 0) }
   }, [])

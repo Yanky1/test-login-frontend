@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { ApiError } from '../api'
 import { useAuth } from '../auth'
 import { Alert, Skeleton } from '../components/ui'
@@ -9,7 +10,14 @@ import { browserBlobs, DriverQueue, type BlobStore } from './queue'
 import './driver.css'
 
 /** The driver's phone app (`/driver`): installable PWA, big touch targets, works offline through the queue. */
-export default function DriverApp({ queueOverride }: { queueOverride?: DriverQueue } = {}) {
+export default function DriverApp(props: { queueOverride?: DriverQueue } = {}) {
+  const { user } = useAuth()
+  // /driver/me is a Driver-only endpoint (403 for Owner/Admin/Manager/Viewer): other roles never mount the app that calls it
+  if (user?.role != null && user.role !== 'Driver') return <Navigate to="/" replace />
+  return <DriverAppInner {...props} />
+}
+
+function DriverAppInner({ queueOverride }: { queueOverride?: DriverQueue } = {}) {
   const { user } = useAuth()
   const blobs = useMemo<BlobStore>(() => browserBlobs(), [])
   const storageName = driverStorageName(user)       // one queue per user AND account: another account's events can never be replayed into this one

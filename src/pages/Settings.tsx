@@ -10,6 +10,7 @@ import { createCredential, passkeysSupported } from '../lib/passkeys'
 import { renderSVG } from 'uqr'
 import { normalizeStatus } from '../lib/status'
 import { PhoneCards } from './PhoneSettings'
+import { useGoogleEnabled } from '../lib/publicConfig'
 import { Alert, Field, Icon, PasswordField, SettingCard, Shell, Skeleton, StrengthMeter } from '../components/ui'
 import { lazy, Suspense } from 'react'
 import { can } from '../lib/teams'
@@ -75,6 +76,7 @@ function Profile({ me }: { me: Me }) {
 }
 
 function Security({ me, reload }: { me: Me; reload: () => Promise<void> }) {
+  const { user } = useAuth()
   return (
     <>
       {me.hasPassword && <ChangePassword />}
@@ -82,7 +84,7 @@ function Security({ me, reload }: { me: Me; reload: () => Promise<void> }) {
       <Passkeys reload={reload} />
       <Logins me={me} reload={reload} />
       <TwoFactor me={me} reload={reload} />
-      <PhoneCards me={me} />
+      {user?.role !== 'Driver' && <PhoneCards me={me} />}{/* /account/phone is not a driver endpoint (403) */}
       <Sessions />
     </>
   )
@@ -211,6 +213,7 @@ function Passkeys({ reload }: { reload: () => Promise<void> }) {
 }
 
 function Logins({ me, reload }: { me: Me; reload: () => Promise<void> }) {
+  const googleOn = useGoogleEnabled()
   const [msg, setMsg] = useState<string | null>(null)
   const unlink = async (p: string) => {
     try { await api(`/account/logins/${p}`, { method: 'DELETE' }); await reload() }
@@ -219,7 +222,7 @@ function Logins({ me, reload }: { me: Me; reload: () => Promise<void> }) {
   return (
     <SettingCard id="lg" icon="users" title="Linked logins" desc="Sign-in providers connected to this account." badge={{ text: me.logins.length ? `${me.logins.length} linked` : 'None', tone: me.logins.length ? 'ok' : 'muted' }}>
       {me.logins.length === 0 ? <p className="empty">No linked providers.</p> : <ul className="list">{me.logins.map((p) => <li key={p}><span>{p}</span><button className="btn link" onClick={() => void unlink(p)}>Unlink</button></li>)}</ul>}
-      {!me.logins.includes('Google') && <a className="btn" href="/api/v1/auth/external/google/start?returnUrl=%2Fsettings%2Fsecurity">Link Google (same verified email)</a>}
+      {googleOn && !me.logins.includes('Google') && <a className="btn" href="/api/v1/auth/external/google/start?returnUrl=%2Fsettings%2Fsecurity">Link Google (same verified email)</a>}
       <Alert>{msg}</Alert>
     </SettingCard>
   )
