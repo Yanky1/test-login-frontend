@@ -1,7 +1,7 @@
 name: UI sweep
 # Non-blocking on purpose (continue-on-error) until the owner approves the first baseline: a red sweep never blocks a merge.
 on:
-  push: { branches: [main, feature/ui-sweep] }   # feature/ui-sweep: TEMPORARY, removed before the merge (first baseline run)
+  push: { branches: [main] }
   workflow_dispatch:
     inputs:
       update_baseline:
