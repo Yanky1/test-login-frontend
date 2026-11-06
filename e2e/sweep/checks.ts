@@ -119,7 +119,8 @@ export async function keyboardIssues(page: Page, firefoxLike: boolean): Promise<
       if (hid || r.width === 0 || r.height === 0 || (el as HTMLButtonElement).disabled || el.tabIndex < 0 || cs.pointerEvents === 'none' || el.classList.contains('skip')) return
       if (el instanceof HTMLInputElement && el.type === 'radio') { if (seenRadio.has(el.name)) return; seenRadio.add(el.name) }
       const id = `sw${n++}`; el.setAttribute('data-sweep-id', id)
-      list.push({ id, label: `${el.tagName.toLowerCase()} "${(el.getAttribute('aria-label') ?? el.textContent ?? el.getAttribute('name') ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)}"` })
+      const lbl = el.getAttribute('aria-label') ?? el.labels?.[0]?.textContent ?? el.textContent ?? el.getAttribute('name') ?? ''
+      list.push({ id, label: `${el.tagName.toLowerCase()}${el instanceof HTMLInputElement ? `[${el.type}]` : ''} "${lbl.trim().replace(/\s+/g, ' ').slice(0, 40)}"` })
     })
     return list
   })
