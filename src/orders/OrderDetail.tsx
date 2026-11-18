@@ -89,6 +89,7 @@ export default function OrderDetailPage() {
       <Alert>{error}</Alert>
       {stale && <p><Button onClick={() => void load()}>Reload order</Button></p>}
       {o.stockMismatch && <Alert kind="info">Some units couldn’t be taken off your stock automatically when this order shipped. Please check the stock count of its items.</Alert>}
+      {o.giftUnavailable && <Alert kind="info">Free gift unavailable: the buyer earned a free gift from your quantity offer, but it was out of stock, so the order was placed without it.</Alert>}
       {o.redacted && <Alert kind="info">The buyer’s details were removed after the retention period.</Alert>}
 
       <div className="order-grid">
@@ -103,6 +104,7 @@ export default function OrderDetailPage() {
                     <strong>{l.title}</strong>{l.options && <div className="sub">{l.options}</div>}<div className="sub">SKU {l.sku ?? '—'}</div>
                     <div className="sub">{[l.shippedQty > 0 && `${l.shippedQty} shipped`, l.unshippedQty > 0 && `${l.unshippedQty} to ship`, l.cancelledQty > 0 && `${l.cancelledQty} cancelled`, l.refundedQty > 0 && `${l.refundedQty} refunded`, l.returnedQty > 0 && `${l.returnedQty} returned`].filter(Boolean).join(' · ')}</div>
                     {l.stockShort && <span className="chip warn">Not enough stock</span>}
+                    {l.isGift && <span className="chip ok gift-tag">Free gift</span>}
                   </div>
                   <div className="num"><div>{l.quantity} × {money(l.unitPriceCents, o.currency)}</div>{l.discountCents > 0 && <div className="sub">Discount −{money(l.discountCents, o.currency)}</div>}<strong>{money(l.lineTotalCents, o.currency)}</strong></div>
                 </li>

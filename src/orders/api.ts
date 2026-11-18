@@ -25,6 +25,8 @@ export interface OrderLine {
   id: string; productId: string; variantId: string | null; title: string; sku: string | null; options: string | null; hasImage: boolean; unitPriceCents: number; quantity: number
   discountCents: number; taxCents: number; lineTotalCents: number; shippedQty: number; cancelledQty: number; refundedQty: number; returnedQty: number; unshippedQty: number
   reservedQty: number; stockShort: boolean
+  /** C18 quantity offers: a free gift line ($0), and the offer (and its exact version) that priced a discounted line. */
+  isGift?: boolean; giftOfOfferId?: string | null; offerId?: string | null; offerVersion?: number | null
 }
 export interface Shipment {
   id: string; carrier: string; service: string | null; trackingNumber: string; trackingUrl: string | null; shippedAt: string; deliveredAt: string | null; lines: { lineId: string; quantity: number }[]
@@ -46,6 +48,8 @@ export interface OrderDetail {
   id: string; number: string; marketplaceOrderId: string; brandId: string; brandName: string; placedAt: string; status: OrderStatus; heldFrom: string | null; currency: string; version: number
   late: boolean; oversold: boolean; cancelRequested: boolean; returnOpen: boolean; redacted: boolean; shipByAt: string; deliverByAt: string; shippingMethod: string; shippingSpeed: string
   giftMessage: string | null; cancelReason: string | null; cancelledBy: string | null; shippedLate: boolean; stockMismatch: boolean
+  /** C18: a free gift the buyer earned could not be included (out of stock); the order went through without it. */
+  giftUnavailable?: boolean
   buyer: { name: string; relayEmail: string | null; phone: string | null }
   shippingAddress: { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string; country: string }
   money: { itemsCents: number; discountCents: number; shippingCents: number; taxCents: number; totalCents: number; feeCents: number; netCents: number; refundedCents: number; refundableCents: number }
@@ -61,7 +65,9 @@ export interface PackingSlip {
   id: string; number: string; brandName: string; placedAt: string; shippingMethod: string
   shipTo: { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string; country: string; phone: string | null }
   giftMessage: string | null; isGift: boolean; showPrices: boolean; currency: string
-  lines: { title: string; sku: string | null; options: string | null; quantity: number; unshipped: number; unitPriceCents: number }[]
+  /** C18: a free gift the buyer earned was out of stock and is not in this parcel. */
+  giftUnavailable?: boolean
+  lines: { title: string; sku: string | null; options: string | null; quantity: number; unshipped: number; unitPriceCents: number; discountCents?: number; isGift?: boolean }[]
 }
 
 export interface ConversationItem {

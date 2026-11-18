@@ -18,8 +18,9 @@ export function PackingSlips({ slips, onClose }: { slips: PackingSlip[]; onClose
             </section>
             <table>
               <thead><tr><th scope="col">Item</th><th scope="col">SKU</th><th scope="col">Qty</th>{s.showPrices && <th scope="col">Price</th>}</tr></thead>
-              <tbody>{s.lines.map((l, i) => <tr key={i}><td>{l.title}{l.options && <div className="sub">{l.options}</div>}</td><td>{l.sku ?? ''}</td><td>{l.unshipped > 0 ? l.unshipped : l.quantity}{l.unshipped > 0 && l.unshipped !== l.quantity ? ` of ${l.quantity}` : ''}</td>{s.showPrices && <td>{money(l.unitPriceCents, s.currency)}</td>}</tr>)}</tbody>
+              <tbody>{s.lines.map((l, i) => <tr key={i}><td>{l.title}{l.isGift && <>{' '}<span className="chip ok gift-tag">Free gift</span></>}{l.options && <div className="sub">{l.options}</div>}</td><td>{l.sku ?? ''}</td><td>{l.unshipped > 0 ? l.unshipped : l.quantity}{l.unshipped > 0 && l.unshipped !== l.quantity ? ` of ${l.quantity}` : ''}</td>{s.showPrices && <td>{money(l.unitPriceCents, s.currency)}</td>}</tr>)}</tbody>
             </table>
+            {s.giftUnavailable && <p className="gift-unavailable">Free gift unavailable: it was out of stock and is not in this parcel.</p>}
             {s.isGift && <section className="gift" aria-label="Gift message"><h4>Gift message</h4><p>{s.giftMessage}</p></section>}
           </article>
         ))}

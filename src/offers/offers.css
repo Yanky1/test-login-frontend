@@ -1,0 +1,30 @@
+/* Offers page (C18). Design tokens only (src/styles.css); nothing here hard-codes a colour. */
+.of-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.of-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s2) var(--s3); display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: center; justify-content: space-between; }
+.of-card h2 { margin: 0; font-size: var(--fs-lg, 1.125rem); } .of-card h2 a { color: var(--fg); }
+.of-card p { margin: var(--s1) 0 0; color: var(--muted); font-size: var(--fs-sm); }
+.of-head { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; justify-content: space-between; margin-bottom: var(--s2); }
+.of-form { display: grid; gap: var(--s3); }
+.of-form fieldset { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s2) var(--s3); margin: 0; min-width: 0; background: var(--surface); }
+.of-form legend { font-weight: 700; padding: 0 var(--s1); }
+.of-scope { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
+.of-scope label, .of-pick label { display: inline-flex; align-items: center; gap: var(--s1); min-height: var(--target); }
+.of-pick { list-style: none; margin: var(--s1) 0 0; padding: 0; display: grid; gap: 2px; max-height: 18rem; overflow: auto; }
+.of-table { width: 100%; border-collapse: collapse; }
+.of-table th, .of-table td { text-align: left; padding: var(--s1); border-bottom: 1px solid var(--border); vertical-align: top; }
+.of-table th { font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.of-table input, .of-table select { width: 100%; min-height: var(--target); }
+.of-table .field { margin: 0; }
+.of-preview { background: var(--surface-2); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: var(--r-sm); padding: var(--s2) var(--s3); }
+.of-preview h2 { margin: 0 0 var(--s1); font-size: var(--fs-base); }
+.of-preview ul { margin: 0; padding-left: var(--s3); } .of-preview li { margin: 2px 0; font-variant-numeric: tabular-nums; }
+.of-preview .sub { color: var(--muted); font-size: var(--fs-sm); margin: var(--s1) 0 0; }
+.of-acts { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.of-dates { display: grid; gap: var(--s2); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.gift-tag { margin-left: var(--s1); }
+.gift-unavailable { margin: var(--s1) 0; font-weight: 600; }
+@media (max-width: 600px) {
+  .of-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .of-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1); padding: var(--s1) 0; border-bottom: 1px solid var(--border); }
+  .of-table td { border: 0; padding: 0; }
+}
