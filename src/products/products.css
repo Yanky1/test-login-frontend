@@ -106,7 +106,7 @@ fieldset.option, fieldset.attr-group, fieldset.shipopts, fieldset.dims, fieldset
 .buyer dt { font-weight: 600; margin-top: var(--s1); } .buyer dd { margin: 0 0 var(--s1); }
 
 /* seller shell: sidebar + drawer */
-.seller-shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: calc(100vh - 56px); }
+.seller-shell { display: grid; grid-template-columns: minmax(0, 1fr); min-height: calc(100vh - 56px); align-content: start; }   /* phones: a short page starts under the menu (the rows must not share the leftover height) */
 .sidenav { display: none; padding: var(--s2); background: var(--side); border-right: 1px solid var(--side-line); }
 .sidenav.open { display: block; border-bottom: 1px solid var(--side-line); border-right: 0; }
 .sidenav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -116,7 +116,7 @@ fieldset.option, fieldset.attr-group, fieldset.shipopts, fieldset.dims, fieldset
 .side-bar-mobile { padding: var(--s1) var(--s2) 0; }
 .seller-main { min-width: 0; }
 @media (min-width: 900px) {
-  .seller-shell { grid-template-columns: 232px minmax(0, 1fr); }
+  .seller-shell { grid-template-columns: 232px minmax(0, 1fr); align-content: stretch; }
   .sidenav { display: block; position: sticky; top: 0; align-self: start; min-height: calc(100vh - 56px); }
   .side-bar-mobile { display: none; }
 }
