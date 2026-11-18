@@ -27,7 +27,7 @@ test('screenshots of the offers pages (desktop + mobile)', async ({ page, reques
   await expect(page.getByTestId('offer-preview')).toContainText('20 items: $18.00')
   for (const [view, size] of VIEWS) { await page.setViewportSize(size); await shot(page, 'offers-editor', view) }
   await page.getByRole('button', { name: 'Create offer' }).click()
-  await expect(page.getByText('Version 1')).toBeVisible()
+  await expect(page.getByText('Version 1', { exact: true })).toBeVisible()
   const offerId = /\/offers\/([0-9a-f-]{36})$/.exec(page.url())![1]
   const r = await offerOrder(request, s.sellerId, brand, [{ productId: blue, quantity: 20, unitPriceCents: 100, discountCents: 200, offerId },
     { productId: wallet, quantity: 1, unitPriceCents: 0, isGift: true, giftOfOfferId: offerId }, { productId: pack, quantity: 1, unitPriceCents: 0, isGift: true, giftOfOfferId: offerId }], [{ offerId, offerVersion: 1 }])

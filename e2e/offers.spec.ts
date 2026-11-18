@@ -42,7 +42,7 @@ test('a seller creates a quantity offer, sees the server preview, and a signed o
   await bothThemes(page, () => expectNoSeriousA11y(page))
   await page.getByRole('button', { name: 'Create offer' }).click()
   await expect(page).toHaveURL(/\/offers\/[0-9a-f-]{36}$/)
-  await expect(page.getByText('Version 1')).toBeVisible()
+  await expect(page.getByText('Version 1', { exact: true })).toBeVisible()
   const offerId = /\/offers\/([0-9a-f-]{36})$/.exec(page.url())![1]
 
   // the marketplace mis-priced 19 cards at the 20-card tier: refused with the expected figures
