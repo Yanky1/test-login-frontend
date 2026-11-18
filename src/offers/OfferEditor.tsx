@@ -178,7 +178,7 @@ export default function OfferEditor() {
                   <tr key={i}>
                     <td><input aria-label={`Step ${i + 1}: from quantity`} inputMode="numeric" value={t.min} onChange={(e) => setTiers((l) => l.map((x, j) => (j === i ? { ...x, min: e.target.value } : x)))} /></td>
                     <td><input aria-label={`Step ${i + 1}: price each in dollars`} inputMode="decimal" value={t.price} onChange={(e) => setTiers((l) => l.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))} /></td>
-                    <td><Button type="button" variant="ghost" onClick={() => setTiers((l) => l.filter((_, j) => j !== i))}>Remove<span className="sr-only"> step {i + 1}</span></Button></td>
+                    <td><Button type="button" variant="ghost" aria-label={`Remove step ${i + 1}`} onClick={() => setTiers((l) => l.filter((_, j) => j !== i))}>Remove</Button></td>
                   </tr>
                 ))}
               </tbody>
@@ -203,7 +203,7 @@ export default function OfferEditor() {
                       </select></td>
                       <td><input aria-label={`Gift ${i + 1}: from quantity`} inputMode="numeric" value={g.min} onChange={(e) => setGifts((l) => l.map((x, j) => (j === i ? { ...x, min: e.target.value } : x)))} /></td>
                       <td><input aria-label={`Gift ${i + 1}: how many`} inputMode="numeric" value={g.qty} onChange={(e) => setGifts((l) => l.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} /></td>
-                      <td><Button type="button" variant="ghost" onClick={() => setGifts((l) => l.filter((_, j) => j !== i))}>Remove<span className="sr-only"> gift {i + 1}</span></Button></td>
+                      <td><Button type="button" variant="ghost" aria-label={`Remove gift ${i + 1}`} onClick={() => setGifts((l) => l.filter((_, j) => j !== i))}>Remove</Button></td>
                     </tr>
                   ))}
                 </tbody>
