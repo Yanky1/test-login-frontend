@@ -34,13 +34,13 @@ export default function OffersPage() {
   return (
     <ProductsFrame>
       <main className="pwrap" aria-labelledby="page-title">
-        <div className="of-head">
+        <header className="plist-head">
           <div>
             <h1 id="page-title" tabIndex={-1}>Offers</h1>
             <p className="lead">Quantity offers: a lower price each when buyers order more, and free gifts from a minimum quantity.</p>
           </div>
-          {canWrite && <Link className="btn primary" to="/offers/new"><PIcon name="plus" /> New offer</Link>}
-        </div>
+          {canWrite && <div className="plist-cta"><Link className="btn primary" to="/offers/new"><PIcon name="plus" /> New offer</Link></div>}
+        </header>
         <Alert>{error}</Alert>
         {!items && !error && <div className="skel-table" aria-busy="true" aria-label="Loading offers">{[0, 1].map((i) => <div key={i} className="skeleton row-sk" />)}</div>}
         {items && items.length === 0 && (
