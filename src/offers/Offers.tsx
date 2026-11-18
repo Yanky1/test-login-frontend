@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../api'
-import { Alert, Button } from '../components/ui'
+import { Alert } from '../components/ui'
 import { DemoPill } from '../demo/DemoPill'
 import { money, day } from '../orders/format'
 import { ProductsFrame } from '../products/ProductsFrame'
