@@ -318,7 +318,8 @@ describe('Orders list', () => {
     const urls = list()
     mount(<OrdersListPage />, '/orders')
     expect((await screen.findAllByText('In transit')).length).toBeGreaterThan(0); expect(screen.getAllByText('Delivery problem').length).toBeGreaterThan(0)
-    const glance = screen.getByRole('region', { name: 'Orders at a glance' })
+    // the tiles come from their own request (dashboard), independent of the list: wait for them instead of assuming they arrived with the rows
+    const glance = await screen.findByRole('region', { name: 'Orders at a glance' })
     expect(within(glance).getByText('Labels to print').previousSibling).toHaveTextContent('2'); expect(within(glance).getByText('Delivery problems').previousSibling).toHaveTextContent('1')
     await userEvent.click(screen.getByText('More filters'))
     await userEvent.selectOptions(screen.getByLabelText('Delivery progress'), 'exception')
