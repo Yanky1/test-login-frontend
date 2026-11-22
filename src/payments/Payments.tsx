@@ -8,7 +8,7 @@ import { SelectField, TextField } from '../products/ui'
 import { TabList, tabPanelProps } from '../orders/tabs'
 import { dt } from '../orders/format'
 import { dayUtc, isStripeUrl, money } from './format'
-import { TYPE_LABEL, paymentsApi, type DisputeRow, type LedgerRow, type Onboarding, type Page, type PayoutRow, type Statement, type Summary, type TransferRow } from './api'
+import { TYPE_LABEL, paymentsApi, providerLabel, type DisputeRow, type LedgerRow, type Onboarding, type Page, type PayoutRow, type Statement, type Summary, type TransferRow } from './api'
 import '../products/products.css'
 import '../orders/orders.css'
 import './payments.css'
@@ -121,7 +121,7 @@ function Transactions() {
               {rows.map((r) => (
                 <Fragment key={r.id}>
                   <tr>
-                    <td>{dt(r.createdAt)}</td><td>{TYPE_LABEL[r.type] ?? r.type}</td>
+                    <td>{dt(r.createdAt)}</td><td>{TYPE_LABEL[r.type] ?? r.type}{providerLabel(r.provider) && <> <span className="chip" data-testid="provider-chip">{providerLabel(r.provider)}</span></>}</td>
                     <td>{r.orderId ? <Link to={`/orders/${r.orderId}`}>{r.orderNumber}</Link> : r.bookingId ? <Link to={`/bookings/${r.bookingId}`}>{r.bookingNumber}</Link> : '—'}</td>
                     <td className="num">{money(r.amountCents, r.currency)}</td>
                     <td><button type="button" className="linklike" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Hide' : 'Show'}<span className="sr-only"> lines of {TYPE_LABEL[r.type] ?? r.type}</span></button></td>
@@ -216,21 +216,24 @@ function Disputes({ owner }: { owner: boolean }) {
   if (err) return <Alert>{err}</Alert>
   if (!d) return <Loading what="disputes" />
   if (d.items.length === 0) return <p className="sub">No disputes. If a buyer disputes a payment, it shows up here with the date your evidence is due.</p>
-  const respondable = d.items.some((r) => r.canRespond)   // an inquiry under review, or a closed dispute, has nothing left to answer
+  // an inquiry under review, or a closed dispute, has nothing left to answer; a Sola (phone order) dispute is answered by Solvelt, never in Stripe
+  const respondable = d.items.some((r) => r.canRespond && r.provider !== 'sola')
+  const sola = d.items.some((r) => r.provider === 'sola')
   return (
     <>
       {respondable
         ? <p>Respond to disputes in your Stripe Express dashboard before the evidence deadline.</p>
         : <p className="sub">No dispute needs a response right now. Disputes under review and closed ones stay listed for your records.</p>}
+      {sola && <p className="sub">Disputes on phone orders paid through Sola are answered by Solvelt. You don’t need to do anything; we contact you if we need information.</p>}
       {owner && respondable && <div className="btnrow"><Button loading={busy} onClick={() => void open()}>Respond in Stripe</Button></div>}
       <div className="tablewrap"><table className="ptable"><caption className="sr-only">Disputes</caption>
         <thead><tr><th scope="col">Opened</th><th scope="col">Order / booking</th><th scope="col" className="num">Amount</th><th scope="col">Status</th><th scope="col">Evidence due</th></tr></thead>
         <tbody>{d.items.map((r) => (
           <tr key={r.id}><td>{dt(r.createdAt)}</td>
-            <td>{r.orderId ? <Link to={`/orders/${r.orderId}`}>{r.orderNumber}</Link> : r.bookingNumber ?? '—'}</td>
+            <td>{r.orderId ? <Link to={`/orders/${r.orderId}`}>{r.orderNumber}</Link> : r.bookingNumber ?? '—'}{providerLabel(r.provider) && <> <span className="chip">{providerLabel(r.provider)}</span></>}</td>
             <td className="num">{money(r.amountCents, r.currency)}</td>
             <td><span className={`chip ${r.status === 'won' ? 'ok' : r.status === 'lost' ? 'bad' : 'warn'}`}>{r.status.replace('_', ' ')}</span></td>
-            <td>{r.canRespond ? dayUtc(r.evidenceDueBy) || 'Check Stripe' : '—'}</td></tr>))}
+            <td>{r.provider === 'sola' ? 'Handled by Solvelt' : r.canRespond ? dayUtc(r.evidenceDueBy) || 'Check Stripe' : '—'}</td></tr>))}
         </tbody></table></div>
     </>
   )

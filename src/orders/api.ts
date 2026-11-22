@@ -52,7 +52,7 @@ export interface OrderDetail {
   giftUnavailable?: boolean
   buyer: { name: string; relayEmail: string | null; phone: string | null }
   shippingAddress: { name: string; line1: string; line2: string | null; city: string; region: string | null; postalCode: string; country: string }
-  money: { itemsCents: number; discountCents: number; shippingCents: number; taxCents: number; totalCents: number; feeCents: number; netCents: number; refundedCents: number; refundableCents: number }
+  money: { itemsCents: number; discountCents: number; shippingCents: number; taxCents: number; totalCents: number; feeCents: number; netCents: number; refundedCents: number; refundableCents: number; paymentProvider?: 'stripe' | 'sola' | null }
   lines: OrderLine[]; shipments: Shipment[]; cancellations: CancelRequestDto[]; returns: ReturnDto[]; refunds: RefundDto[]
   timeline: { id: string; type: string; actor: string; text: string | null; at: string }[]
   notes: { id: string; text: string; author: string; createdAt: string }[]

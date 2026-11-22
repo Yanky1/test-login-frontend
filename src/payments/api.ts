@@ -14,9 +14,12 @@ export interface Summary {
   balances: Balance[]; payoutsPaused: boolean; pausedReason: string | null; minTransferCents: number; releaseDays: number; openDisputes: number; onboarding: Onboarding
 }
 export interface LedgerLine { account: string; kind: string; amountCents: number }
+/** C19: which provider took the buyer's payment. Sola = a phone order; null on rows that are not buyer money (releases, transfers, ...). */
+export type PaymentProvider = 'stripe' | 'sola'
 export interface LedgerRow {
   id: string; createdAt: string; type: string; memo: string; currency: string; amountCents: number
   orderId: string | null; orderNumber: string | null; bookingId: string | null; bookingNumber: string | null; lines: LedgerLine[]
+  provider?: PaymentProvider | null
 }
 export interface Page<T> { total: number; page: number; pageSize: number; items: T[] }
 export interface TransferRow { id: string; createdAt: string; amountCents: number; currency: string; status: 'scheduled' | 'sent' | 'failed' | 'reversed'; batchDate: string }
@@ -24,6 +27,7 @@ export interface PayoutRow { id: string; createdAt: string; amountCents: number;
 export interface DisputeRow {
   id: string; createdAt: string; amountCents: number; feeCents: number; currency: string; status: string; reason: string | null; evidenceDueBy: string | null; closedAt: string | null
   orderId: string | null; orderNumber: string | null; bookingId: string | null; bookingNumber: string | null; canRespond: boolean
+  provider?: PaymentProvider
 }
 export interface StatementCurrency {
   currency: string; openingCents: number; salesCents: number; feesCents: number; refundsCents: number; disputesCents: number; adjustmentsCents: number; shippingLabelsCents: number
@@ -51,6 +55,9 @@ export const paymentsApi = {
   sync: () => api<Onboarding>(`${P}/onboarding/sync`, { body: {} }),
   dashboardLink: () => api<{ url: string }>(`${P}/dashboard-link`, { body: {} }),
 }
+
+/** The label a Sola-paid row carries (statement, transactions, order money panel). Stripe rows carry none: that is the normal case. */
+export const providerLabel = (p: PaymentProvider | null | undefined) => (p === 'sola' ? 'Phone order (Sola)' : null)
 
 export const TYPE_LABEL: Record<string, string> = {
   sale: 'Sale', policy_fee: 'Cancellation / no-show fee', extra_charge: 'Extra charge', refund: 'Refund', dispute: 'Dispute', dispute_fee: 'Dispute fee', dispute_won: 'Dispute won',

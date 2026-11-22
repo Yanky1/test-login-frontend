@@ -194,6 +194,7 @@ export default function OrderDetailPage() {
               <div><dt>Solvelt fee</dt><dd>−{money(o.money.feeCents, o.currency)}</dd></div>
               <div className="total"><dt>Your earnings</dt><dd>{money(o.money.netCents, o.currency)}</dd></div>
               {o.money.refundedCents > 0 && <div><dt>Refunded</dt><dd>−{money(o.money.refundedCents, o.currency)}</dd></div>}
+              {o.money.paymentProvider === 'sola' && <div data-testid="paid-with"><dt>Paid by</dt><dd>Phone order (Sola)</dd></div>}
             </dl>
             <p className="sub">Solvelt handles the payment and your payout. Tax is paid by Solvelt.</p>
           </section>

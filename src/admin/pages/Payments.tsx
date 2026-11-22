@@ -142,7 +142,83 @@ interface Flag { id: string; kind?: string; type?: string; createdAt: string; re
 interface Unallocated { id: string; disputeId: string; marketplaceOrderId: string | null; chargeRef: string | null; currency: string; stripeAmountCents: number; allocatedCents: number; status: string; reason: string | null; evidenceDueBy: string | null; note: string | null; createdAt: string; resolvedAt: string | null }
 
 const SellerLink = ({ id }: { id: string }) => <Link to={`/admin/sellers/${id}/payments`}>{id.slice(0, 8)}…</Link>
-const TABS = [['transfers', 'Transfers'], ['payouts', 'Payouts'], ['past-due', 'Accounts past due'], ['reconciliation', 'Reconciliation'], ['disputes', 'Unallocated disputes']] as const
+const TABS = [['transfers', 'Transfers'], ['payouts', 'Payouts'], ['past-due', 'Accounts past due'], ['reconciliation', 'Reconciliation'], ['disputes', 'Unallocated disputes'], ['sola', 'Sola treasury']] as const
+
+/* ------------------------------------------------------------------------------------------------ C19 Sola treasury */
+interface SolaLine { currency: string; releasedCents: number; fundedCents: number; unfundedCents: number; overfundedCents: number; heldAtSolaCents: number; transfersHeld: boolean }
+interface Funding { id: string; createdAt: string; currency: string; reference: string | null; note: string | null; requestId: string; amountCents: number }
+interface Treasury { holdTransfersWhenUnfunded: boolean; currencies: SolaLine[]; fundings: Page<Funding> }
+
+function FundingAction({ currencies, onDone }: { currencies: string[]; onDone: () => void }) {
+  const [direction, setDirection] = useState('sola_to_stripe'); const [amount, setAmount] = useState(''); const [currency, setCurrency] = useState(currencies[0] ?? 'USD'); const [reference, setReference] = useState('')
+  // one request id per ATTEMPT (kept across the step-up retry and a failed try, dropped once the server answered or the form changed): a repeat never records twice
+  const attempt = useRef<string | null>(null)
+  const fresh = () => { attempt.current = null }
+  const id = useId()
+  const cents = /^\d+$/.test(amount.trim()) ? Number(amount.trim()) : null
+  return (
+    <ReasonAction label="Record a funding" variant="primary" onDone={onDone} dialog={{
+      title: 'Record money moved from Sola to Stripe', confirm: direction === 'sola_to_stripe' ? 'Record the funding' : 'Record the correction',
+      lead: <>Record a move you already made between the Sola settlement and the Stripe balance. It changes no seller balance. A mistake is fixed with a correction, never by editing. You will be asked for your authenticator code.
+        {cents !== null && cents > 0 && <p><strong>{direction === 'sola_to_stripe' ? 'Funded' : 'Corrected back to Sola'}: {fmtMoney(cents, currency.toUpperCase())}</strong> ({cents} minor units).</p>}</>,
+      reasonLabel: 'Note',
+      extra: (
+        <>
+          <div className="field"><label htmlFor={`${id}-dir`}>Direction</label>
+            <select id={`${id}-dir`} value={direction} onChange={(e) => { fresh(); setDirection(e.target.value) }}><option value="sola_to_stripe">Sola to Stripe (funding)</option><option value="stripe_to_sola">Stripe to Sola (correction)</option></select></div>
+          <Field label="Amount in minor units (cents)" inputMode="numeric" value={amount} onChange={(e) => { fresh(); setAmount(e.target.value) }} hint="A whole number, e.g. 250000 for 2,500.00." required />
+          <Field label="Currency (ISO code)" value={currency} onChange={(e) => { fresh(); setCurrency(e.target.value.toUpperCase()) }} maxLength={3} required />
+          <Field label="Bank or Sola batch reference" value={reference} onChange={(e) => { fresh(); setReference(e.target.value) }} maxLength={100} required />
+        </>
+      ),
+      onSubmit: async (note) => {
+        if (cents === null || cents <= 0) throw new Error('Enter the amount as a positive whole number of minor units.')
+        if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Use a 3-letter currency code such as USD.')
+        if (!reference.trim()) throw new Error('Enter the bank or Sola batch reference of the move.')
+        const requestId = (attempt.current ??= typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`)
+        const r = await adminApi<{ recorded: boolean }>('/payments/sola/funding', { body: { direction, amountCents: cents, currency, reference: reference.trim(), note, requestId } })
+        fresh()
+        if (!r.recorded) throw new Error('This funding was already recorded.')
+        setAmount(''); setReference('')
+      },
+    }} />
+  )
+}
+
+function SolaTreasury() {
+  const [page, setPage] = useState(1)
+  const { data, error, loading, reload } = useLoad(() => adminApi<Treasury>('/payments/sola/treasury' + qs({ page })), [page])
+  const [msg, setMsg] = useState<string | null>(null)
+  return (
+    <Panel title="Sola treasury" actions={<Can permission="PaymentsAdjust"><FundingAction currencies={data?.currencies.map((c) => c.currency) ?? []} onDone={() => { setMsg('The funding was recorded.'); reload() }} /></Can>}>
+      <p className="adm-muted">Phone orders are paid through Sola, but sellers are paid from the Stripe balance. <strong>Unfunded</strong> is seller money from Sola sales that was released (and may already be transferred) but not yet covered by a recorded move from Sola to Stripe.</p>
+      <Alert kind="success">{msg ?? ''}</Alert>
+      <ErrorNote error={error} retry={reload} />
+      {loading && !data ? <Loading /> : data && (
+        <>
+          <p>{data.holdTransfersWhenUnfunded
+            ? <Badge value="Transfers wait while a currency is unfunded" tone="warn" />
+            : <Badge value="Transfers never wait for funding" tone="muted" />}</p>
+          {data.currencies.length === 0 ? <p className="adm-muted">No Sola payments yet.</p> : data.currencies.map((c) => (
+            <div key={c.currency} className="adm-balance">
+              <h3>{c.currency}{c.transfersHeld && <> <Badge value="Transfers held" tone="err" /></>}</h3>
+              <div className="adm-tiles">
+                <StatTile label="Unfunded: move this to Stripe" value={fmtMoney(c.unfundedCents, c.currency)} tone={c.unfundedCents > 0 ? 'err' : undefined} />
+                <StatTile label="Released from Sola sales" value={fmtMoney(c.releasedCents, c.currency)} />
+                <StatTile label="Funded so far" value={fmtMoney(c.fundedCents, c.currency)} hint={c.overfundedCents > 0 ? `${fmtMoney(c.overfundedCents, c.currency)} more than released` : undefined} />
+                <StatTile label="Held at Sola (ledger)" value={fmtMoney(c.heldAtSolaCents, c.currency)} />
+              </div>
+            </div>
+          ))}
+          <Table caption="Recorded fundings" head={['Recorded', 'Amount', 'Reference', 'Note']} empty="No funding recorded yet.">
+            {data.fundings.items.map((x) => <tr key={x.id}><td>{fmtDate(x.createdAt)}</td><td>{fmtMoney(x.amountCents, x.currency)}{x.amountCents < 0 && ' (correction)'}</td><td><code>{x.reference ?? '—'}</code></td><td className="adm-clip">{x.note ?? '—'}</td></tr>)}
+          </Table>
+          <Pager page={data.fundings.page} pageSize={data.fundings.pageSize} total={data.fundings.total} onPage={setPage} />
+        </>
+      )}
+    </Panel>
+  )
+}
 
 function Transfers() {
   const [status, setStatus] = useState(''); const [page, setPage] = useState(1)
@@ -308,6 +384,7 @@ export default function Payments() {
         {current === 'past-due' && <PastDueList />}
         {current === 'reconciliation' && <Reconciliation />}
         {current === 'disputes' && <Disputes />}
+        {current === 'sola' && <SolaTreasury />}
       </Tabs>
     </>
   )
